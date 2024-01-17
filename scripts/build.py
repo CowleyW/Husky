@@ -12,28 +12,28 @@ def make_bin():
         call(["mkdir", "bin/Release"])
 
 
+def configure():
+    call(["cmake", "-G", "MinGW Makefiles", "-S", ".", "-B", "out/"])
+    call(["cp", "out/compile_commands.json", "compile_commands.json"])
+
 # Build application tests and move to bin/
 def build_test():
-    call(["cmake", "-S", ".", "-B", "out/"])
+    call(["cmake", "-G", "MinGW Makefiles", "-S", ".", "-B", "out/"])
 
     os.chdir("out")
-    call(["msbuild", "Draco.sln", "-target:Tests"])
+    call(["make", "triton_tests"])
 
     os.chdir("..")
-    call(["cp", "out/Debug/Tests.exe", "bin/Debug/Tests.exe"])
 
 
 # Build the main application and move it to bin/
 def build_main():
-    call(["cmake", "-S", ".", "-B", "out/"])
+    call(["cmake", "-G", "MinGW Makefiles", "-S", ".", "-B", "out/"])
 
     os.chdir("out")
-    call(["msbuild", "Draco.sln", "-target:Draco"])
+    call(["make", "triton"])
 
     os.chdir("..")
-
-
-    call(["cp", "out/Debug/Draco.exe", "bin/Debug/Draco.exe"])
 
 
 # Build script main
@@ -44,7 +44,13 @@ if __name__ == "__main__":
     parser.add_argument("--test", dest="build", action="store_const",
                         const=build_test, default=build_main,
                         help="build tests")
+    parser.add_argument("--configure", dest="configure", action="store_true", 
+                        help="only configure CMake")
 
     args = parser.parse_args()
-    args.build()
+
+    if args.configure:
+        configure()
+    else:
+        args.build()
 
