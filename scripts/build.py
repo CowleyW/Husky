@@ -31,7 +31,7 @@ def build_main():
     call(["cmake", "-G", "MinGW Makefiles", "-S", ".", "-B", "out/"])
 
     os.chdir("out")
-    call(["make", "triton"])
+    call(["make", "runtime"])
 
     os.chdir("..")
 

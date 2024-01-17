@@ -1,5 +1,5 @@
-#include "io/logging.h"
-#include "core/window.h"
+#include "engine/io/logging.h"
+#include "engine/core/window.h"
 
 int main(int argc, char **argv) {
   logging::console_debug("Beginning application startup.");
