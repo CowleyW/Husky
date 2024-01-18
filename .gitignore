@@ -1,4 +1,6 @@
-lib/
+lib/*/
+!lib/glad/
+
 out/
 bin/
 .cache/

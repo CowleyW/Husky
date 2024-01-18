@@ -9,13 +9,16 @@ set(CMAKE_CXX_STANDARD 17)
 add_library(engine
   engine/io/logging.h engine/io/logging.cpp
   engine/core/window.h engine/core/window.cpp
+  engine/core/application.h engine/core/application.cpp
+  engine/util/err.h
 )
 
 find_package(OpenGL REQUIRED)
 
 add_subdirectory(lib/glfw)
-target_link_libraries(engine PUBLIC glfw OpenGL::GL)
-target_include_directories(engine PUBLIC engine/ lib/glfw/include)
+add_subdirectory(lib/glad)
+target_link_libraries(engine PUBLIC glfw OpenGL::GL glad)
+target_include_directories(engine PUBLIC engine/ lib/glfw/include/ lib/glad/include/)
 
 # Main Configuration
 add_executable(runtime 

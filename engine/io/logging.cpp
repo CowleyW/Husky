@@ -32,4 +32,4 @@ void console_warn(std::string_view msg) { warn(std::cerr, msg); }
 void console_error(std::string_view msg) { error(std::cerr, msg); }
 void console_fatal(std::string_view msg) { fatal(std::cerr, msg); }
 
-}
+} // namespace logging
