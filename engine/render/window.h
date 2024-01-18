@@ -1,5 +1,8 @@
 #pragma once
 
+#include "render/gl_types.h"
+#include "render/context.h"
+#include "render/callback_handler.h"
 #include "util/err.h"
 
 #define GLFW_INCLUDE_NONE
@@ -12,7 +15,9 @@ public:
    * Initializes the window.
    * @return true iff the window was successfully initialized, else false
    */
-  Err init();
+  Err init(Dimensions dimensions);
+
+  void register_callbacks(CallbackHandler *callback);
 
   /**
    * Shuts down the window and performs the appropriate cleanup.
@@ -23,6 +28,9 @@ public:
    * temp?
    */
   void loop();
+
+public:
+  Dimensions dimensions;
 
 private:
   GLFWwindow *handle;
