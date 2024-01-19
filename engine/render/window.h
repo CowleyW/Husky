@@ -24,10 +24,8 @@ public:
    */
   void shutdown();
 
-  /**
-   * temp?
-   */
-  void loop();
+  void swap_buffers();
+  void poll_events();
 
 public:
   Dimensions dimensions;
