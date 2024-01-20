@@ -12,10 +12,10 @@ def build_test(run):
     call(["cmake", "-G", "MinGW Makefiles", "-S", ".", "-B", "out/"])
 
     os.chdir("out")
-    call(["make", "triton_tests"])
+    call(["make", "tests"])
 
     if (run):
-        call(["triton_tests.exe"])
+        call(["tests.exe"])
 
     os.chdir("..")
 

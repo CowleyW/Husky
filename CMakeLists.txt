@@ -4,12 +4,13 @@ project(Triton)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_FLAGS "-std=c++17 ${CMAKE_CXX_FLAGS}")
 
 # Engine Library
 add_library(engine
   engine/io/logging.h engine/io/logging.cpp
+  engine/io/files.h engine/io/files.cpp
   engine/core/application.h engine/core/application.cpp
-  engine/core/resources.h engine/core/resources.cpp
   engine/render/window.h engine/render/window.cpp
   engine/render/context.h engine/render/context.cpp
   engine/render/shader.h engine/render/shader.cpp
@@ -19,6 +20,7 @@ add_library(engine
 )
 
 target_compile_definitions(engine PRIVATE ASSETS_PATH="${PROJECT_SOURCE_DIR}/assets/")
+target_compile_features(engine PRIVATE cxx_std_17)
 
 find_package(OpenGL REQUIRED)
 
@@ -38,12 +40,15 @@ target_include_directories(runtime PRIVATE runtime/ .)
 # Test Configuration
 add_subdirectory(lib/Catch2)
 
-add_executable(triton_tests 
-  test/io/logging.cpp test/core/resources.cpp
+add_executable(tests 
+  test/io/logging.cpp test/io/files.cpp
 )
-target_link_libraries(triton_tests PRIVATE engine Catch2::Catch2WithMain)
-target_include_directories(triton_tests PRIVATE . lib/Catch2/src)
+
+target_compile_features(tests PRIVATE cxx_std_17)
+
+target_link_libraries(tests PRIVATE engine Catch2::Catch2WithMain)
+target_include_directories(tests PRIVATE . lib/Catch2/src)
 
 include(CTest)
 include(Catch)
-catch_discover_tests(triton_tests)
+catch_discover_tests(tests)

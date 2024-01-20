@@ -1,6 +1,6 @@
 #include "shader.h"
 
-#include "core/resources.h"
+#include "io/files.h"
 #include "io/logging.h"
 #include "render/gl_types.h"
 #include "util/err.h"
@@ -52,14 +52,11 @@ Err Shader::init(std::string_view vertex_path, std::string_view fragment_path) {
 
 Result<uint32_t> Shader::compile_shader(ShaderType type,
                                         std::string_view path) {
-  auto source_result = resources::load_file(std::string(path));
+  auto source_result = files::load_text_file(std::string(path));
   if (!source_result.isOk) {
-    logging::console_error(source_result.msg);
     return Result<uint32_t>::err(source_result.msg);
   }
-
-  std::string shader_source(source_result.value.begin(),
-                            source_result.value.end());
+  std::string shader_source = source_result.value;
 
   GLenum shader_type =
       (type == ShaderType::Vertex) ? GL_VERTEX_SHADER : GL_FRAGMENT_SHADER;

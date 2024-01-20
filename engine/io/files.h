@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace resources {
+namespace files {
 
 /**
  * Returns a result containing the byte contents of the specified asset file or
@@ -25,4 +25,4 @@ Err write_text_file(const std::string &path, std::string_view contents);
 
 Err remove_file(const std::string &path);
 
-} // namespace resources
+} // namespace files

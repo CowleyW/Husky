@@ -1,4 +1,4 @@
-#include "resources.h"
+#include "files.h"
 
 #include "io/logging.h"
 #include "util/result.h"
@@ -10,7 +10,7 @@
 #include <string_view>
 #include <vector>
 
-Result<std::vector<uint8_t>> resources::load_file(const std::string &path) {
+Result<std::vector<uint8_t>> files::load_file(const std::string &path) {
   // 1. Open file specified by the path
   std::string asset_path = std::string(ASSETS_PATH) + path;
   // fopen is 'deprecated' but fopen_s is less portable
@@ -50,8 +50,8 @@ Result<std::vector<uint8_t>> resources::load_file(const std::string &path) {
   return Result<std::vector<uint8_t>>::ok(data);
 }
 
-Result<std::string> resources::load_text_file(const std::string &path) {
-  auto bytes_result = resources::load_file(path);
+Result<std::string> files::load_text_file(const std::string &path) {
+  auto bytes_result = files::load_file(path);
   if (!bytes_result.isOk) {
     return Result<std::string>::err(bytes_result.msg);
   } else {
@@ -60,8 +60,7 @@ Result<std::string> resources::load_text_file(const std::string &path) {
   }
 }
 
-Err resources::write_file(const std::string &path,
-                          std::vector<uint8_t> contents) {
+Err files::write_file(const std::string &path, std::vector<uint8_t> contents) {
   std::string asset_path = std::string(ASSETS_PATH) + path;
 
   std::FILE *file = std::fopen(asset_path.c_str(), "wb");
@@ -74,14 +73,13 @@ Err resources::write_file(const std::string &path,
   return Err::ok();
 }
 
-Err resources::write_text_file(const std::string &path,
-                               std::string_view contents) {
+Err files::write_text_file(const std::string &path, std::string_view contents) {
   std::vector<uint8_t> data(contents.data(),
                             contents.data() + contents.length());
-  return resources::write_file(path, data);
+  return files::write_file(path, data);
 }
 
-Err resources::remove_file(const std::string &path) {
+Err files::remove_file(const std::string &path) {
   std::string asset_path = std::string(ASSETS_PATH) + path;
 
   int32_t result = std::remove(asset_path.c_str());

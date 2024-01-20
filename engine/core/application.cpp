@@ -1,6 +1,5 @@
 #include "application.h"
 
-#include "core/resources.h"
 #include "io/logging.h"
 #include "util/err.h"
 
