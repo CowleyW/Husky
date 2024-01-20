@@ -38,7 +38,9 @@ target_include_directories(runtime PRIVATE runtime/ .)
 # Test Configuration
 add_subdirectory(lib/Catch2)
 
-add_executable(triton_tests test/io/logging.cpp)
+add_executable(triton_tests 
+  test/io/logging.cpp test/core/resources.cpp
+)
 target_link_libraries(triton_tests PRIVATE engine Catch2::Catch2WithMain)
 target_include_directories(triton_tests PRIVATE . lib/Catch2/src)
 

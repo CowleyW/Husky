@@ -49,3 +49,45 @@ Result<std::vector<uint8_t>> resources::load_file(const std::string &path) {
 
   return Result<std::vector<uint8_t>>::ok(data);
 }
+
+Result<std::string> resources::load_text_file(const std::string &path) {
+  auto bytes_result = resources::load_file(path);
+  if (!bytes_result.isOk) {
+    return Result<std::string>::err(bytes_result.msg);
+  } else {
+    std::string value(bytes_result.value.begin(), bytes_result.value.end());
+    return Result<std::string>::ok(value);
+  }
+}
+
+Err resources::write_file(const std::string &path,
+                          std::vector<uint8_t> contents) {
+  std::string asset_path = std::string(ASSETS_PATH) + path;
+
+  std::FILE *file = std::fopen(asset_path.c_str(), "wb");
+  if (!file) {
+    return Err::err("Failed to open file");
+  }
+
+  std::fwrite(contents.data(), 1, contents.size(), file);
+  std::fclose(file);
+  return Err::ok();
+}
+
+Err resources::write_text_file(const std::string &path,
+                               std::string_view contents) {
+  std::vector<uint8_t> data(contents.data(),
+                            contents.data() + contents.length());
+  return resources::write_file(path, data);
+}
+
+Err resources::remove_file(const std::string &path) {
+  std::string asset_path = std::string(ASSETS_PATH) + path;
+
+  int32_t result = std::remove(asset_path.c_str());
+  if (result != 0) {
+    return Err::err("Failed to delete file");
+  }
+
+  return Err::ok();
+}

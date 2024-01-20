@@ -7,7 +7,7 @@ def configure():
     call(["cmake", "-G", "MinGW Makefiles", "-S", ".", "-B", "out/"])
     call(["cp", "out/compile_commands.json", "compile_commands.json"])
 
-# Build application tests and move to bin/
+
 def build_test(run):
     call(["cmake", "-G", "MinGW Makefiles", "-S", ".", "-B", "out/"])
 
@@ -20,7 +20,6 @@ def build_test(run):
     os.chdir("..")
 
 
-# Build the main application and move it to bin/
 def build_main(run):
     call(["cmake", "-G", "MinGW Makefiles", "-S", ".", "-B", "out/"])
 

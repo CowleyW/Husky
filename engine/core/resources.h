@@ -1,5 +1,6 @@
 #pragma once
 
+#include "util/err.h"
 #include "util/result.h"
 
 #include <cstdint>
@@ -15,5 +16,13 @@ namespace resources {
  * assets/ directory.
  */
 Result<std::vector<uint8_t>> load_file(const std::string &path);
+
+Result<std::string> load_text_file(const std::string &path);
+
+Err write_file(const std::string &path, std::vector<uint8_t> contents);
+
+Err write_text_file(const std::string &path, std::string_view contents);
+
+Err remove_file(const std::string &path);
 
 } // namespace resources
