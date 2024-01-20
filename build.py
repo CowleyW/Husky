@@ -1,6 +1,7 @@
 import argparse
 import os
 from subprocess import call
+from scripts.include_assets import include_assets
 
 def configure():
     call(["cmake", "-G", "MinGW Makefiles", "-S", ".", "-B", "out/"])
@@ -34,6 +35,7 @@ def build_main(run):
 
 # Build script main
 if __name__ == "__main__":
+    include_assets(os.getcwd() + "/assets/")
     parser = argparse.ArgumentParser(description="build")
     parser.add_argument("--test", dest="build", action="store_const",
                         const=build_test, default=build_main,

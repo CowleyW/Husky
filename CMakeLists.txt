@@ -9,12 +9,16 @@ set(CMAKE_CXX_STANDARD 17)
 add_library(engine
   engine/io/logging.h engine/io/logging.cpp
   engine/core/application.h engine/core/application.cpp
+  engine/core/resources.h engine/core/resources.cpp
   engine/render/window.h engine/render/window.cpp
   engine/render/context.h engine/render/context.cpp
+  engine/render/shader.h engine/render/shader.cpp
   engine/render/callback_handler.h
   engine/render/gl_types.h
-  engine/util/err.h
+  engine/util/err.h engine/util/result.h
 )
+
+target_compile_definitions(engine PRIVATE ASSETS_PATH="${PROJECT_SOURCE_DIR}/assets/")
 
 find_package(OpenGL REQUIRED)
 
