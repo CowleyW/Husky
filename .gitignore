@@ -1,13 +1,17 @@
+# installable libs
 lib/*/
 !lib/glad/
 
+# output directories
 out/
 bin/
 .cache/
 .vs/
 
+# clangd LSP file
 compile_commands.json
 
+# CMake generated files
 */CMakeLists.txt.user
 */CMakeCache.txt
 */CMakeFiles
@@ -19,3 +23,6 @@ compile_commands.json
 */compile_commands.json
 */CTestTestfile.cmake
 */_deps
+
+# Python scripts cache
+*/__pycache__/

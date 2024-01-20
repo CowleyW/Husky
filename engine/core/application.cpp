@@ -10,8 +10,6 @@ Err Application::init() {
     return err;
   }
 
-  resources::load_file("shaders/standard_frag.glsl");
-
   err = this->context.init(this->window.dimensions);
   if (!err.isOk) {
     return err;

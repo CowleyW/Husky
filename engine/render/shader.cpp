@@ -11,6 +11,7 @@
 #include <string_view>
 
 Err Shader::init(std::string_view vertex_path, std::string_view fragment_path) {
+  // 1. Compile the vertex shader
   Result<uint32_t> vertex_result =
       Shader::compile_shader(ShaderType::Vertex, vertex_path);
   if (!vertex_result.isOk) {
@@ -18,6 +19,7 @@ Err Shader::init(std::string_view vertex_path, std::string_view fragment_path) {
   }
   uint32_t vshader_id = vertex_result.value;
 
+  // 2. Compile the fragment shader
   Result<uint32_t> fragment_result =
       Shader::compile_shader(ShaderType::Fragment, fragment_path);
   if (!fragment_result.isOk) {
@@ -26,7 +28,7 @@ Err Shader::init(std::string_view vertex_path, std::string_view fragment_path) {
   }
   uint32_t fshader_id = fragment_result.value;
 
-  // Link the shaders
+  // 3. Link the shaders
   this->program_id = glCreateProgram();
 
   glAttachShader(this->program_id, vshader_id);
@@ -41,7 +43,7 @@ Err Shader::init(std::string_view vertex_path, std::string_view fragment_path) {
     return Err::err("Failed to link shaders");
   }
 
-  // Cleanup
+  // 4. Cleanup
   glDeleteShader(vshader_id);
   glDeleteShader(fshader_id);
 
