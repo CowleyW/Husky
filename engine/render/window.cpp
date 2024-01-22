@@ -1,14 +1,12 @@
 #include "window.h"
 
-#include "io/logging.h"
+#include "core/types.h"
 #include "render/callback_handler.h"
 #include "render/gl_types.h"
 #include "util/err.h"
 
 #include <GLFW/glfw3.h>
 #include <glad/gl.h>
-
-#include <cstdint>
 
 Err Window::init(Dimensions dimensions) {
   this->dimensions = dimensions;
@@ -38,11 +36,11 @@ void Window::register_callbacks(CallbackHandler *callback) {
   glfwSetWindowUserPointer(this->handle, (void *)callback);
 
   glfwSetFramebufferSizeCallback(
-      this->handle, [](GLFWwindow *window, int32_t width, int32_t height) {
+      this->handle, [](GLFWwindow *window, i32 width, i32 height) {
         CallbackHandler *callback =
             static_cast<CallbackHandler *>(glfwGetWindowUserPointer(window));
 
-        callback->on_window_resize({(uint32_t)width, (uint32_t)height});
+        callback->on_window_resize({(u32)width, (u32)height});
       });
 
   glfwSetWindowCloseCallback(this->handle, [](GLFWwindow *window) {

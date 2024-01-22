@@ -8,9 +8,10 @@ set(CMAKE_CXX_FLAGS "-std=c++17 ${CMAKE_CXX_FLAGS}")
 
 # Engine Library
 add_library(engine
-  engine/io/logging.h engine/io/logging.cpp
+  engine/io/logging.h
   engine/io/files.h engine/io/files.cpp
   engine/core/application.h engine/core/application.cpp
+  engine/core/types.h
   engine/render/window.h engine/render/window.cpp
   engine/render/context.h engine/render/context.cpp
   engine/render/shader.h engine/render/shader.cpp
@@ -26,8 +27,13 @@ find_package(OpenGL REQUIRED)
 
 add_subdirectory(lib/glfw)
 add_subdirectory(lib/glad)
-target_link_libraries(engine PUBLIC glfw OpenGL::GL glad)
-target_include_directories(engine PUBLIC engine/ lib/glfw/include/ lib/glad/include/)
+add_subdirectory(lib/fmt)
+target_link_libraries(engine PUBLIC fmt glfw OpenGL::GL glad)
+target_include_directories(engine PUBLIC 
+  engine/ 
+  lib/fmt/include/
+  lib/glfw/include/ 
+  lib/glad/include/)
 
 # Main Configuration
 add_executable(runtime 

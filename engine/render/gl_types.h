@@ -1,10 +1,10 @@
 #pragma once
 
-#include <cstdint>
+#include "core/types.h"
 
 struct Dimensions {
-  uint32_t width;
-  uint32_t height;
+  u32 width;
+  u32 height;
 };
 
 enum class ShaderType { Vertex = 0, Fragment };

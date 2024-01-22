@@ -1,4 +1,5 @@
 #include "context.h"
+#include "core/types.h"
 #include "gl_types.h"
 #include "shader.h"
 #include "util/err.h"
@@ -8,7 +9,7 @@
 #include <glad/gl.h>
 
 Err Context::init(Dimensions dimensions) {
-  int32_t result = gladLoadGL(glfwGetProcAddress);
+  i32 result = gladLoadGL(glfwGetProcAddress);
   if (!result) {
     return Err::err("Failed to initialize OpenGL context");
   }
@@ -31,7 +32,7 @@ Err Context::init(Dimensions dimensions) {
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
   // Index Buffer
-  uint32_t indices[] = {
+  u32 indices[] = {
       0, 1, 3, // first triangle
       1, 2, 3  // second triangle
   };

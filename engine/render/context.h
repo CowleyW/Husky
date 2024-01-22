@@ -1,10 +1,9 @@
 #pragma once
 
+#include "core/types.h"
 #include "render/gl_types.h"
 #include "render/shader.h"
 #include "util/err.h"
-
-#include <cstdint>
 
 class Context {
 public:
@@ -14,7 +13,7 @@ public:
   void render();
 
 private:
-  uint32_t vbuf_id, ibuf_id;
-  uint32_t vertex_array_id;
+  u32 vbuf_id, ibuf_id;
+  u32 vertex_array_id;
   Shader shader;
 };

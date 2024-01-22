@@ -1,7 +1,7 @@
 #include "shader.h"
 
+#include "core/types.h"
 #include "io/files.h"
-#include "io/logging.h"
 #include "render/gl_types.h"
 #include "util/err.h"
 
@@ -12,21 +12,21 @@
 
 Err Shader::init(std::string_view vertex_path, std::string_view fragment_path) {
   // 1. Compile the vertex shader
-  Result<uint32_t> vertex_result =
+  Result<u32> vertex_result =
       Shader::compile_shader(ShaderType::Vertex, vertex_path);
   if (!vertex_result.isOk) {
     return Err::err(vertex_result.msg);
   }
-  uint32_t vshader_id = vertex_result.value;
+  u32 vshader_id = vertex_result.value;
 
   // 2. Compile the fragment shader
-  Result<uint32_t> fragment_result =
+  Result<u32> fragment_result =
       Shader::compile_shader(ShaderType::Fragment, fragment_path);
   if (!fragment_result.isOk) {
     glDeleteShader(vshader_id);
     return Err::err(fragment_result.msg);
   }
-  uint32_t fshader_id = fragment_result.value;
+  u32 fshader_id = fragment_result.value;
 
   // 3. Link the shaders
   this->program_id = glCreateProgram();
@@ -50,17 +50,16 @@ Err Shader::init(std::string_view vertex_path, std::string_view fragment_path) {
   return Err::ok();
 }
 
-Result<uint32_t> Shader::compile_shader(ShaderType type,
-                                        std::string_view path) {
+Result<u32> Shader::compile_shader(ShaderType type, std::string_view path) {
   auto source_result = files::load_text_file(std::string(path));
   if (!source_result.isOk) {
-    return Result<uint32_t>::err(source_result.msg);
+    return Result<u32>::err(source_result.msg);
   }
   std::string shader_source = source_result.value;
 
   GLenum shader_type =
       (type == ShaderType::Vertex) ? GL_VERTEX_SHADER : GL_FRAGMENT_SHADER;
-  uint32_t shader_id = glCreateShader(shader_type);
+  u32 shader_id = glCreateShader(shader_type);
 
   // glShaderSource(...) expects a const char ** so we first assign
   // the source to a local variable before passing a pointer to it.
@@ -71,10 +70,10 @@ Result<uint32_t> Shader::compile_shader(ShaderType type,
   int32_t result;
   glGetShaderiv(shader_id, GL_COMPILE_STATUS, &result);
   if (!result) {
-    return Result<uint32_t>::err("Failed to compile shader");
+    return Result<u32>::err("Failed to compile shader");
   }
 
-  return Result<uint32_t>::ok(shader_id);
+  return Result<u32>::ok(shader_id);
 }
 
 void Shader::bind() { glUseProgram(this->program_id); }

@@ -1,53 +1,52 @@
 #include "files.h"
 
-#include "io/logging.h"
+#include "core/types.h"
 #include "util/result.h"
 
-#include <cstdint>
 #include <cstdio>
 #include <stdio.h>
 #include <string>
 #include <string_view>
 #include <vector>
 
-Result<std::vector<uint8_t>> files::load_file(const std::string &path) {
+Result<std::vector<u8>> files::load_file(const std::string &path) {
   // 1. Open file specified by the path
   std::string asset_path = std::string(ASSETS_PATH) + path;
   // fopen is 'deprecated' but fopen_s is less portable
   // and provides no meaningful advantages in safety
   std::FILE *file = std::fopen(asset_path.c_str(), "rb");
   if (!file) {
-    return Result<std::vector<uint8_t>>::err("Failed to open file");
+    return Result<std::vector<u8>>::err("Failed to open file");
   }
 
   // 2. Go to the end of the file to determine file size
-  int32_t result;
+  i32 result;
   result = std::fseek(file, 0, SEEK_END);
   if (result != 0) {
     std::fclose(file);
-    return Result<std::vector<uint8_t>>::err("Failed to seek file end");
+    return Result<std::vector<u8>>::err("Failed to seek file end");
   }
-  uint32_t size = std::ftell(file);
+  u32 size = std::ftell(file);
   if (size == -1) {
     std::fclose(file);
-    return Result<std::vector<uint8_t>>::err(
+    return Result<std::vector<u8>>::err(
         "Failed to determine location in file stream");
   }
 
-  std::vector<uint8_t> data(size, 0);
+  std::vector<u8> data(size, 0);
 
   // 3. Return to the start of the file and read its contents
   result = std::fseek(file, 0, SEEK_SET);
   if (result != 0) {
     std::fclose(file);
-    return Result<std::vector<uint8_t>>::err("Failed to seek to file start");
+    return Result<std::vector<u8>>::err("Failed to seek to file start");
   }
   std::fread(&data[0], 1, size, file);
 
   // 4. Close the file
   std::fclose(file);
 
-  return Result<std::vector<uint8_t>>::ok(data);
+  return Result<std::vector<u8>>::ok(data);
 }
 
 Result<std::string> files::load_text_file(const std::string &path) {
@@ -60,7 +59,7 @@ Result<std::string> files::load_text_file(const std::string &path) {
   }
 }
 
-Err files::write_file(const std::string &path, std::vector<uint8_t> contents) {
+Err files::write_file(const std::string &path, std::vector<u8> contents) {
   std::string asset_path = std::string(ASSETS_PATH) + path;
 
   std::FILE *file = std::fopen(asset_path.c_str(), "wb");
@@ -74,15 +73,14 @@ Err files::write_file(const std::string &path, std::vector<uint8_t> contents) {
 }
 
 Err files::write_text_file(const std::string &path, std::string_view contents) {
-  std::vector<uint8_t> data(contents.data(),
-                            contents.data() + contents.length());
+  std::vector<u8> data(contents.data(), contents.data() + contents.length());
   return files::write_file(path, data);
 }
 
 Err files::remove_file(const std::string &path) {
   std::string asset_path = std::string(ASSETS_PATH) + path;
 
-  int32_t result = std::remove(asset_path.c_str());
+  i32 result = std::remove(asset_path.c_str());
   if (result != 0) {
     return Err::err("Failed to delete file");
   }
