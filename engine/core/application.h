@@ -1,23 +1,15 @@
 #pragma once
 
-#include "render/callback_handler.h"
-#include "render/window.h"
-#include "render/context.h"
+#include "types.h"
 #include "util/err.h"
+#include "util/result.h"
 
-class Application : CallbackHandler {
+class Application {
 public:
-  Err init();
-  Err run();
-  void shutdown();
+  virtual Err run() = 0;
+  virtual void shutdown() = 0;
 
-public:
-  void on_window_resize(Dimensions dimensions) override;
-  void on_window_close() override;
+  virtual ~Application() {}
 
-private:
-  Window window;
-  Context context;
-  
-  bool running = false;
+  static Result<Application *> create(bool is_server, u32 port);
 };

@@ -1,24 +1,57 @@
 #include "engine/core/application.h"
 #include "engine/io/logging.h"
 
-int main(int argc, char **argv) {
-  io::debug("Beginning application startup.");
+#include <cstring>
+#include <string>
 
-  Application app;
-  Err err = app.init();
-  if (!err.isOk) {
-    io::fatal(err.msg);
-    return -1;
+void print_usage() {
+  io::error("Expected usage:");
+  io::error("runtime.exe <client | server> <port>");
+}
+
+int main(int argc, char **argv) {
+  if (argc != 3) {
+    print_usage();
+    return 1;
   }
+
+  int port;
+  try {
+    port = std::stoi(argv[2]);
+  } catch (std::exception &e) {
+    io::error("Could not parse port {}", argv[2]);
+    print_usage();
+    return 1;
+  }
+
+  bool is_server;
+  if (std::strcmp(argv[1], "client") == 0) {
+    is_server = false;
+  } else if (std::strcmp(argv[1], "server") == 0) {
+    is_server = true;
+  } else {
+    print_usage();
+    return 1;
+  }
+
+  Result<Application *> result = Application::create(is_server, port);
+  if (!result.isOk) {
+    io::fatal(result.msg);
+    return 1;
+  }
+
+  Application *app = result.value;
 
   io::debug("Running application.");
-  err = app.run();
+  Err err = app->run();
   if (!err.isOk) {
     io::fatal(err.msg);
-    return -1;
+    return 1;
   }
 
-  io::debug("Beginning application shutdown.");
-  app.shutdown();
+  io::debug("Shutting down application.");
+  app->shutdown();
+
+  delete app;
   return 0;
 }

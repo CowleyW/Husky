@@ -1,46 +1,12 @@
 #include "application.h"
 
-#include "io/logging.h"
-#include "util/err.h"
+#include "core/client_app.h"
+#include "core/server_app.h"
 
-Err Application::init() {
-  Err err = this->window.init({1280, 720});
-  if (!err.isOk) {
-    return err;
+Result<Application *> Application::create(bool is_server, u32 port) {
+  if (!is_server) {
+    return Result<Application *>::ok(new ClientApp(port));
+  } else {
+    return Result<Application *>::ok(new ServerApp(port));
   }
-
-  err = this->context.init(this->window.dimensions);
-  if (!err.isOk) {
-    return err;
-  }
-
-  this->window.register_callbacks(this);
-
-  return Err::ok();
-}
-
-Err Application::run() {
-  this->running = true;
-
-  while (this->running) {
-    this->window.poll_events();
-
-    this->context.clear();
-    this->context.render();
-    this->window.swap_buffers();
-  }
-
-  return Err::ok();
-}
-
-void Application::shutdown() { this->window.shutdown(); }
-
-void Application::on_window_resize(Dimensions dimensions) {
-  io::debug("Resizing window");
-  this->context.resize(dimensions);
-}
-
-void Application::on_window_close() {
-  io::debug("Closing window");
-  this->running = false;
 }
