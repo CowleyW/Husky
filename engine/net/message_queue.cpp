@@ -24,7 +24,7 @@ void Net::MessageQueue::begin_enqueue_next() {
       io::debug("Closing connection gracefully.");
       return;
     } else if (err) {
-      io::error("{}", err.message());
+      io::error("{}", err.value());
     }
 
     // Probably not a good idea to just blindly read messages...

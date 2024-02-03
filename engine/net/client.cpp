@@ -20,8 +20,8 @@ void Net::Client::begin() {
 }
 
 void Net::Client::shutdown() {
-  this->server_connection->shutdown();
-  this->context.reset();
+  this->context->stop();
+  this->context_thread.join();
 }
 
 bool Net::Client::has_message() {
