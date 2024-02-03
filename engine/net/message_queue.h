@@ -2,7 +2,6 @@
 
 #include "message.h"
 
-#include <cstddef>
 #include <queue>
 
 #include <asio.hpp>
@@ -20,7 +19,7 @@ public:
 
 private:
   void begin_enqueue_next();
-  void finish_enqueue_next(Header header, std::size_t len);
+  // void finish_enqueue_next(Header header, std::size_t len);
 
 private:
   asio::ip::tcp::socket &socket;

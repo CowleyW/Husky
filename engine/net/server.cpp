@@ -3,6 +3,7 @@
 #include "asio/io_context.hpp"
 #include "io/logging.h"
 #include "net/connection.h"
+#include "net/message.h"
 #include <memory>
 
 Net::Server::Server(u32 port)
@@ -36,4 +37,10 @@ void Net::Server::start_accept() {
 void Net::Server::handle_accept(std::shared_ptr<Connection> connection) {
   io::info("Client connected.");
   this->clients.emplace_back(connection);
+
+  std::string text = "hello, user!";
+  Net::Header header = {0, 0, 0, 0, 0, (u32)text.size()};
+  Net::Message message = {header, std::vector<u8>(text.begin(), text.end())};
+  connection->write_message(message);
+  this->start_accept();
 }

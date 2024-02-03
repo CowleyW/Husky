@@ -65,7 +65,8 @@ Net::Message Net::Message::deserialize_from(const std::vector<u8> &buf) {
   u32 offset = 0;
   Net::Header header = Net::Header::deserialize_from(buf, &offset);
 
-  std::vector<u8> body(buf.begin() + offset, buf.end());
+  auto body_begin = buf.begin() + offset;
+  std::vector<u8> body(body_begin, body_begin + header.size);
 
   return Net::Message{
       header,

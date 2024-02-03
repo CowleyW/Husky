@@ -25,8 +25,18 @@ Err ClientApp::init() {
 Err ClientApp::run() {
   this->running = true;
 
+  this->client->begin();
+  io::debug("started client");
+
   while (this->running) {
     this->window.poll_events();
+
+    if (this->client->has_message()) {
+      Net::Message message = this->client->get_message();
+
+      std::string mbody = reinterpret_cast<char *>(message.body.data());
+      io::info("message: {}", mbody);
+    }
 
     this->context.clear();
     this->context.render();
@@ -36,7 +46,10 @@ Err ClientApp::run() {
   return Err::ok();
 }
 
-void ClientApp::shutdown() { this->window.shutdown(); }
+void ClientApp::shutdown() {
+  this->window.shutdown();
+  this->client->shutdown();
+}
 
 void ClientApp::on_window_resize(Dimensions dimensions) {
   io::debug("Resizing window");

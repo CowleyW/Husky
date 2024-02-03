@@ -15,9 +15,10 @@ public:
   Client &operator=(const Client &) = delete;
 
   void begin();
+  void shutdown();
 
-private:
-  void begin_message_queue();
+  bool has_message();
+  Message get_message();
 
 private:
   std::shared_ptr<asio::io_context> context;

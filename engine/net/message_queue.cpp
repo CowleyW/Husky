@@ -1,4 +1,5 @@
 #include "message_queue.h"
+#include "asio/error.hpp"
 #include "io/logging.h"
 #include "net/message.h"
 Net::MessageQueue::MessageQueue(asio::ip::tcp::socket &socket)
@@ -19,7 +20,10 @@ void Net::MessageQueue::begin_enqueue_next() {
 
   auto read_callback = [this](std::error_code err, size_t len) {
     io::info("received some data: {} bytes.", len);
-    if (err) {
+    if (err == asio::error::eof) {
+      io::debug("Closing connection gracefully.");
+      return;
+    } else if (err) {
       io::error("{}", err.message());
     }
 

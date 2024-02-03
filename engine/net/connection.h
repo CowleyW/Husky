@@ -5,7 +5,6 @@
 
 #include "asio/error_code.hpp"
 #include <asio.hpp>
-#include <cstddef>
 
 namespace Net {
 
@@ -16,6 +15,7 @@ public:
   void write_message(Message &message);
 
   void begin_queue();
+  void shutdown();
 
   bool has_message();
   Message get_message();
@@ -24,7 +24,7 @@ public:
   asio::ip::tcp::socket socket;
 
 private:
-  void handle_write(const asio::error_code &err, std::size_t len);
+  void handle_write(const asio::error_code &err, u64 len);
 
 private:
   MessageQueue queue;
