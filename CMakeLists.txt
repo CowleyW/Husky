@@ -14,6 +14,9 @@ add_library(engine
   engine/core/server_app.h engine/core/server_app.cpp
   engine/core/types.h
   
+  # Crypto
+  engine/crypto/checksum.h engine/crypto/checksum.cpp
+
   # I/O
   engine/io/logging.h
   engine/io/files.h engine/io/files.cpp
@@ -21,8 +24,9 @@ add_library(engine
   #Net
   engine/net/client.h engine/net/client.cpp
   engine/net/connection.h engine/net/connection.cpp
+  # engine/net/connection.h engine/net/connection.cpp
   engine/net/message.h engine/net/message.cpp
-  engine/net/message_queue.h engine/net/message_queue.cpp
+  # engine/net/message_queue.h engine/net/message_queue.cpp
   engine/net/server.h engine/net/server.cpp
 
   # Render

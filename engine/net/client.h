@@ -1,9 +1,10 @@
 #pragma once
 
-#include "connection.h"
 #include "core/types.h"
 
 #include <asio.hpp>
+
+#include <array>
 
 namespace Net {
 
@@ -11,23 +12,16 @@ class Client {
 public:
   Client(u32 port);
 
-  Client(const Client &) = delete;
-  Client &operator=(const Client &) = delete;
-
   void begin();
   void shutdown();
 
-  bool has_message();
-  Message get_message();
-
 private:
-  std::shared_ptr<asio::io_context> context;
-
-  std::shared_ptr<Connection> server_connection;
+  std::unique_ptr<asio::io_context> context;
+  asio::ip::udp::socket socket;
+  asio::ip::udp::endpoint server_endpoint;
 
   std::thread context_thread;
-
-  u32 port;
+  std::array<u8, 1024> recv_buf;
 };
 
 } // namespace Net

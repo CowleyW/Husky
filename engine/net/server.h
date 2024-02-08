@@ -1,37 +1,41 @@
 #pragma once
 
-#include "connection.h"
+#include "asio/io_context.hpp"
 #include "core/types.h"
 
+#include "connection.h"
+
+#include <array>
 #include <asio.hpp>
 
-#include <memory>
+#include <thread>
 #include <vector>
 
 namespace Net {
 
 class Server {
 public:
-  Server(u32 port);
-
-  Server(const Server &) = delete;
-  Server &operator=(const Server &) = delete;
+  Server(u32 port, u8 max_clients);
 
   void begin();
 
 private:
-  void start_accept();
-  void handle_accept(std::shared_ptr<Connection> connection);
+  void start_receive();
+  void handle_receive(u64 size);
 
 private:
-  std::shared_ptr<asio::io_context> context;
-  asio::ip::tcp::acceptor acceptor;
-
-  std::thread context_thread;
-
   u32 port;
 
-  std::vector<std::shared_ptr<Connection>> clients;
+  u8 max_clients;
+  u8 num_connected_clients;
+  std::vector<Connection> clients;
+
+  std::unique_ptr<asio::io_context> context;
+  asio::ip::udp::socket socket;
+  asio::ip::udp::endpoint remote;
+
+  std::thread context_thread;
+  std::array<u8, 1024> recv_buf;
 };
 
 } // namespace Net

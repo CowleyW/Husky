@@ -1,33 +1,36 @@
 #pragma once
 
 #include "message.h"
-#include "message_queue.h"
 
-#include "asio/error_code.hpp"
+#include "core/types.h"
+#include "util/err.h"
+
 #include <asio.hpp>
 
 namespace Net {
 
 class Connection {
 public:
-  Connection(asio::io_context &context);
+  Connection();
 
-  void write_message(Message &message);
+  void free();
+  Err bind(u32 remote_id);
 
-  void begin_queue();
-  void shutdown();
+  bool is_connected();
+  bool matches_id(u32 id);
 
-  bool has_message();
-  Message get_message();
-
-public:
-  asio::ip::tcp::socket socket;
+  void write_message(const Message &message);
 
 private:
-  void handle_write(const asio::error_code &err, u64 len);
+  bool connected;
+  // We establish random remote ids since IP Adresses can be spoofed
+  u32 remote_id;
 
-private:
-  MessageQueue queue;
+  u32 sequence_id;
+  u32 ack;
+  u32 ack_bitfield;
+
+  u32 message_id;
 };
 
 } // namespace Net

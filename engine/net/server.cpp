@@ -1,46 +1,39 @@
 #include "server.h"
-#include "asio/error_code.hpp"
-#include "asio/io_context.hpp"
-#include "io/logging.h"
-#include "net/connection.h"
-#include "net/message.h"
-#include <memory>
 
-Net::Server::Server(u32 port)
-    : port(port), context(std::make_shared<asio::io_context>()),
-      acceptor(*context, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port)),
-      clients() {}
+#include "io/logging.h"
+#include <system_error>
+
+Net::Server::Server(uint32_t port, uint8_t max_clients)
+    : port(port), max_clients(max_clients), num_connected_clients(0),
+      clients(max_clients), context(std::make_unique<asio::io_context>()),
+      socket(*context, asio::ip::udp::endpoint(asio::ip::udp::v4(), port)) {
+  for (Connection &client : this->clients) {
+    client.free();
+  }
+}
 
 void Net::Server::begin() {
-  asio::io_context::work idle_work(*this->context);
+  io::debug("Beginning server.");
+
   this->context_thread = std::thread([this]() { this->context->run(); });
 
-  this->start_accept();
+  this->start_receive();
 }
 
-void Net::Server::start_accept() {
-  io::debug("Waiting for connection on port {}.", this->port);
-
-  auto connection = std::make_shared<Connection>(*(this->context));
-
-  auto on_accept = [=](const asio::error_code &err) {
+void Net::Server::start_receive() {
+  auto on_receive_callback = [this](const std::error_code &err, u64 size) {
     if (!err) {
-      io::debug("Good connection.");
-      this->handle_accept(connection);
+      io::debug("Received {} bytes!", size);
+      this->handle_receive(size);
     } else {
-      io::error("{}", err.message());
+      io::error(err.message());
     }
   };
-  this->acceptor.async_accept(connection->socket, on_accept);
+  this->socket.async_receive_from(asio::buffer(this->recv_buf), this->remote,
+                                  on_receive_callback);
 }
 
-void Net::Server::handle_accept(std::shared_ptr<Connection> connection) {
-  io::info("Client connected.");
-  this->clients.emplace_back(connection);
-
-  std::string text = "hello, user!";
-  Net::Header header = {0, 0, 0, 0, 0, (u32)text.size()};
-  Net::Message message = {header, std::vector<u8>(text.begin(), text.end())};
-  connection->write_message(message);
-  this->start_accept();
+void Net::Server::handle_receive(u64 size) {
+  io::debug("\"{}\"", (char *)this->recv_buf.data());
+  this->start_receive();
 }

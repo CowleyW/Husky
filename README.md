@@ -1,4 +1,4 @@
-# Triton Game Engine
+# Husky Game Engine
 
 Another attempt at a game engine, seeking to apply what I have learned about software development in my first two years at Northeastern University.
 

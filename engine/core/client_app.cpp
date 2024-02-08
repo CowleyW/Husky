@@ -31,12 +31,12 @@ Err ClientApp::run() {
   while (this->running) {
     this->window.poll_events();
 
-    if (this->client->has_message()) {
-      Net::Message message = this->client->get_message();
-
-      std::string mbody = reinterpret_cast<char *>(message.body.data());
-      io::info("message: {}", mbody);
-    }
+    // if (this->client->has_message()) {
+    //   Net::Message message = this->client->get_message();
+    //
+    //   std::string mbody = reinterpret_cast<char *>(message.body.data());
+    //   io::info("message: {}", mbody);
+    // }
 
     this->context.clear();
     this->context.render();

@@ -1,9 +1,9 @@
 #include "server_app.h"
-#include "asio/io_context.hpp"
 #include "net/server.h"
 #include <memory>
 
-ServerApp::ServerApp(u32 port) : server(std::make_unique<Net::Server>(port)) {}
+ServerApp::ServerApp(u32 port)
+    : server(std::make_unique<Net::Server>(port, 8)) {}
 
 Err ServerApp::run() {
   this->server->begin();
