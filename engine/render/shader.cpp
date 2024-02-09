@@ -14,7 +14,7 @@ Err Shader::init(std::string_view vertex_path, std::string_view fragment_path) {
   // 1. Compile the vertex shader
   Result<u32> vertex_result =
       Shader::compile_shader(ShaderType::Vertex, vertex_path);
-  if (!vertex_result.isOk) {
+  if (vertex_result.is_error) {
     return Err::err(vertex_result.msg);
   }
   u32 vshader_id = vertex_result.value;
@@ -22,7 +22,7 @@ Err Shader::init(std::string_view vertex_path, std::string_view fragment_path) {
   // 2. Compile the fragment shader
   Result<u32> fragment_result =
       Shader::compile_shader(ShaderType::Fragment, fragment_path);
-  if (!fragment_result.isOk) {
+  if (fragment_result.is_error) {
     glDeleteShader(vshader_id);
     return Err::err(fragment_result.msg);
   }
@@ -52,7 +52,7 @@ Err Shader::init(std::string_view vertex_path, std::string_view fragment_path) {
 
 Result<u32> Shader::compile_shader(ShaderType type, std::string_view path) {
   auto source_result = files::load_text_file(std::string(path));
-  if (!source_result.isOk) {
+  if (source_result.is_error) {
     return Result<u32>::err(source_result.msg);
   }
   std::string shader_source = source_result.value;

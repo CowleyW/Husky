@@ -83,6 +83,7 @@ add_subdirectory(lib/Catch2)
 add_executable(tests 
   test/io/files.cpp
   test/net/message.cpp
+  test/util/serialize.cpp
 )
 
 target_compile_features(tests PRIVATE cxx_std_17)

@@ -51,7 +51,7 @@ Result<std::vector<u8>> files::load_file(const std::string &path) {
 
 Result<std::string> files::load_text_file(const std::string &path) {
   auto bytes_result = files::load_file(path);
-  if (!bytes_result.isOk) {
+  if (bytes_result.is_error) {
     return Result<std::string>::err(bytes_result.msg);
   } else {
     std::string value(bytes_result.value.begin(), bytes_result.value.end());

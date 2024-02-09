@@ -8,12 +8,12 @@ ClientApp::ClientApp(u32 port) : client(std::make_shared<Net::Client>(port)) {}
 
 Err ClientApp::init() {
   Err err = this->window.init({1280, 720});
-  if (!err.isOk) {
+  if (err.is_error) {
     return err;
   }
 
   err = this->context.init(this->window.dimensions);
-  if (!err.isOk) {
+  if (err.is_error) {
     return err;
   }
 

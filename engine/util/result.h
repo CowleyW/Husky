@@ -5,9 +5,9 @@
 template <typename T> struct Result {
   T value;
   std::string_view msg;
-  bool isOk;
+  bool is_error;
 
-  static Result<T> ok(T value) { return {value, "", true}; }
+  static Result<T> ok(T value) { return {value, "", false}; }
 
-  static Result<T> err(std::string_view msg) { return {(T)0, msg, false}; }
+  static Result<T> err(std::string_view msg) { return {T(), msg, true}; }
 };

@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
   }
 
   Result<Application *> result = Application::create(is_server, port);
-  if (!result.isOk) {
+  if (result.is_error) {
     io::fatal(result.msg);
     return 1;
   }
@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
 
   io::debug("Running application.");
   Err err = app->run();
-  if (!err.isOk) {
+  if (err.is_error) {
     io::fatal(err.msg);
     return 1;
   }

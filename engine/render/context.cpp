@@ -43,7 +43,7 @@ Err Context::init(Dimensions dimensions) {
 
   Err err = this->shader.init("shaders/standard_vert.glsl",
                               "shaders/standard_frag.glsl");
-  if (!err.isOk) {
+  if (err.is_error) {
     return err;
   }
 

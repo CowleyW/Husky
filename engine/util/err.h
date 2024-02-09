@@ -4,13 +4,9 @@
 
 struct Err {
   std::string_view msg;
-  bool isOk;
+  bool is_error;
 
-  static Err ok() {
-    return { "", true };
-  }
+  static Err ok() { return {"", false}; }
 
-  static Err err(std::string_view msg) {
-    return { msg, false };
-  }
+  static Err err(std::string_view msg) { return {msg, true}; }
 };

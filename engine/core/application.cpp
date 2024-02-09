@@ -7,7 +7,7 @@ Result<Application *> Application::create(bool is_server, u32 port) {
   if (!is_server) {
     ClientApp *app = new ClientApp(port);
     Err err = app->init();
-    if (!err.isOk) {
+    if (err.is_error) {
       delete app;
 
       return Result<Application *>::err(err.msg);

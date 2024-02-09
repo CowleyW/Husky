@@ -1,4 +1,5 @@
 #include "serialize.h"
+#include "io/logging.h"
 
 #include <vector>
 
@@ -61,6 +62,7 @@ u32 Serialize::deserialize_u32(const std::vector<u8> &buf, u32 *offset) {
   value += (u32)buf[*offset + 1] << 16;
   value += (u32)buf[*offset + 2] << 8;
   value += (u32)buf[*offset + 3];
+  io::info("offset: {}, value: {}", *offset, value);
 
   *offset += 4;
   return value;
