@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(Triton)
+project(Husky)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
@@ -12,7 +12,7 @@ add_library(engine
   engine/core/application.h engine/core/application.cpp
   engine/core/client_app.h engine/core/client_app.cpp
   engine/core/server_app.h engine/core/server_app.cpp
-  engine/core/types.h
+  engine/core/types.h engine/core/def.h
   
   # Crypto
   engine/crypto/checksum.h engine/crypto/checksum.cpp
@@ -39,6 +39,7 @@ add_library(engine
   #Util
   engine/util/err.h engine/util/result.h
   engine/util/serialize.h engine/util/serialize.cpp
+  engine/util/buf.h
 )
 
 target_compile_definitions(engine PRIVATE ASSETS_PATH="${PROJECT_SOURCE_DIR}/assets/")

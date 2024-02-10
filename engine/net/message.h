@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/types.h"
+#include "util/buf.h"
 #include "util/err.h"
 #include "util/result.h"
 
@@ -22,6 +23,8 @@ struct PacketHeader {
   // exists. In this case it is unnecessary since all fields are the same size,
   // but it is best not to rely on that fact when it might change in the future.
   static u32 packed_size() { return 8; }
+
+  static Result<PacketHeader> deserialize(const Buf<u8> &buf);
 };
 
 struct MessageHeader {
@@ -55,8 +58,7 @@ struct MessageHeader {
   // an error if the buffer does not contain enough space.
   Err serialize_into(std::vector<u8> &buf, u32 offset);
 
-  static Result<MessageHeader> deserialize(const std::vector<u8> &buf,
-                                           u32 offset);
+  static Result<MessageHeader> deserialize(const Buf<u8> &buf);
 };
 
 struct Message {
@@ -76,7 +78,9 @@ struct Message {
   // an error if the buffer does not contain enough space.
   Err serialize_into(std::vector<u8> &buf, u32 offset);
 
-  static Result<Message> deserialize(const std::vector<u8> &buf, u32 offset);
+  static Result<Message> deserialize(const Buf<u8> &buf);
 };
+
+Err verify_packet(const Buf<u8> &buf);
 
 } // namespace Net

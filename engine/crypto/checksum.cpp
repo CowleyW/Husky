@@ -2,9 +2,11 @@
 
 #include "core/types.h"
 
-#include <vector>
+u32 Crypto::calculate_checksum(Buf<u8> buf) {
+  return Crypto::calculate_checksum(buf.data(), buf.size());
+}
 
-u32 Crypto::calculate_checksum(std::vector<u8> source) {
+u32 Crypto::calculate_checksum(const u8 *buf, u32 size) {
   static bool initialized_crc32_table = false;
   static u32 crc32_table[256];
 
@@ -32,8 +34,8 @@ u32 Crypto::calculate_checksum(std::vector<u8> source) {
 
   // Calculate the CRC32 checksum based on the (pre-)calculated table
   u32 crc = 0xFFFFFFFF;
-  for (u32 i = 0; i < source.size(); i += 1) {
-    u8 ch = source[i];
+  for (u32 i = 0; i < size; i += 1) {
+    u8 ch = buf[i];
     u32 t = (ch ^ crc) & 0xFF;
     crc = (crc >> 8) ^ crc32_table[t];
   }

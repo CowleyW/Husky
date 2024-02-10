@@ -35,7 +35,7 @@ private:
   asio::ip::udp::endpoint remote;
 
   std::thread context_thread;
-  std::array<u8, 1024> recv_buf;
+  std::vector<u8> recv_buf;
 };
 
 } // namespace Net
