@@ -3,6 +3,7 @@
 #include "core/def.h"
 #include "core/types.h"
 #include "crypto/checksum.h"
+#include "io/logging.h"
 #include "util/buf.h"
 #include "util/serialize.h"
 
@@ -120,21 +121,22 @@ Err Net::verify_packet(const Buf<u8> &buf) {
 
   Result<Net::PacketHeader> ph_result = Net::PacketHeader::deserialize(buf);
   if (ph_result.is_error) {
-    return Err::err(
-        fmt::format("Failed to parse packet header: {}", ph_result.msg));
+    return Err::err("Failed to parse packet header: {}", ph_result.msg);
   }
 
   Net::PacketHeader packet_header = ph_result.value;
   if (packet_header.protocol_id != NET_PROTOCOL_ID) {
-    return Err::err(
-        fmt::format("Invalid protocol id {}.", packet_header.protocol_id));
+    return Err::err("Invalid protocol id {} (received) != {} (expected)",
+                    packet_header.protocol_id, NET_PROTOCOL_ID);
   }
 
   u32 checksum = Crypto::calculate_checksum(
       buf.trim_left(Net::PacketHeader::packed_size()));
   if (checksum != packet_header.checksum) {
-    return Err::err(fmt::format(
+    return Err::err(
         "Failed checksum validation. {} (received) != {} (expected)",
-        packet_header.checksum, checksum));
+        packet_header.checksum, checksum);
   }
+
+  return Err::ok();
 }

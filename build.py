@@ -20,14 +20,11 @@ def build_test(run):
     os.chdir("..")
 
 
-def build_main(run):
+def build_main():
     call(["cmake", "-G", "MinGW Makefiles", "-S", ".", "-B", "out/"])
 
     os.chdir("out")
     call(["make", "runtime"])
-
-    if (run):
-        call(["runtime.exe"])
 
     os.chdir("..")
 
@@ -41,13 +38,11 @@ if __name__ == "__main__":
                         help="build tests")
     parser.add_argument("--configure", dest="configure", action="store_true", 
                         help="only configure CMake")
-    parser.add_argument("--run", dest="run", action="store_true",
-                        help="run the executable")
 
     args = parser.parse_args()
 
     if args.configure:
         configure()
     else:
-        args.build(args.run)
+        args.build()
 
