@@ -116,7 +116,7 @@ Err Net::verify_packet(const Buf<u8> &buf) {
   u32 header_size =
       Net::MessageHeader::packed_size() + Net::PacketHeader::packed_size();
   if (buf.size() < header_size) {
-    return Err::err("Invalid message, size is too small. Ignoring.");
+    return Err::err("Invalid message, size is too small.");
   }
 
   Result<Net::PacketHeader> ph_result = Net::PacketHeader::deserialize(buf);

@@ -5,7 +5,7 @@
 
 template <typename T> struct Buf {
 public:
-  Buf(const T *inner_data, u32 size) : inner_data(inner_data), count(count) {}
+  Buf(const T *inner_data, u32 size) : inner_data(inner_data), count(size) {}
   Buf(const std::vector<u8> buf) : inner_data(buf.data()), count(buf.size()) {}
 
   Buf<T> trim_left(u32 amount) const {
@@ -23,8 +23,7 @@ private:
 
 template <typename T> struct MutBuf {
 public:
-  MutBuf(const T *inner_data, u32 size)
-      : inner_data(inner_data), count(count) {}
+  MutBuf(const T *inner_data, u32 size) : inner_data(inner_data), count(size) {}
   MutBuf(const Buf<T> &buf) : inner_data(buf.data()), count(buf.size()) {}
 
   void trim_left(u32 amount) {

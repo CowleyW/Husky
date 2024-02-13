@@ -12,7 +12,8 @@ namespace Net {
 enum class MessageType : u8 {
   ConnectionRequested = 0,
   ConnectionAccepted,
-  ConnectionDenied
+  ConnectionDenied,
+  Ping
 };
 
 struct PacketHeader {

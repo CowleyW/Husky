@@ -4,6 +4,7 @@
 #include "core/types.h"
 
 #include "connection.h"
+#include "net/message_handler.h"
 
 #include <array>
 #include <asio.hpp>
@@ -18,6 +19,8 @@ public:
   Server(u32 port, u8 max_clients);
 
   void begin();
+
+  void register_callbacks(Net::MessageHandler *handler);
 
 private:
   void start_receive();
@@ -36,6 +39,8 @@ private:
 
   std::thread context_thread;
   std::vector<u8> recv_buf;
+
+  Net::MessageHandler *handler;
 };
 
 } // namespace Net

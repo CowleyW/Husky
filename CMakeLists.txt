@@ -26,6 +26,8 @@ add_library(engine
   engine/net/connection.h engine/net/connection.cpp
   # engine/net/connection.h engine/net/connection.cpp
   engine/net/message.h engine/net/message.cpp
+  engine/net/message_builder.h engine/net/message_builder.cpp
+  engine/net/message_handler.h
   # engine/net/message_queue.h engine/net/message_queue.cpp
   engine/net/server.h engine/net/server.cpp
 
