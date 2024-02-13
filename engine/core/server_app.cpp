@@ -1,5 +1,6 @@
 #include "server_app.h"
 #include "io/logging.h"
+#include "net/connection.h"
 #include "net/server.h"
 #include <memory>
 
@@ -21,8 +22,20 @@ Err ServerApp::run() {
 
 void ServerApp::shutdown() {}
 
-void ServerApp::on_connection_requested(const Net::Message &message) {
+void ServerApp::on_connection_requested(const Net::Message &message,
+                                        const asio::ip::udp::endpoint &remote) {
   io::debug("Received ConnectionRequested");
+
+  Result<Net::Connection *const> result = this->server->get_client(remote);
+  if (!result.is_error) {
+    io::debug("Client already connected.");
+    Net::Connection *const connection = result.value;
+    connection->write_connection_accepted();
+  } else if (this->server->has_open_client()) {
+    this->server->accept(remote);
+  } else {
+    this->server->deny_connection(remote);
+  }
 }
 
 void ServerApp::on_connection_accepted(const Net::Message &message) {

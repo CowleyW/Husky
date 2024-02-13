@@ -22,6 +22,11 @@ public:
 
   void register_callbacks(Net::MessageHandler *handler);
 
+  Result<Connection *const> get_client(const asio::ip::udp::endpoint &remote);
+  bool has_open_client();
+  void accept(const asio::ip::udp::endpoint &remote);
+  void deny_connection(const asio::ip::udp::endpoint &remote);
+
 private:
   void start_receive();
   void handle_receive(u64 size);

@@ -1,6 +1,7 @@
 #include "server.h"
 
 #include "io/logging.h"
+#include "net/connection.h"
 #include "net/message.h"
 #include "net/message_handler.h"
 #include <system_error>
@@ -29,6 +30,52 @@ void Net::Server::begin() {
 
 void Net::Server::register_callbacks(Net::MessageHandler *handler) {
   this->handler = handler;
+}
+
+Result<Net::Connection *const>
+Net::Server::get_client(const asio::ip::udp::endpoint &remote) {
+  for (Connection &c : this->clients) {
+    if (c.matches_remote(remote)) {
+      return Result<Net::Connection *const>::ok(&c);
+    }
+  }
+
+  return Result<Net::Connection *const>::err("No such connection");
+}
+
+bool Net::Server::has_open_client() {
+  for (Connection &c : this->clients) {
+    if (!c.is_connected()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void Net::Server::accept(const asio::ip::udp::endpoint &remote) {
+  bool found_slot = false;
+
+  for (Connection &c : this->clients) {
+    if (!c.is_connected()) {
+      c.bind(remote);
+      c.write_connection_accepted();
+
+      found_slot = true;
+      break;
+    }
+  }
+
+  if (!found_slot) {
+    io::warn("Attempted to accept client when no slot was available.");
+  }
+}
+
+void Net::Server::deny_connection(const asio::ip::udp::endpoint &remote) {
+  Connection temp;
+  temp.bind(remote);
+
+  temp.write_connection_denied();
 }
 
 void Net::Server::start_receive() {
@@ -64,21 +111,17 @@ void Net::Server::handle_receive(u64 size) {
 
   switch (message.header.message_type) {
   case Net::MessageType::ConnectionRequested:
-    this->handler->on_connection_requested(message);
+    this->handler->on_connection_requested(message, this->remote);
     break;
-
   case Net::MessageType::ConnectionAccepted:
     this->handler->on_connection_accepted(message);
     break;
-
   case Net::MessageType::ConnectionDenied:
     this->handler->on_connection_denied(message);
     break;
-
   case Net::MessageType::Ping:
     this->handler->on_ping(message);
     break;
-
   default:
     io::error("Unknown message type");
     break;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "application.h"
+#include "asio/ip/udp.hpp"
 #include "net/message_handler.h"
 #include "net/server.h"
 #include "types.h"
@@ -17,7 +18,8 @@ public:
 
 public:
   // Methods inherited from MessageHandler
-  void on_connection_requested(const Net::Message &message) override;
+  void on_connection_requested(const Net::Message &message,
+                               const asio::ip::udp::endpoint &remote) override;
 
   void on_connection_accepted(const Net::Message &message) override;
 
