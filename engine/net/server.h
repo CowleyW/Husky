@@ -6,7 +6,6 @@
 #include "connection.h"
 #include "net/message_handler.h"
 
-#include <array>
 #include <asio.hpp>
 
 #include <thread>

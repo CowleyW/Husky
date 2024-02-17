@@ -6,13 +6,13 @@
 #include "net/message_handler.h"
 #include <system_error>
 
-Net::Server::Server(uint32_t port, uint8_t max_clients)
-    : port(port), max_clients(max_clients), num_connected_clients(0),
-      clients(max_clients), context(std::make_unique<asio::io_context>()),
+Net::Server::Server(u32 port, u8 max_clients)
+    : port(port), max_clients(max_clients), num_connected_clients(0), clients(),
+      context(std::make_unique<asio::io_context>()),
       socket(*context, asio::ip::udp::endpoint(asio::ip::udp::v4(), port)),
       recv_buf(1024), handler(nullptr) {
-  for (Connection &client : this->clients) {
-    client.free();
+  for (u8 client = 0; client < max_clients; client += 1) {
+    this->clients.emplace_back(Net::Connection(*this->context));
   }
 }
 
@@ -72,7 +72,7 @@ void Net::Server::accept(const asio::ip::udp::endpoint &remote) {
 }
 
 void Net::Server::deny_connection(const asio::ip::udp::endpoint &remote) {
-  Connection temp;
+  Connection temp(*this->context);
   temp.bind(remote);
 
   temp.write_connection_denied();

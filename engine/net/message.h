@@ -57,7 +57,7 @@ struct MessageHeader {
 
   // Serialize the message header into the buffer at the given offset. Returns
   // an error if the buffer does not contain enough space.
-  Err serialize_into(std::vector<u8> &buf, u32 offset);
+  Err serialize_into(std::vector<u8> &buf, u32 offset) const;
 
   static Result<MessageHeader> deserialize(const Buf<u8> &buf);
 };
@@ -73,11 +73,11 @@ struct Message {
   // invalid.
   static u32 min_required_size();
 
-  u32 packed_size();
+  u32 packed_size() const;
 
   // Serialize the complete message into the buffer at the given offset. Returns
   // an error if the buffer does not contain enough space.
-  Err serialize_into(std::vector<u8> &buf, u32 offset);
+  Err serialize_into(std::vector<u8> &buf, u32 offset) const;
 
   static Result<Message> deserialize(const Buf<u8> &buf);
 };

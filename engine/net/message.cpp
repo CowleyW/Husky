@@ -25,7 +25,7 @@ Result<Net::PacketHeader> Net::PacketHeader::deserialize(const Buf<u8> &buf) {
   return Result<Net::PacketHeader>::ok(header);
 }
 
-Err Net::MessageHeader::serialize_into(std::vector<u8> &buf, u32 offset) {
+Err Net::MessageHeader::serialize_into(std::vector<u8> &buf, u32 offset) const {
   if (buf.size() < offset + Net::MessageHeader::packed_size()) {
     return Err::err("Insufficient space to serialize message header");
   }
@@ -72,11 +72,11 @@ u32 Net::Message::min_required_size() {
   return PacketHeader::packed_size() + MessageHeader::packed_size();
 }
 
-u32 Net::Message::packed_size() {
+u32 Net::Message::packed_size() const {
   return MessageHeader::packed_size() + this->body.size();
 }
 
-Err Net::Message::serialize_into(std::vector<u8> &buf, u32 offset) {
+Err Net::Message::serialize_into(std::vector<u8> &buf, u32 offset) const {
   if (buf.size() < offset + this->packed_size()) {
     return Err::err("Insufficient space to serialize message");
   }
