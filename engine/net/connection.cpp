@@ -5,24 +5,30 @@
 #include "io/logging.h"
 #include "net/message.h"
 #include "net/message_builder.h"
+#include "net/message_handler.h"
 #include "util/err.h"
 #include "util/serialize.h"
 
-#include <memory>
 #include <random>
 #include <vector>
 
 Net::Connection::Connection(asio::io_context &context)
-    : connected(false), remote_id(0), socket(context), send_buf() {
+    : connected(false), remote_id(0), socket(context), send_buf(),
+      recv_buf(1024), handler(nullptr) {
   socket.open(asio::ip::udp::v4());
 }
+
+Net::Connection::Connection(asio::io_context &context, u32 port)
+    : connected(false), remote_id(0),
+      socket(context, asio::ip::udp::endpoint(asio::ip::udp::v4(), port)),
+      send_buf(), recv_buf(1024), handler(nullptr) {}
 
 void Net::Connection::free() {
   this->connected = false;
   this->remote_id = 0;
 }
 
-Err Net::Connection::bind(const asio::ip::udp::endpoint &remote) {
+Err Net::Connection::bind(const asio::ip::udp::endpoint &send_endpoint) {
   if (this->connected) {
     return Err::err("Client is already connected to this slot");
   }
@@ -37,9 +43,70 @@ Err Net::Connection::bind(const asio::ip::udp::endpoint &remote) {
   this->remote_id = distrib(rng);
   io::debug("New remote id {}", this->remote_id);
 
-  this->remote = remote;
+  this->send_endpoint = send_endpoint;
 
   return Err::ok();
+}
+
+void Net::Connection::register_callbacks(Net::MessageHandler *handler) {
+  this->handler = handler;
+}
+
+void Net::Connection::listen() {
+  if (!this->handler) {
+    io::fatal("No message handler is set.");
+    return;
+  }
+
+  auto on_receive = [this](const std::error_code &err, u64 size) {
+    if (!err) {
+      this->handle_receive((u32)size);
+    } else {
+      io::error("spot 2: {}", err.message());
+    }
+  };
+  this->socket.async_receive_from(asio::buffer(this->recv_buf),
+                                  this->recv_endpoint, on_receive);
+}
+
+void Net::Connection::handle_receive(u32 size) {
+  Buf<u8> buf(this->recv_buf.data(), size);
+  Err err = Net::verify_packet(buf);
+  if (err.is_error) {
+    io::error(err.msg);
+    this->listen();
+    return;
+  }
+
+  Buf<u8> trimmed_buf = buf.trim_left(Net::PacketHeader::packed_size());
+  Result<Net::Message> result = Net::Message::deserialize(trimmed_buf);
+  if (result.is_error) {
+    io::error(result.msg);
+    this->listen();
+    return;
+  }
+
+  Net::Message message = result.value;
+
+  switch (message.header.message_type) {
+  case Net::MessageType::ConnectionRequested:
+    this->handler->on_connection_requested(message, this->recv_endpoint);
+    break;
+  case Net::MessageType::ConnectionAccepted:
+    this->handler->on_connection_accepted(message);
+    break;
+  case Net::MessageType::ConnectionDenied:
+    this->handler->on_connection_denied(message);
+    break;
+  case Net::MessageType::Ping:
+    this->handler->on_ping(message);
+    break;
+  default:
+    io::error("Unknown message type");
+    break;
+  }
+
+  this->listen();
 }
 
 bool Net::Connection::is_connected() { return this->connected; }
@@ -47,7 +114,7 @@ bool Net::Connection::is_connected() { return this->connected; }
 bool Net::Connection::matches_id(u32 id) { return this->remote_id == id; }
 
 bool Net::Connection::matches_remote(const asio::ip::udp::endpoint &remote) {
-  return this->remote == remote;
+  return this->send_endpoint == remote;
 }
 
 void Net::Connection::write_message(const Net::Message &message) {
@@ -67,13 +134,15 @@ void Net::Connection::write_message(const Net::Message &message) {
 
   auto on_send = [this](const asio::error_code &err, u64 size) {
     if (err) {
-      io::error(err.message());
+      io::error("spot 3: {}", err.message());
       return;
     }
 
-    io::debug("Sent {} bytes to {}.", size, this->remote.address().to_string());
+    io::debug("Sent {} bytes to {}:{}.", size,
+              this->send_endpoint.address().to_string(),
+              this->send_endpoint.port());
   };
-  this->socket.async_send_to(asio::buffer(this->send_buf), this->remote,
+  this->socket.async_send_to(asio::buffer(this->send_buf), this->send_endpoint,
                              on_send);
 }
 

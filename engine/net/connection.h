@@ -2,6 +2,7 @@
 
 #include "asio/io_context.hpp"
 #include "message.h"
+#include "message_handler.h"
 
 #include "core/types.h"
 #include "util/err.h"
@@ -13,13 +14,17 @@ namespace Net {
 class Connection {
 public:
   Connection(asio::io_context &context);
+  Connection(asio::io_context &context, u32 port);
 
   void free();
   Err bind(const asio::ip::udp::endpoint &remote);
+  void register_callbacks(MessageHandler *handler);
+
+  void listen();
 
   bool is_connected();
   bool matches_id(u32 id);
-  bool matches_remote(const asio::ip::udp::endpoint &remote);
+  bool matches_remote(const asio::ip::udp::endpoint &send_endpoint);
   void write_message(const Message &message);
 
   void write_connection_requested();
@@ -27,13 +32,20 @@ public:
   void write_connection_denied();
 
 private:
+  void handle_receive(u32 size);
+
+private:
   bool connected;
 
   // The remote (client) endpoint that we write to
-  asio::ip::udp::endpoint remote;
+  asio::ip::udp::endpoint send_endpoint;
+  asio::ip::udp::endpoint recv_endpoint;
   asio::ip::udp::socket socket;
 
   std::vector<u8> send_buf;
+  std::vector<u8> recv_buf;
+
+  MessageHandler *handler;
 
   // We establish random remote ids since IP Adresses can be spoofed
   u32 remote_id;

@@ -10,16 +10,7 @@ void print_usage() {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 3 && argc != 4) {
-    print_usage();
-    return 1;
-  }
-
-  int server_port;
-  try {
-    server_port = std::stoi(argv[2]);
-  } catch (std::exception &e) {
-    io::error("Could not parse port {}", argv[2]);
+  if (argc < 3) {
     print_usage();
     return 1;
   }
@@ -36,17 +27,11 @@ int main(int argc, char **argv) {
 
   Result<Application *> result;
   if (is_server) {
+    int server_port = std::stoi(argv[2]);
     result = Application::create_server(server_port);
   } else {
-    int client_port;
-    try {
-      client_port = std::stoi(argv[3]);
-    } catch (std::exception &e) {
-      io::error("Could not parse port {}", argv[3]);
-      print_usage();
-      return 1;
-    }
-
+    int server_port = std::stoi(argv[2]);
+    int client_port = std::stoi(argv[3]);
     result = Application::create_client(server_port, client_port);
   }
 

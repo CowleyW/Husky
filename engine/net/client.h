@@ -34,7 +34,6 @@ private:
 
   Net::MessageHandler *handler;
 
-  asio::ip::udp::socket listening_socket;
   asio::ip::udp::endpoint remote;
 };
 
