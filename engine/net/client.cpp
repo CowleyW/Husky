@@ -34,3 +34,7 @@ void Net::Client::shutdown() {
 }
 
 void Net::Client::ping_server() { this->server_connection.write_ping(); }
+
+void Net::Client::send_inputs(const InputMap &inputs) {
+  this->server_connection.write_user_inputs(inputs);
+}

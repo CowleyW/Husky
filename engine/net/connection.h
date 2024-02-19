@@ -1,10 +1,12 @@
 #pragma once
 
 #include "asio/io_context.hpp"
+#include "io/input_map.h"
 #include "message.h"
 #include "message_handler.h"
 
 #include "core/types.h"
+#include "net/message_builder.h"
 #include "util/err.h"
 
 #include <asio.hpp>
@@ -31,9 +33,11 @@ public:
   void write_connection_accepted();
   void write_connection_denied();
   void write_ping();
+  void write_user_inputs(const InputMap &inputs);
 
 private:
   void handle_receive(u32 size);
+  Net::MessageBuilder message_scaffold(Net::MessageType type);
 
 private:
   bool connected;

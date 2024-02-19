@@ -13,7 +13,8 @@ enum class MessageType : u8 {
   ConnectionRequested = 0,
   ConnectionAccepted,
   ConnectionDenied,
-  Ping
+  Ping,
+  UserInputs
 };
 
 struct PacketHeader {
@@ -63,6 +64,8 @@ struct MessageHeader {
 };
 
 struct Message {
+  static constexpr u32 CONNECTION_REQUESTED_PADDING = 512;
+
   MessageHeader header;
 
   std::vector<u8> body;

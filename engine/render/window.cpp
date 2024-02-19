@@ -62,3 +62,11 @@ void Window::shutdown() {
 void Window::swap_buffers() { glfwSwapBuffers(this->handle); }
 
 void Window::poll_events() { glfwPollEvents(); }
+
+InputMap Window::build_input_map() {
+  bool jump = glfwGetKey(this->handle, GLFW_KEY_SPACE);
+  bool left = glfwGetKey(this->handle, GLFW_KEY_A);
+  bool right = glfwGetKey(this->handle, GLFW_KEY_D);
+
+  return {jump, left, right};
+}

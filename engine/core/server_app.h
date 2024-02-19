@@ -21,11 +21,9 @@ public:
   void on_connection_requested(const Net::Message &message,
                                const asio::ip::udp::endpoint &remote) override;
 
-  void on_connection_accepted(const Net::Message &message) override;
-
-  void on_connection_denied(const Net::Message &message) override;
-
   void on_ping(const Net::Message &message) override;
+
+  void on_user_inputs(const Net::Message &message) override;
 
 private:
   std::unique_ptr<Net::Server> server;

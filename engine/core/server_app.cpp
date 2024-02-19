@@ -1,6 +1,8 @@
 #include "server_app.h"
+#include "io/input_map.h"
 #include "io/logging.h"
 #include "net/connection.h"
+#include "net/message.h"
 #include "net/server.h"
 #include <memory>
 
@@ -24,6 +26,12 @@ void ServerApp::shutdown() {}
 
 void ServerApp::on_connection_requested(const Net::Message &message,
                                         const asio::ip::udp::endpoint &remote) {
+  if (message.body.size() != Net::Message::CONNECTION_REQUESTED_PADDING) {
+    io::error(
+        "Invalid ConnectionRequested padding: {} (actual) != {} (expected)",
+        message.body.size(), Net::Message::CONNECTION_REQUESTED_PADDING);
+    return;
+  }
   io::debug("Received ConnectionRequested");
 
   Result<Net::Connection *const> result = this->server->get_client(remote);
@@ -38,14 +46,25 @@ void ServerApp::on_connection_requested(const Net::Message &message,
   }
 }
 
-void ServerApp::on_connection_accepted(const Net::Message &message) {
-  io::debug("Received ConnectionAccepted");
-}
-
-void ServerApp::on_connection_denied(const Net::Message &message) {
-  io::debug("Received ConnectionDenied");
-}
-
 void ServerApp::on_ping(const Net::Message &message) {
   io::debug("Received Ping");
+}
+
+void ServerApp::on_user_inputs(const Net::Message &message) {
+  if (message.body.size() != InputMap::packed_size()) {
+    io::error("Invalid message body size {} (actual) != {} (expected)",
+              message.body.size(), InputMap::packed_size());
+    return;
+  }
+
+  Result<InputMap> inputs_result = InputMap::deserialize(Buf<u8>(message.body));
+  if (inputs_result.is_error) {
+    io::error(inputs_result.msg);
+    return;
+  }
+
+  InputMap inputs = inputs_result.value;
+
+  io::debug("Received UserInputs: ({}, {}, {})", inputs.press_jump,
+            inputs.press_left, inputs.press_right);
 }

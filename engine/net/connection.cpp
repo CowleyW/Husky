@@ -2,6 +2,7 @@
 
 #include "core/def.h"
 #include "crypto/checksum.h"
+#include "io/input_map.h"
 #include "io/logging.h"
 #include "net/message.h"
 #include "net/message_builder.h"
@@ -101,12 +102,21 @@ void Net::Connection::handle_receive(u32 size) {
   case Net::MessageType::Ping:
     this->handler->on_ping(message);
     break;
+  case Net::MessageType::UserInputs:
+    this->handler->on_user_inputs(message);
+    break;
   default:
     io::error("Unknown message type");
     break;
   }
 
   this->listen();
+}
+
+Net::MessageBuilder Net::Connection::message_scaffold(Net::MessageType type) {
+  return Net::MessageBuilder(type)
+      .with_ids(this->remote_id, this->sequence_id, this->message_id)
+      .with_acks(this->ack, this->ack_bitfield);
 }
 
 bool Net::Connection::is_connected() { return this->connected; }
@@ -145,42 +155,41 @@ void Net::Connection::write_message(const Net::Message &message) {
 }
 
 void Net::Connection::write_connection_requested() {
-  Net::MessageBuilder builder(Net::MessageType::ConnectionRequested);
   Net::Message message =
-      builder.with_ids(this->remote_id, this->sequence_id, this->message_id)
-          .with_acks(this->ack, this->ack_bitfield)
-          .with_padding(512)
+      this->message_scaffold(Net::MessageType::ConnectionRequested)
+          .with_padding(Net::Message::CONNECTION_REQUESTED_PADDING)
           .build();
 
   this->write_message(message);
 }
 
 void Net::Connection::write_connection_accepted() {
-  Net::MessageBuilder builder(Net::MessageType::ConnectionAccepted);
   Net::Message message =
-      builder.with_ids(this->remote_id, this->sequence_id, this->message_id)
-          .with_acks(this->ack, this->ack_bitfield)
-          .build();
+      this->message_scaffold(Net::MessageType::ConnectionAccepted).build();
 
   this->write_message(message);
 }
 
 void Net::Connection::write_connection_denied() {
-  Net::MessageBuilder builder(Net::MessageType::ConnectionDenied);
   Net::Message message =
-      builder.with_ids(this->remote_id, this->sequence_id, this->message_id)
-          .with_acks(this->ack, this->ack_bitfield)
-          .build();
+      this->message_scaffold(Net::MessageType::ConnectionDenied).build();
 
   this->write_message(message);
 }
 
 void Net::Connection::write_ping() {
-  Net::MessageBuilder builder(Net::MessageType::Ping);
-  Net::Message message =
-      builder.with_ids(this->remote_id, this->sequence_id, this->message_id)
-          .with_acks(this->ack, this->ack_bitfield)
-          .build();
+  Net::Message message = this->message_scaffold(Net::MessageType::Ping).build();
+
+  this->write_message(message);
+}
+
+void Net::Connection::write_user_inputs(const InputMap &inputs) {
+  std::vector<u8> input_map(InputMap::packed_size());
+  inputs.serialize_into(input_map, 0);
+
+  Net::Message message = this->message_scaffold(Net::MessageType::UserInputs)
+                             .with_body(input_map)
+                             .build();
 
   this->write_message(message);
 }

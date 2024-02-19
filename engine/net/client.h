@@ -20,6 +20,7 @@ public:
   void shutdown();
 
   void ping_server();
+  void send_inputs(const InputMap &inputs);
 
 private:
   void start_receive();

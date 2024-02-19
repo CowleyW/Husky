@@ -18,8 +18,9 @@ add_library(engine
   engine/crypto/checksum.h engine/crypto/checksum.cpp
 
   # I/O
-  engine/io/logging.h
   engine/io/files.h engine/io/files.cpp
+  engine/io/input_map.h engine/io/input_map.cpp
+  engine/io/logging.h
   
   #Net
   engine/net/client.h engine/net/client.cpp

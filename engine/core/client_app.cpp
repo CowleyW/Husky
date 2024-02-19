@@ -1,6 +1,7 @@
 #include "client_app.h"
 
 #include "GLFW/glfw3.h"
+#include "io/input_map.h"
 #include "io/logging.h"
 #include "render/window.h"
 #include "util/err.h"
@@ -43,9 +44,10 @@ Err ClientApp::run() {
     accumulator += frame_time;
 
     this->window.poll_events();
+    InputMap inputs = this->window.build_input_map();
 
     while (accumulator >= dt) {
-      this->network_update();
+      this->network_update(inputs);
 
       accumulator -= dt;
     }
@@ -85,4 +87,6 @@ void ClientApp::on_ping(const Net::Message &message) {
   io::debug("Received Ping");
 }
 
-void ClientApp::network_update() { this->client->ping_server(); }
+void ClientApp::network_update(const InputMap &inputs) {
+  this->client->send_inputs(inputs);
+}

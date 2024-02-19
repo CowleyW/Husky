@@ -30,7 +30,7 @@ public:
   void on_ping(const Net::Message &message) override;
 
 private:
-  void network_update();
+  void network_update(const InputMap &inputs);
 
 private:
   Window window;
