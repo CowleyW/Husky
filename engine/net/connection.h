@@ -30,6 +30,7 @@ public:
   void write_connection_requested();
   void write_connection_accepted();
   void write_connection_denied();
+  void write_ping();
 
 private:
   void handle_receive(u32 size);

@@ -32,3 +32,5 @@ void Net::Client::shutdown() {
   this->context->stop();
   this->context_thread.join();
 }
+
+void Net::Client::ping_server() { this->server_connection.write_ping(); }

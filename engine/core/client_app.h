@@ -30,6 +30,9 @@ public:
   void on_ping(const Net::Message &message) override;
 
 private:
+  void network_update();
+
+private:
   Window window;
   Context context;
 

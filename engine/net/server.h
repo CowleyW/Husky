@@ -38,7 +38,8 @@ private:
   std::vector<Connection> clients;
 
   std::unique_ptr<asio::io_context> context;
-  asio::ip::udp::socket socket;
+  // asio::ip::udp::socket socket;
+  Connection listener;
   asio::ip::udp::endpoint remote;
 
   std::thread context_thread;

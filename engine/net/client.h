@@ -19,6 +19,8 @@ public:
   void begin();
   void shutdown();
 
+  void ping_server();
+
 private:
   void start_receive();
   void handle_receive(u64 size);

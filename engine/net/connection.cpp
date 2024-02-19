@@ -119,9 +119,7 @@ bool Net::Connection::matches_remote(const asio::ip::udp::endpoint &remote) {
 
 void Net::Connection::write_message(const Net::Message &message) {
   u32 message_size = message.packed_size() + Net::PacketHeader::packed_size();
-  if (this->send_buf.size() < message_size) {
-    this->send_buf.resize(message_size);
-  }
+  this->send_buf.resize(message_size);
   message.serialize_into(this->send_buf, PacketHeader::packed_size());
 
   // Serialize the protocol ID
@@ -134,7 +132,7 @@ void Net::Connection::write_message(const Net::Message &message) {
 
   auto on_send = [this](const asio::error_code &err, u64 size) {
     if (err) {
-      io::error("spot 3: {}", err.message());
+      io::error(err.message());
       return;
     }
 
@@ -169,6 +167,16 @@ void Net::Connection::write_connection_accepted() {
 
 void Net::Connection::write_connection_denied() {
   Net::MessageBuilder builder(Net::MessageType::ConnectionDenied);
+  Net::Message message =
+      builder.with_ids(this->remote_id, this->sequence_id, this->message_id)
+          .with_acks(this->ack, this->ack_bitfield)
+          .build();
+
+  this->write_message(message);
+}
+
+void Net::Connection::write_ping() {
+  Net::MessageBuilder builder(Net::MessageType::Ping);
   Net::Message message =
       builder.with_ids(this->remote_id, this->sequence_id, this->message_id)
           .with_acks(this->ack, this->ack_bitfield)

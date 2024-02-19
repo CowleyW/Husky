@@ -1,5 +1,6 @@
 #include "client_app.h"
 
+#include "GLFW/glfw3.h"
 #include "io/logging.h"
 #include "render/window.h"
 #include "util/err.h"
@@ -30,8 +31,24 @@ Err ClientApp::run() {
   this->client->begin();
   io::debug("started client");
 
+  double prev_time = glfwGetTime();
+  double accumulator = 0.0;
+  const double dt = 0.1;
+
   while (this->running) {
+    double now = glfwGetTime();
+    double frame_time = now - prev_time;
+    prev_time = now;
+
+    accumulator += frame_time;
+
     this->window.poll_events();
+
+    while (accumulator >= dt) {
+      this->network_update();
+
+      accumulator -= dt;
+    }
 
     this->context.clear();
     this->context.render();
@@ -67,3 +84,5 @@ void ClientApp::on_connection_denied(const Net::Message &message) {
 void ClientApp::on_ping(const Net::Message &message) {
   io::debug("Received Ping");
 }
+
+void ClientApp::network_update() { this->client->ping_server(); }
