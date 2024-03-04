@@ -15,14 +15,16 @@
 
 Net::Connection::Connection(asio::io_context &context)
     : connected(false), remote_id(0), socket(context), send_buf(),
-      recv_buf(1024), handler(nullptr) {
+      recv_buf(1024), handler(nullptr), ack(0), ack_bitfield(0), message_id(0),
+      sequence_id(0) {
   socket.open(asio::ip::udp::v4());
 }
 
 Net::Connection::Connection(asio::io_context &context, u32 port)
     : connected(false), remote_id(0),
       socket(context, asio::ip::udp::endpoint(asio::ip::udp::v4(), port)),
-      send_buf(), recv_buf(1024), handler(nullptr) {}
+      send_buf(), recv_buf(1024), handler(nullptr), ack(0), ack_bitfield(0),
+      message_id(0), sequence_id(0) {}
 
 void Net::Connection::free() {
   this->connected = false;
@@ -116,7 +118,8 @@ void Net::Connection::handle_receive(u32 size) {
 Net::MessageBuilder Net::Connection::message_scaffold(Net::MessageType type) {
   return Net::MessageBuilder(type)
       .with_ids(this->remote_id, this->sequence_id, this->message_id)
-      .with_acks(this->ack, this->ack_bitfield);
+      .with_acks(this->ack, this->ack_bitfield)
+      .with_padding(0);
 }
 
 bool Net::Connection::is_connected() { return this->connected; }
@@ -190,6 +193,7 @@ void Net::Connection::write_user_inputs(const InputMap &inputs) {
   Net::Message message = this->message_scaffold(Net::MessageType::UserInputs)
                              .with_body(input_map)
                              .build();
+  io::debug("message body: {}", message.body[0]);
 
   this->write_message(message);
 }

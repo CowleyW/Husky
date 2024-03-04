@@ -60,9 +60,13 @@ Net::Message Net::MessageBuilder::build() {
       this->type,
       (u32)this->body.size() + this->padding};
 
-  Net::Message message = {header, std::vector<u8>(header.body_size)};
+  std::vector<u8> message_body;
+  message_body.resize(header.body_size);
+  Net::Message message = {header, message_body};
 
-  std::memcpy(&message.body[0], &this->body[0], this->body.size());
+  if (this->body.size() != 0) {
+    std::memcpy(&message.body[0], &this->body[0], this->body.size());
+  }
 
   return message;
 }

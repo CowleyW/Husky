@@ -87,7 +87,9 @@ Err Net::Message::serialize_into(std::vector<u8> &buf, u32 offset) const {
   offset += Net::MessageHeader::packed_size();
 
   // Copy the message body into the buffer
-  std::memcpy(&buf[offset], &this->body[0], this->body.size());
+  if (this->body.size() != 0) {
+    std::memcpy(&buf[offset], &this->body[0], this->body.size());
+  }
 
   return Err::ok();
 }
@@ -105,7 +107,9 @@ Result<Net::Message> Net::Message::deserialize(const Buf<u8> &buf) {
   }
 
   std::vector<u8> body(header.body_size);
-  std::memcpy(&body[0], buf.data() + header.packed_size(), header.body_size);
+  if (body.size() != 0) {
+    std::memcpy(&body[0], buf.data() + header.packed_size(), header.body_size);
+  }
 
   Net::Message message = {header, body};
 

@@ -6,7 +6,7 @@
 template <typename T> struct Buf {
 public:
   Buf(const T *inner_data, u32 size) : inner_data(inner_data), count(size) {}
-  Buf(const std::vector<u8> buf) : inner_data(buf.data()), count(buf.size()) {}
+  Buf(const std::vector<T> &buf) : inner_data(buf.data()), count(buf.size()) {}
 
   Buf<T> trim_left(u32 amount) const {
     return Buf<T>(this->inner_data + amount, this->count - amount);

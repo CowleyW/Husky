@@ -4,6 +4,7 @@
 #include "core/types.h"
 
 #include "connection.h"
+#include "listener.h"
 #include "net/message_handler.h"
 
 #include <asio.hpp>
@@ -27,10 +28,6 @@ public:
   void deny_connection(const asio::ip::udp::endpoint &remote);
 
 private:
-  void start_receive();
-  void handle_receive(u64 size);
-
-private:
   u32 port;
 
   u8 max_clients;
@@ -39,7 +36,7 @@ private:
 
   std::unique_ptr<asio::io_context> context;
   // asio::ip::udp::socket socket;
-  Connection listener;
+  Listener listener;
   asio::ip::udp::endpoint remote;
 
   std::thread context_thread;

@@ -4,6 +4,7 @@
 #include "render/callback_handler.h"
 #include "render/gl_types.h"
 #include "util/err.h"
+#include "io/logging.h"
 
 #include <GLFW/glfw3.h>
 #include <glad/gl.h>
@@ -16,7 +17,7 @@ Err Window::init(Dimensions dimensions) {
   }
 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
   this->handle =

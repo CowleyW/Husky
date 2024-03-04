@@ -1,5 +1,7 @@
 #include "input_map.h"
 
+#include "io/logging.h"
+
 Err InputMap::serialize_into(std::vector<u8> &buf, u32 offset) const {
   u8 input_mask = 0;
   input_mask += this->press_jump ? 1 : 0;
