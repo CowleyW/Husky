@@ -1,8 +1,9 @@
 #pragma once
 
 #include "core/types.h"
-#include "net/connection.h"
-#include "net/message_handler.h"
+#include "message_handler.h"
+#include "listener.h"
+#include "sender.h"
 
 #include <asio.hpp>
 
@@ -23,21 +24,15 @@ public:
   void send_inputs(const InputMap &inputs);
 
 private:
-  void start_receive();
-  void handle_receive(u64 size);
-
-private:
   std::unique_ptr<asio::io_context> context;
-  asio::ip::udp::endpoint server_endpoint;
 
-  Connection server_connection;
+  std::unique_ptr<Listener> listener;
+  std::unique_ptr<Sender> sender;
 
   std::thread context_thread;
   std::array<u8, 1024> recv_buf;
 
   Net::MessageHandler *handler;
-
-  asio::ip::udp::endpoint remote;
 };
 
 } // namespace Net

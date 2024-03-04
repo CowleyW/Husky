@@ -21,7 +21,7 @@ void Net::Listener::listen() {
     io::fatal("No message handler is set.");
     return;
   }
-
+  
   auto on_receive = [this](const std::error_code &err, u64 size) {
     if (!err) {
       this->handle_receive((u32)size);

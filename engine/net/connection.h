@@ -18,7 +18,7 @@ public:
   Connection(asio::io_context &context);
   Connection(asio::io_context &context, u32 port);
 
-  void free();
+  void free(); 
   Err bind(const asio::ip::udp::endpoint &remote);
   void register_callbacks(MessageHandler *handler);
 
