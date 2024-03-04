@@ -18,7 +18,7 @@ Net::Client::Client(u32 server_port, u32 client_port)
   auto socket = std::make_shared<asio::ip::udp::socket>(
       *context, asio::ip::udp::endpoint(asio::ip::udp::v4(), client_port));
   this->listener = std::make_unique<Net::Listener>(socket);
-  this->sender = std::make_unique<Net::Sender>(socket, server_endpoint);
+  this->sender = std::make_unique<Net::Sender>(socket, server_endpoint, 0);
 }
 
 void Net::Client::begin() {

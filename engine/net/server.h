@@ -3,7 +3,7 @@
 #include "asio/io_context.hpp"
 #include "core/types.h"
 
-#include "connection.h"
+#include "client_slot.h"
 #include "listener.h"
 #include "net/message_handler.h"
 
@@ -22,8 +22,8 @@ public:
 
   void register_callbacks(Net::MessageHandler *handler);
 
-  Result<Connection *const> get_client(const asio::ip::udp::endpoint &remote);
-  bool has_open_client();
+  std::optional<ClientSlot *const> get_client(const asio::ip::udp::endpoint &remote);
+  bool has_open_slot();
   void accept(const asio::ip::udp::endpoint &remote);
   void deny_connection(const asio::ip::udp::endpoint &remote);
 
@@ -32,11 +32,12 @@ private:
 
   u8 max_clients;
   u8 num_connected_clients;
-  std::vector<Connection> clients;
+  std::vector<ClientSlot> clients;
 
   std::unique_ptr<asio::io_context> context;
   // asio::ip::udp::socket socket;
   Listener listener;
+  Sender denier;
   asio::ip::udp::endpoint remote;
 
   std::thread context_thread;

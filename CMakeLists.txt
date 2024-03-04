@@ -24,7 +24,8 @@ add_library(engine
   
   #Net
   engine/net/client.h engine/net/client.cpp
-  engine/net/connection.h engine/net/connection.cpp
+  engine/net/client_slot.h engine/net/client_slot.cpp
+  # engine/net/connection.h engine/net/connection.cpp
   engine/net/listener.h engine/net/listener.cpp
   engine/net/sender.h engine/net/sender.cpp
   # engine/net/connection.h engine/net/connection.cpp

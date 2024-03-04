@@ -3,18 +3,30 @@
 #include "io/input_map.h"
 
 #include <asio.hpp>
-#include <util/serialize.h>
 #include <core/def.h>
 #include <crypto/checksum.h>
 #include <io/logging.h>
+#include <util/serialize.h>
 
 Net::Sender::Sender(std::shared_ptr<asio::ip::udp::socket> socket,
-                    asio::ip::udp::endpoint endpoint)
-    : socket(socket), send_endpoint(endpoint), send_buf(0) {}
+                    asio::ip::udp::endpoint endpoint, u32 remote_id)
+    : socket(socket), send_endpoint(endpoint), send_buf(0),
+      remote_id(remote_id), ack(0), ack_bitfield(0), sequence_id(0),
+      message_id(0) {}
+
 Net::Sender::Sender(asio::io_context &context, u32 port,
                     asio::ip::udp::endpoint endpoint)
-    : socket(std::make_shared<asio::ip::udp::socket>(context, asio::ip::udp::endpoint(asio::ip::udp::v4(), port))),
-      send_endpoint(endpoint), send_buf(0) {}
+    : socket(std::make_shared<asio::ip::udp::socket>(
+          context, asio::ip::udp::endpoint(asio::ip::udp::v4(), port))),
+      send_endpoint(endpoint), send_buf(0), remote_id(0), ack(0),
+      ack_bitfield(0), sequence_id(0), message_id(0) {}
+
+Net::Sender::Sender(asio::io_context &context)
+    : socket(std::make_shared<asio::ip::udp::socket>(context)), send_buf(0),
+      remote_id(0), ack(0), ack_bitfield(0), sequence_id(0),
+      message_id(0) {
+  this->socket->open(asio::ip::udp::v4());
+}
 
 void Net::Sender::write_connection_requested() {
   Net::Message message =
@@ -45,16 +57,31 @@ void Net::Sender::write_ping() {
   this->write_message(message);
 }
 
-void Net::Sender::write_user_inputs(const InputMap& inputs) {
+void Net::Sender::write_user_inputs(const InputMap &inputs) {
   std::vector<u8> input_map(InputMap::packed_size());
   inputs.serialize_into(input_map, 0);
 
   Net::Message message = this->message_scaffold(Net::MessageType::UserInputs)
                              .with_body(input_map)
                              .build();
-  io::debug("message body: {}", message.body[0]);
 
   this->write_message(message);
+}
+
+void Net::Sender::bind(const asio::ip::udp::endpoint &endpoint, u32 remote_id) {
+  this->send_endpoint = endpoint;
+
+  this->remote_id = remote_id;
+
+  this->ack = 0;
+  this->ack_bitfield = 0;
+
+  this->message_id = 0;
+  this->sequence_id = 0;
+}
+
+bool Net::Sender::connected_to(const asio::ip::udp::endpoint &endpoint) {
+  return this->send_endpoint == endpoint;
 }
 
 Net::MessageBuilder Net::Sender::message_scaffold(Net::MessageType type) {
@@ -88,7 +115,7 @@ void Net::Sender::write_message(const Net::Message &message) {
               this->send_endpoint.port());
   };
   this->socket->async_send_to(asio::buffer(this->send_buf), this->send_endpoint,
-                             on_send);
+                              on_send);
 
   this->sequence_id += 1;
   this->message_id += 1;

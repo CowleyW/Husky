@@ -2,9 +2,9 @@
 
 #include "core/types.h"
 
-#include "message_handler.h"
-#include "message_builder.h"
 #include "io/input_map.h"
+#include "message_builder.h"
+#include "message_handler.h"
 
 #include <asio.hpp>
 
@@ -12,14 +12,20 @@ namespace Net {
 
 class Sender {
 public:
-  Sender(std::shared_ptr<asio::ip::udp::socket> socket, asio::ip::udp::endpoint endpoint);
+  Sender(std::shared_ptr<asio::ip::udp::socket> socket,
+         asio::ip::udp::endpoint endpoint, u32 remote_id);
   Sender(asio::io_context &context, u32 port, asio::ip::udp::endpoint endpoint);
+  Sender(asio::io_context &context);
 
   void write_connection_requested();
   void write_connection_accepted();
   void write_connection_denied();
   void write_ping();
   void write_user_inputs(const InputMap &inputs);
+
+  void bind(const asio::ip::udp::endpoint &endpoint, u32 remote_id);
+
+  bool connected_to(const asio::ip::udp::endpoint &endpoint);
 
 private:
   MessageBuilder message_scaffold(Net::MessageType type);

@@ -1,7 +1,6 @@
 #include "server_app.h"
 #include "io/input_map.h"
 #include "io/logging.h"
-#include "net/connection.h"
 #include "net/message.h"
 #include "net/server.h"
 #include <memory>
@@ -34,12 +33,12 @@ void ServerApp::on_connection_requested(const Net::Message &message,
   }
   io::debug("Received ConnectionRequested");
 
-  Result<Net::Connection *const> result = this->server->get_client(remote);
-  if (!result.is_error) {
+  std::optional<Net::ClientSlot *const> result = this->server->get_client(remote);
+  if (result.has_value()) {
     io::debug("Client already connected.");
-    Net::Connection *const connection = result.value;
-    connection->write_connection_accepted();
-  } else if (this->server->has_open_client()) {
+    Net::ClientSlot *const connection = result.value();
+    connection->get_sender().write_connection_accepted();
+  } else if (this->server->has_open_slot()) {
     this->server->accept(remote);
   } else {
     this->server->deny_connection(remote);
