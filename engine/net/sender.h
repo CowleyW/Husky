@@ -18,14 +18,17 @@ public:
   Sender(asio::io_context &context);
 
   void write_connection_requested();
-  void write_connection_accepted();
+  void write_connection_accepted(u32 remote_id);
   void write_connection_denied();
   void write_ping();
   void write_user_inputs(const InputMap &inputs);
 
   void bind(const asio::ip::udp::endpoint &endpoint, u32 remote_id);
+  void set_remote_id(u32 remote_id);
 
   bool connected_to(const asio::ip::udp::endpoint &endpoint);
+  bool matches_id(u32 remote);
+  u32 get_remote_id();
 
 private:
   MessageBuilder message_scaffold(Net::MessageType type);

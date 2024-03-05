@@ -24,5 +24,6 @@ if __name__ == "__main__":
 
     git_clone("git@github.com:catchorg/Catch2.git", "Catch2", args.clean)
     git_clone("git@github.com:glfw/glfw.git", "glfw", args.clean)
+    git_clone("git@github.com:g-truc/glm.git", "glm", args.clean)
     git_clone("git@github.com:fmtlib/fmt.git", "fmt", args.clean)
     git_clone("git@github.com:chriskohlhoff/asio.git", "asio", args.clean)

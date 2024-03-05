@@ -7,7 +7,7 @@
 #include "types.h"
 #include "util/err.h"
 
-class ServerApp : public Application, Net::MessageHandler {
+class ServerApp : public Application {
 public:
   ServerApp(u32 port);
 
@@ -16,14 +16,8 @@ public:
   Err run() override;
   void shutdown() override;
 
-public:
-  // Methods inherited from MessageHandler
-  void on_connection_requested(const Net::Message &message,
-                               const asio::ip::udp::endpoint &remote) override;
-
-  void on_ping(const Net::Message &message) override;
-
-  void on_user_inputs(const Net::Message &message) override;
+private:
+  void handle_message(const Net::Message &message);
 
 private:
   std::unique_ptr<Net::Server> server;

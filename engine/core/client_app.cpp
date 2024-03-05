@@ -5,6 +5,7 @@
 #include "io/logging.h"
 #include "render/window.h"
 #include "util/err.h"
+#include "util/serialize.h"
 
 ClientApp::ClientApp(u32 server_port, u32 client_port)
     : client(std::make_shared<Net::Client>(server_port, client_port)) {}
@@ -77,6 +78,11 @@ void ClientApp::on_window_close() {
 
 void ClientApp::on_connection_accepted(const Net::Message &message) {
   io::debug("Received ConnectionAccepted");
+
+  u32 remote_id = Serialize::deserialize_u32(MutBuf<u8>(message.body));
+  io::debug("New remote id: {}.", remote_id);
+
+  this->client->set_remote_id(remote_id);
 }
 
 void ClientApp::on_connection_denied(const Net::Message &message) {

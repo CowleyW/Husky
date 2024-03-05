@@ -37,9 +37,13 @@ void Net::Sender::write_connection_requested() {
   this->write_message(message);
 }
 
-void Net::Sender::write_connection_accepted() {
+void Net::Sender::write_connection_accepted(u32 remote_id) {
+  std::vector<u8> body(4);
+  Serialize::serialize_u32(remote_id, body, 0);
   Net::Message message =
-      this->message_scaffold(Net::MessageType::ConnectionAccepted).build();
+      this->message_scaffold(Net::MessageType::ConnectionAccepted)
+          .with_body(body)
+          .build();
 
   this->write_message(message);
 }
@@ -80,9 +84,17 @@ void Net::Sender::bind(const asio::ip::udp::endpoint &endpoint, u32 remote_id) {
   this->sequence_id = 0;
 }
 
+void Net::Sender::set_remote_id(u32 remote_id) { this->remote_id = remote_id; }
+
 bool Net::Sender::connected_to(const asio::ip::udp::endpoint &endpoint) {
   return this->send_endpoint == endpoint;
 }
+
+bool Net::Sender::matches_id(u32 remote_id) {
+  return this->remote_id == remote_id;
+}
+
+u32 Net::Sender::get_remote_id() { return this->remote_id; }
 
 Net::MessageBuilder Net::Sender::message_scaffold(Net::MessageType type) {
   return Net::MessageBuilder(type)

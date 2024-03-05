@@ -43,3 +43,7 @@ void Net::Client::ping_server() { this->sender->write_ping(); }
 void Net::Client::send_inputs(const InputMap &inputs) {
   this->sender->write_user_inputs(inputs);
 }
+
+void Net::Client::set_remote_id(u32 remote_id) {
+  this->sender->set_remote_id(remote_id);
+}

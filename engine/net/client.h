@@ -23,6 +23,8 @@ public:
   void ping_server();
   void send_inputs(const InputMap &inputs);
 
+  void set_remote_id(u32 remote_id);
+
 private:
   std::unique_ptr<asio::io_context> context;
 
