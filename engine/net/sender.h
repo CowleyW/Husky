@@ -30,6 +30,14 @@ public:
   bool matches_id(u32 remote);
   u32 get_remote_id();
 
+  /**
+   * Updates the sender's acks based on the sequence id of the message
+   * that has been received.
+   * 
+   * @return true iff the sequence id was updated (the message is not out of date)
+   */
+  bool update_acks(u32 sequence_id);
+
 private:
   MessageBuilder message_scaffold(Net::MessageType type);
   void write_message(const Message &message);

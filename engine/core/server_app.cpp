@@ -29,6 +29,8 @@ Err ServerApp::run() {
 void ServerApp::shutdown() {}
 
 void ServerApp::handle_message(const Net::Message &message) {
+  io::debug("[s_id: {}] [ack: {} | bits: {:b}]", message.header.sequence_id,
+            message.header.ack, message.header.ack_bitfield);
   switch (message.header.message_type) {
   case Net::MessageType::Ping:
     io::debug("Received ping from {}.", message.header.remote_id);

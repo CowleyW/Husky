@@ -23,8 +23,7 @@ Net::Sender::Sender(asio::io_context &context, u32 port,
 
 Net::Sender::Sender(asio::io_context &context)
     : socket(std::make_shared<asio::ip::udp::socket>(context)), send_buf(0),
-      remote_id(0), ack(0), ack_bitfield(0), sequence_id(0),
-      message_id(0) {
+      remote_id(0), ack(0), ack_bitfield(0), sequence_id(0), message_id(0) {
   this->socket->open(asio::ip::udp::v4());
 }
 
@@ -95,6 +94,19 @@ bool Net::Sender::matches_id(u32 remote_id) {
 }
 
 u32 Net::Sender::get_remote_id() { return this->remote_id; }
+
+bool Net::Sender::update_acks(u32 sequence_id) {
+  if (this->ack < sequence_id) {
+    u32 diff = sequence_id - this->ack;
+
+    this->ack = sequence_id;
+    this->ack_bitfield = (this->ack_bitfield << diff) + 1;
+
+    return true;
+  } else {
+    return false;
+  }
+}
 
 Net::MessageBuilder Net::Sender::message_scaffold(Net::MessageType type) {
   return Net::MessageBuilder(type)

@@ -8,15 +8,14 @@
 #include <memory>
 
 Net::Client::Client(u32 server_port, u32 client_port)
-    : context(std::make_unique<asio::io_context>()),
-      handler(nullptr) {
-  asio::ip::udp::resolver resolver(*this->context);
-  asio::ip::udp::endpoint server_endpoint = *resolver
-                               .resolve(asio::ip::udp::v4(), "127.0.0.1",
-                                        fmt::format("{}", server_port))
-                               .begin();
-  auto socket = std::make_shared<asio::ip::udp::socket>(
-      *context, asio::ip::udp::endpoint(asio::ip::udp::v4(), client_port));
+    : context(std::make_unique<asio::io_context>()), handler(nullptr) {
+  using udp = asio::ip::udp;
+  udp::resolver resolver(*this->context);
+  udp::endpoint server_endpoint =
+      *resolver.resolve(udp::v4(), "127.0.0.1", fmt::format("{}", server_port))
+           .begin();
+  auto socket = std::make_shared<udp::socket>(
+      *context, udp::endpoint(udp::v4(), client_port));
   this->listener = std::make_unique<Net::Listener>(socket);
   this->sender = std::make_unique<Net::Sender>(socket, server_endpoint, 0);
 }

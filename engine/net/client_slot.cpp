@@ -37,5 +37,7 @@ std::optional<Net::Message> Net::ClientSlot::next_message() {
 }
 
 void Net::ClientSlot::add_message(const Net::Message &message) {
-  this->message_queue.push(message);
+  if (this->sender->update_acks(message.header.sequence_id)) {
+    this->message_queue.push(message);
+  }
 }
