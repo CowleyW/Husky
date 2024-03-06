@@ -7,7 +7,7 @@
 #include "render/context.h"
 #include "render/window.h"
 
-class ClientApp : public Application, CallbackHandler, Net::MessageHandler {
+class ClientApp : public Application, CallbackHandler {
 public:
   ClientApp(u32 server_port, u32 client_port);
 
@@ -21,16 +21,16 @@ public:
   void on_window_resize(Dimensions dimensions) override;
   void on_window_close() override;
 
-public:
-  // Methods inherited from MessageHandler
-  void on_connection_accepted(const Net::Message &message) override;
-
-  void on_connection_denied(const Net::Message &message) override;
-
-  void on_ping(const Net::Message &message) override;
-
 private:
+  void on_connection_accepted(const Net::Message &message);
+
+  void on_connection_denied(const Net::Message &message);
+
+  void on_ping(const Net::Message &message);
+
   void network_update(const InputMap &inputs);
+  void poll_network();
+  void handle_message(const Net::Message &message);
 
 private:
   Window window;
@@ -39,5 +39,4 @@ private:
   std::shared_ptr<Net::Client> client;
 
   bool running = false;
-  u32 port;
 };

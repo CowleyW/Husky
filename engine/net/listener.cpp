@@ -52,26 +52,7 @@ void Net::Listener::handle_receive(u32 size) {
 
   Net::Message message = result.value;
 
-  switch (message.header.message_type) {
-  case Net::MessageType::ConnectionRequested:
-    this->handler->on_connection_requested(message, this->recv_endpoint);
-    break;
-  case Net::MessageType::ConnectionAccepted:
-    this->handler->on_connection_accepted(message);
-    break;
-  case Net::MessageType::ConnectionDenied:
-    this->handler->on_connection_denied(message);
-    break;
-  case Net::MessageType::Ping:
-    this->handler->on_ping(message);
-    break;
-  case Net::MessageType::UserInputs:
-    this->handler->on_user_inputs(message);
-    break;
-  default:
-    io::error("Unknown message type");
-    break;
-  }
+  this->handler->on_message(message, this->recv_endpoint);
 
   this->listen();
 }

@@ -1,14 +1,15 @@
 #include "client.h"
 #include "fmt/format.h"
 #include "io/logging.h"
-#include "net/message_handler.h"
+#include "message_handler.h"
+#include "util/serialize.h"
 
 #include <asio.hpp>
 
 #include <memory>
 
 Net::Client::Client(u32 server_port, u32 client_port)
-    : context(std::make_unique<asio::io_context>()), handler(nullptr) {
+    : context(std::make_unique<asio::io_context>()), connected(false) {
   using udp = asio::ip::udp;
   udp::resolver resolver(*this->context);
   udp::endpoint server_endpoint =
@@ -24,12 +25,10 @@ void Net::Client::begin() {
   io::debug("Beginning client.");
   this->context_thread = std::thread([this]() { this->context->run(); });
 
+  this->listener->register_callbacks(this);
   this->listener->listen();
-  this->sender->write_connection_requested();
-}
 
-void Net::Client::register_callbacks(Net::MessageHandler *handler) {
-  this->listener->register_callbacks(handler);
+  this->sender->write_connection_requested();
 }
 
 void Net::Client::shutdown() {
@@ -43,6 +42,44 @@ void Net::Client::send_inputs(const InputMap &inputs) {
   this->sender->write_user_inputs(inputs);
 }
 
-void Net::Client::set_remote_id(u32 remote_id) {
-  this->sender->set_remote_id(remote_id);
+bool Net::Client::is_connected() { return this->connected; }
+
+std::optional<Net::Message> Net::Client::next_message() {
+  if (!this->messages.empty()) {
+    Net::Message ret = this->messages.front();
+    this->messages.pop();
+
+    return ret;
+  } else {
+    return {};
+  }
+}
+
+void Net::Client::on_connection_accepted(
+    const Net::Message &message, const asio::ip::udp::endpoint &remote) {
+  if (message.body.size() != Net::Message::CONNECTION_ACCEPTED_BODY_SIZE) {
+    io::error(
+        "Invalid ConnectionAccepted size: {} (actual) != {} (expected)",
+        message.body.size(), Net::Message::CONNECTION_ACCEPTED_BODY_SIZE);
+    return;
+  }
+
+  if (!this->connected) {
+    this->connected = true;
+
+    u32 remote_id = Serialize::deserialize_u32(MutBuf<u8>(message.body));
+    this->sender->set_remote_id(remote_id);
+  }
+
+  this->messages.push(message);
+}
+
+void Net::Client::on_connection_denied(const Net::Message &message,
+                                       const asio::ip::udp::endpoint &remote) {
+  this->messages.push(message);
+}
+
+void Net::Client::on_ping(const Net::Message &message,
+                          const asio::ip::udp::endpoint &remote) {
+  this->messages.push(message);
 }

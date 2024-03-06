@@ -14,7 +14,7 @@ enum class MessageType : u8 {
   ConnectionAccepted,
   ConnectionDenied,
   Ping,
-  UserInputs
+  ClientInputs
 };
 
 struct PacketHeader {
@@ -65,6 +65,10 @@ struct MessageHeader {
 
 struct Message {
   static constexpr u32 CONNECTION_REQUESTED_PADDING = 512;
+
+  // The body for a connection accepted message should contain only the new
+  // remote id for the client to use (for now)
+  static constexpr u32 CONNECTION_ACCEPTED_BODY_SIZE = 4;
 
   MessageHeader header;
 

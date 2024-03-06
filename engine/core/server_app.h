@@ -18,6 +18,7 @@ public:
 
 private:
   void handle_message(const Net::Message &message);
+  void poll_network();
 
 private:
   std::unique_ptr<Net::Server> server;

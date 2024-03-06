@@ -1,11 +1,12 @@
 #include "client_app.h"
 
-#include "GLFW/glfw3.h"
 #include "io/input_map.h"
 #include "io/logging.h"
 #include "render/window.h"
 #include "util/err.h"
 #include "util/serialize.h"
+
+#include <chrono>
 
 ClientApp::ClientApp(u32 server_port, u32 client_port)
     : client(std::make_shared<Net::Client>(server_port, client_port)) {}
@@ -22,7 +23,6 @@ Err ClientApp::init() {
   }
 
   this->window.register_callbacks(this);
-  this->client->register_callbacks(this);
 
   return Err::ok();
 }
@@ -33,13 +33,16 @@ Err ClientApp::run() {
   this->client->begin();
   io::debug("started client");
 
-  double prev_time = glfwGetTime();
-  double accumulator = 0.0;
-  const double dt = 0.1;
+  // Time in nanoseconds
+  using namespace std::literals::chrono_literals;
+  constexpr std::chrono::nanoseconds dt(100ms);
+
+  std::chrono::nanoseconds accumulator(0ns);
+  auto prev_time = std::chrono::steady_clock::now();
 
   while (this->running) {
-    double now = glfwGetTime();
-    double frame_time = now - prev_time;
+    auto now = std::chrono::steady_clock::now();
+    auto frame_time = now - prev_time;
     prev_time = now;
 
     accumulator += frame_time;
@@ -48,9 +51,10 @@ Err ClientApp::run() {
     InputMap inputs = this->window.build_input_map();
 
     while (accumulator >= dt) {
-      this->network_update(inputs);
-
       accumulator -= dt;
+
+      this->poll_network();
+      this->network_update(inputs);
     }
 
     this->context.clear();
@@ -78,11 +82,6 @@ void ClientApp::on_window_close() {
 
 void ClientApp::on_connection_accepted(const Net::Message &message) {
   io::debug("Received ConnectionAccepted");
-
-  u32 remote_id = Serialize::deserialize_u32(MutBuf<u8>(message.body));
-  io::debug("New remote id: {}.", remote_id);
-
-  this->client->set_remote_id(remote_id);
 }
 
 void ClientApp::on_connection_denied(const Net::Message &message) {
@@ -94,5 +93,38 @@ void ClientApp::on_ping(const Net::Message &message) {
 }
 
 void ClientApp::network_update(const InputMap &inputs) {
-  this->client->send_inputs(inputs);
+  if (this->client->is_connected()) {
+    this->client->send_inputs(inputs);
+  }
+}
+
+void ClientApp::poll_network() {
+  while (true) {
+    auto maybe = this->client->next_message();
+
+    if (maybe.has_value()) {
+      this->handle_message(maybe.value());
+    } else {
+      break;
+    }
+  }
+}
+
+void ClientApp::handle_message(const Net::Message &message) {
+  io::debug("[s_id: {}] [ack: {} | bits: {:b}]", message.header.sequence_id,
+            message.header.ack, message.header.ack_bitfield);
+  switch (message.header.message_type) {
+  case Net::MessageType::ConnectionAccepted:
+    this->on_connection_accepted(message);
+    break;
+  case Net::MessageType::ConnectionDenied:
+    this->on_connection_denied(message);
+    break;
+  case Net::MessageType::Ping:
+    this->on_ping(message);
+    break;
+  default:
+    io::error("Unknown message type {}", (u8)message.header.message_type);
+    break;
+  }
 }

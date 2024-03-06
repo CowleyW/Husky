@@ -19,6 +19,8 @@ public:
   std::optional<Message> next_message();
   void add_message(const Message &message);
 
+  void ping();
+
 private:
   bool connected;
 

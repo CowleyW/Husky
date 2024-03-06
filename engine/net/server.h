@@ -20,22 +20,30 @@ public:
 
   void begin();
 
-  std::optional<ClientSlot *const>
-  get_client(const asio::ip::udp::endpoint &remote);
-  std::optional<ClientSlot *const> get_client(u32 remote_id);
   std::vector<ClientSlot> &get_clients();
 
-  bool has_open_slot();
-  void accept(const asio::ip::udp::endpoint &remote);
-  void deny_connection(const asio::ip::udp::endpoint &remote);
+  void ping_all();
 
 public:
   void on_connection_requested(const Net::Message &message,
                                const asio::ip::udp::endpoint &remote) override;
 
-  void on_ping(const Net::Message &message) override;
+  void on_ping(const Net::Message &message,
+               const asio::ip::udp::endpoint &remote) override;
 
-  void on_user_inputs(const Net::Message &message) override;
+  void on_user_inputs(const Net::Message &message,
+                      const asio::ip::udp::endpoint &remote) override;
+
+private:
+  std::optional<ClientSlot *const>
+  get_client(const asio::ip::udp::endpoint &remote);
+  std::optional<ClientSlot *const>
+  get_client(u32 remote_id, const asio::ip::udp::endpoint &remote);
+
+  void accept(const asio::ip::udp::endpoint &remote);
+  void deny_connection(const asio::ip::udp::endpoint &remote);
+
+  bool has_open_slot();
 
 private:
   u32 port;

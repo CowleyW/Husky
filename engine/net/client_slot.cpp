@@ -41,3 +41,9 @@ void Net::ClientSlot::add_message(const Net::Message &message) {
     this->message_queue.push(message);
   }
 }
+
+void Net::ClientSlot::ping() {
+  if (this->connected) {
+    this->sender->write_ping();
+  }
+}

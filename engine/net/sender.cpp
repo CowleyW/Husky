@@ -64,7 +64,7 @@ void Net::Sender::write_user_inputs(const InputMap &inputs) {
   std::vector<u8> input_map(InputMap::packed_size());
   inputs.serialize_into(input_map, 0);
 
-  Net::Message message = this->message_scaffold(Net::MessageType::UserInputs)
+  Net::Message message = this->message_scaffold(Net::MessageType::ClientInputs)
                              .with_body(input_map)
                              .build();
 

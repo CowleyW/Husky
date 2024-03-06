@@ -14,12 +14,25 @@ Err ServerApp::run() {
 
   this->running = true;
 
+  // Time in nanoseconds
+  using namespace std::literals::chrono_literals;
+  constexpr std::chrono::nanoseconds dt(100ms);
+
+  std::chrono::nanoseconds accumulator(0ns);
+  auto prev_time = std::chrono::steady_clock::now();
+
   while (this->running) {
-    for (auto &client : this->server->get_clients()) {
-      auto maybe = client.next_message();
-      if (maybe.has_value()) {
-        this->handle_message(maybe.value());
-      }
+    auto now = std::chrono::steady_clock::now();
+    auto frame_time = now - prev_time;
+    prev_time = now;
+
+    accumulator += frame_time;
+
+    while (accumulator >= dt) {
+      accumulator -= dt;
+
+      this->poll_network();
+      this->server->ping_all();
     }
   }
 
@@ -35,7 +48,7 @@ void ServerApp::handle_message(const Net::Message &message) {
   case Net::MessageType::Ping:
     io::debug("Received ping from {}.", message.header.remote_id);
     break;
-  case Net::MessageType::UserInputs: {
+  case Net::MessageType::ClientInputs: {
     auto result = InputMap::deserialize(Buf<u8>(message.body));
     if (result.is_error) {
       io::error("Failed to read inputs from {}", message.header.remote_id);
@@ -50,5 +63,14 @@ void ServerApp::handle_message(const Net::Message &message) {
   default:
     io::error("Unknown message type {}", (u8)message.header.message_type);
     break;
+  }
+}
+
+void ServerApp::poll_network() {
+  for (auto &client : this->server->get_clients()) {
+    auto maybe = client.next_message();
+    if (maybe.has_value()) {
+      this->handle_message(maybe.value());
+    }
   }
 }
