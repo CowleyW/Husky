@@ -31,6 +31,7 @@ add_library(engine
   engine/net/message_builder.h engine/net/message_builder.cpp
   engine/net/message_handler.h
   engine/net/server.h engine/net/server.cpp
+  engine/net/types.h
 
   # Render
   engine/render/window.h engine/render/window.cpp

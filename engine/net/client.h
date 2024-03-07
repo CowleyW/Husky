@@ -4,6 +4,7 @@
 #include "listener.h"
 #include "message_handler.h"
 #include "sender.h"
+#include "types.h"
 
 #include <asio.hpp>
 
@@ -27,6 +28,7 @@ public:
   void disconnect();
 
   bool is_connected();
+  ConnectionStatus connection_status();
 
   std::optional<Message> next_message();
 
@@ -46,7 +48,7 @@ private:
 private:
   static constexpr std::chrono::seconds timeout_wait{5};
 
-  bool connected;
+  ConnectionStatus status;
   std::chrono::steady_clock::time_point last_message;
 
   std::unique_ptr<asio::io_context> context;

@@ -9,7 +9,8 @@
 #include <memory>
 
 Net::Client::Client(u32 server_port, u32 client_port)
-    : context(std::make_unique<asio::io_context>()), connected(false) {
+    : context(std::make_unique<asio::io_context>()),
+      status(Net::ConnectionStatus::Disconnected) {
   using udp = asio::ip::udp;
   udp::resolver resolver(*this->context);
   udp::endpoint server_endpoint =
@@ -29,6 +30,7 @@ void Net::Client::begin() {
   this->listener->listen();
 
   this->sender->write_connection_requested();
+  this->status = Net::ConnectionStatus::Connecting;
 }
 
 void Net::Client::shutdown() {
@@ -55,13 +57,17 @@ void Net::Client::send_inputs(const InputMap &inputs) {
 }
 
 void Net::Client::disconnect() {
-  if (this->connected) {
+  if (this->status != Net::ConnectionStatus::Disconnected) {
     this->sender->write_disconnected();
-    this->connected = false;
+    this->status = Net::ConnectionStatus::Disconnected;
   }
 }
 
-bool Net::Client::is_connected() { return this->connected; }
+bool Net::Client::is_connected() {
+  return this->status == Net::ConnectionStatus::Connected;
+}
+
+Net::ConnectionStatus Net::Client::connection_status() { return this->status; }
 
 std::optional<Net::Message> Net::Client::next_message() {
   if (!this->messages.empty()) {
@@ -82,8 +88,8 @@ void Net::Client::on_connection_accepted(
     return;
   }
 
-  if (!this->connected) {
-    this->connected = true;
+  if (!this->is_connected()) {
+    this->status = Net::ConnectionStatus::Connected;
 
     u32 remote_id = Serialize::deserialize_u32(MutBuf<u8>(message.body));
     this->sender->set_remote_id(remote_id);

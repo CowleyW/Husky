@@ -1,6 +1,7 @@
 #pragma once
 
 #include "sender.h"
+#include "types.h"
 
 #include <chrono>
 #include <queue>
@@ -12,9 +13,12 @@ public:
   ClientSlot(asio::io_context &context);
 
   void bind(const asio::ip::udp::endpoint &endpoint, u32 remote_id);
+  
   bool is_connected();
   bool connected_to(const asio::ip::udp::endpoint &endpoint);
   bool matches_id(u32 remote);
+  ConnectionStatus connection_status();
+
   Sender &get_sender();
   u32 remote_id();
 
@@ -28,7 +32,7 @@ public:
 private:
   static constexpr std::chrono::seconds timeout_wait{5};
 
-  bool connected;
+  ConnectionStatus status;
 
   std::queue<Message> message_queue;
   std::unique_ptr<Sender> sender;

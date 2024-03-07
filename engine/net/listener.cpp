@@ -12,7 +12,7 @@ Net::Listener::Listener(asio::io_context &context, u32 port)
           context, asio::ip::udp::endpoint(asio::ip::udp::v4(), port))),
       handler(nullptr), recv_buf(1024) {}
 
-void Net::Listener::register_callbacks(Net::MessageHandler* handler) {
+void Net::Listener::register_callbacks(Net::MessageHandler *handler) {
   this->handler = handler;
 }
 
@@ -21,7 +21,11 @@ void Net::Listener::listen() {
     io::fatal("No message handler is set.");
     return;
   }
-  
+
+  // Something funny happens here:
+  // When ungracefully closing the client, the server is unaware and continues
+  // to send messages, but when the server is forcefully closed the client gets
+  // a connection refused error.
   auto on_receive = [this](const std::error_code &err, u64 size) {
     if (!err) {
       this->handle_receive((u32)size);
@@ -30,7 +34,7 @@ void Net::Listener::listen() {
     }
   };
   this->socket->async_receive_from(asio::buffer(this->recv_buf),
-                                  this->recv_endpoint, on_receive);
+                                   this->recv_endpoint, on_receive);
 }
 
 void Net::Listener::handle_receive(u32 size) {

@@ -3,18 +3,21 @@
 #include <asio.hpp>
 
 Net::ClientSlot::ClientSlot(asio::io_context &context)
-    : sender(std::make_unique<Net::Sender>(context)), connected(false),
-      message_queue(), last_message(std::chrono::steady_clock::now()) {}
+    : sender(std::make_unique<Net::Sender>(context)),
+      status(Net::ConnectionStatus::Disconnected), message_queue(),
+      last_message(std::chrono::steady_clock::now()) {}
 
 void Net::ClientSlot::bind(const asio::ip::udp::endpoint &endpoint,
                            u32 remote_id) {
   this->sender->bind(endpoint, remote_id);
-  this->connected = true;
+  this->status = Net::ConnectionStatus::Connected;
 
   this->last_message = std::chrono::steady_clock::now();
 }
 
-bool Net::ClientSlot::is_connected() { return this->connected; }
+bool Net::ClientSlot::is_connected() {
+  return this->status == Net::ConnectionStatus::Connected;
+}
 
 bool Net::ClientSlot::connected_to(const asio::ip::udp::endpoint &endpoint) {
   return this->sender->connected_to(endpoint);
@@ -22,6 +25,10 @@ bool Net::ClientSlot::connected_to(const asio::ip::udp::endpoint &endpoint) {
 
 bool Net::ClientSlot::matches_id(u32 remote_id) {
   return this->sender->matches_id(remote_id);
+}
+
+Net::ConnectionStatus Net::ClientSlot::connection_status() {
+  return this->status;
 }
 
 Net::Sender &Net::ClientSlot::get_sender() { return *this->sender; }
@@ -47,15 +54,15 @@ void Net::ClientSlot::add_message(const Net::Message &message) {
 }
 
 void Net::ClientSlot::ping() {
-  if (this->connected) {
+  if (this->is_connected()) {
     this->sender->write_ping();
   }
 }
 
 void Net::ClientSlot::disconnect() {
-  if (this->connected) {
+  if (this->status != Net::ConnectionStatus::Disconnected) {
     this->sender->write_disconnected();
-    this->connected = false;
+    this->status = Net::ConnectionStatus::Disconnected;
   }
 }
 
