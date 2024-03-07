@@ -27,14 +27,17 @@ public:
   std::optional<Message> next_message();
 
 public:
-  void on_connection_accepted(const Net::Message &message,
+  void on_connection_accepted(const Message &message,
                               const asio::ip::udp::endpoint &remote) override;
 
-  void on_connection_denied(const Net::Message &message,
+  void on_connection_denied(const Message &message,
                             const asio::ip::udp::endpoint &remote) override;
 
-  void on_ping(const Net::Message &message,
+  void on_ping(const Message &message,
                const asio::ip::udp::endpoint &remote) override;
+
+  private:
+  void add_message(const Message &message);
 
 private:
   bool connected;

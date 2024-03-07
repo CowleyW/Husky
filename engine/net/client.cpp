@@ -72,15 +72,21 @@ void Net::Client::on_connection_accepted(
     this->sender->set_remote_id(remote_id);
   }
 
-  this->messages.push(message);
+  this->add_message(message);
 }
 
 void Net::Client::on_connection_denied(const Net::Message &message,
                                        const asio::ip::udp::endpoint &remote) {
-  this->messages.push(message);
+  this->add_message(message);
 }
 
 void Net::Client::on_ping(const Net::Message &message,
                           const asio::ip::udp::endpoint &remote) {
-  this->messages.push(message);
+  this->add_message(message);
+}
+
+void Net::Client::add_message(const Net::Message& message) {
+  if (this->sender->update_acks(message.header.sequence_id)) {
+    this->messages.push(message);
+  }
 }
