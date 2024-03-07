@@ -3,6 +3,8 @@
 #include "core/client_app.h"
 #include "core/server_app.h"
 
+#include <chrono>
+
 Result<Application *> Application::create_server(u32 port) {
   return Result<Application *>::ok(new ServerApp(port));
 }

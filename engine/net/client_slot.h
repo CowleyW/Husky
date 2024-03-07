@@ -2,9 +2,11 @@
 
 #include "sender.h"
 
+#include <chrono>
 #include <queue>
 
 namespace Net {
+
 class ClientSlot {
 public:
   ClientSlot(asio::io_context &context);
@@ -21,11 +23,16 @@ public:
 
   void ping();
   void disconnect();
+  bool maybe_timeout();
 
 private:
+  static constexpr std::chrono::seconds timeout_wait{5};
+
   bool connected;
 
   std::queue<Message> message_queue;
   std::unique_ptr<Sender> sender;
+
+  std::chrono::steady_clock::time_point last_message;
 };
 } // namespace Net

@@ -52,9 +52,15 @@ void ServerApp::handle_message(const Net::Message &message) {
 
 void ServerApp::poll_network() {
   for (auto &client : this->server->get_clients()) {
+    if (!client.is_connected()) {
+      continue;
+    }
+
     auto maybe = client.next_message();
     if (maybe.has_value()) {
       this->handle_message(maybe.value());
+    } else if (client.maybe_timeout()) {
+      io::debug("client timed out");
     }
   }
 }

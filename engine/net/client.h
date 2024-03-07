@@ -8,9 +8,11 @@
 #include <asio.hpp>
 
 #include <array>
+#include <chrono>
 #include <queue>
 
 namespace Net {
+using namespace std::literals::chrono_literals;
 
 class Client : MessageHandler {
 public:
@@ -18,9 +20,11 @@ public:
 
   void begin();
   void shutdown();
+  bool maybe_timeout();
 
   void ping_server();
   void send_inputs(const InputMap &inputs);
+  void disconnect();
 
   bool is_connected();
 
@@ -36,11 +40,14 @@ public:
   void on_ping(const Message &message,
                const asio::ip::udp::endpoint &remote) override;
 
-  private:
+private:
   void add_message(const Message &message);
 
 private:
+  static constexpr std::chrono::seconds timeout_wait{5};
+
   bool connected;
+  std::chrono::steady_clock::time_point last_message;
 
   std::unique_ptr<asio::io_context> context;
 

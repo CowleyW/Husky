@@ -4,12 +4,14 @@
 
 Net::ClientSlot::ClientSlot(asio::io_context &context)
     : sender(std::make_unique<Net::Sender>(context)), connected(false),
-      message_queue() {}
+      message_queue(), last_message(std::chrono::steady_clock::now()) {}
 
 void Net::ClientSlot::bind(const asio::ip::udp::endpoint &endpoint,
                            u32 remote_id) {
   this->sender->bind(endpoint, remote_id);
   this->connected = true;
+
+  this->last_message = std::chrono::steady_clock::now();
 }
 
 bool Net::ClientSlot::is_connected() { return this->connected; }
@@ -39,6 +41,8 @@ std::optional<Net::Message> Net::ClientSlot::next_message() {
 void Net::ClientSlot::add_message(const Net::Message &message) {
   if (this->sender->update_acks(message.header.sequence_id)) {
     this->message_queue.push(message);
+
+    this->last_message = std::chrono::steady_clock::now();
   }
 }
 
@@ -51,6 +55,17 @@ void Net::ClientSlot::ping() {
 void Net::ClientSlot::disconnect() {
   if (this->connected) {
     this->sender->write_disconnected();
+    this->connected = false;
   }
-  this->connected = false;
+}
+
+bool Net::ClientSlot::maybe_timeout() {
+  auto now = std::chrono::steady_clock::now();
+
+  if ((now - this->last_message) > this->timeout_wait) {
+    this->disconnect();
+    return true;
+  } else {
+    return false;
+  }
 }

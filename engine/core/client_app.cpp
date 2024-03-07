@@ -78,6 +78,10 @@ void ClientApp::network_update(const InputMap &inputs) {
 }
 
 void ClientApp::poll_network() {
+  if (this->client->is_connected() && this->client->maybe_timeout()) {
+    io::debug("server timed out");
+  }
+  
   while (true) {
     auto maybe = this->client->next_message();
 
