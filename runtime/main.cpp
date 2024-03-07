@@ -43,14 +43,7 @@ int main(int argc, char **argv) {
   Application *app = result.value;
 
   io::debug("Running application.");
-  Err err = app->run();
-  if (err.is_error) {
-    io::fatal(err.msg);
-    return 1;
-  }
-
-  io::debug("Shutting down application.");
-  app->shutdown();
+  app->run();
 
   delete app;
   return 0;

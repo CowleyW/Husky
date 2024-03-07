@@ -6,11 +6,20 @@
 
 class Application {
 public:
-  virtual Err run() = 0;
-  virtual void shutdown() = 0;
+  void run();
+  void stop();
+
+  virtual void begin() {}
+  virtual void update() {}
+  virtual void fixed_update() {}
+  virtual void render() {}
+  virtual void shutdown() {}
 
   virtual ~Application() {}
 
   static Result<Application *> create_server(u32 port);
   static Result<Application *> create_client(u32 server_port, u32 client_port);
+
+private:
+  bool running;
 };

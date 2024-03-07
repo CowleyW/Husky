@@ -27,42 +27,21 @@ Err ClientApp::init() {
   return Err::ok();
 }
 
-Err ClientApp::run() {
-  this->running = true;
+void ClientApp::begin() { this->client->begin(); }
 
-  this->client->begin();
-  io::debug("started client");
+void ClientApp::update() { this->window.poll_events(); }
 
-  // Time in nanoseconds
-  using namespace std::literals::chrono_literals;
-  constexpr std::chrono::nanoseconds dt(100ms);
+void ClientApp::render() {
+  this->context.clear();
+  this->context.render();
+  this->window.swap_buffers();
+}
 
-  std::chrono::nanoseconds accumulator(0ns);
-  auto prev_time = std::chrono::steady_clock::now();
+void ClientApp::fixed_update() {
+  InputMap inputs = this->window.build_input_map();
 
-  while (this->running) {
-    auto now = std::chrono::steady_clock::now();
-    auto frame_time = now - prev_time;
-    prev_time = now;
-
-    accumulator += frame_time;
-
-    this->window.poll_events();
-    InputMap inputs = this->window.build_input_map();
-
-    while (accumulator >= dt) {
-      accumulator -= dt;
-
-      this->poll_network();
-      this->network_update(inputs);
-    }
-
-    this->context.clear();
-    this->context.render();
-    this->window.swap_buffers();
-  }
-
-  return Err::ok();
+  this->poll_network();
+  this->network_update(inputs);
 }
 
 void ClientApp::shutdown() {
@@ -77,7 +56,7 @@ void ClientApp::on_window_resize(Dimensions dimensions) {
 
 void ClientApp::on_window_close() {
   io::debug("Closing window");
-  this->running = false;
+  this->stop();
 }
 
 void ClientApp::on_connection_accepted(const Net::Message &message) {

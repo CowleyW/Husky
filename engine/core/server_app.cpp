@@ -9,37 +9,14 @@
 ServerApp::ServerApp(u32 port)
     : server(std::make_unique<Net::Server>(port, 8)) {}
 
-Err ServerApp::run() {
-  this->server->begin();
+void ServerApp::begin() { this->server->begin(); }
 
-  this->running = true;
-
-  // Time in nanoseconds
-  using namespace std::literals::chrono_literals;
-  constexpr std::chrono::nanoseconds dt(100ms);
-
-  std::chrono::nanoseconds accumulator(0ns);
-  auto prev_time = std::chrono::steady_clock::now();
-
-  while (this->running) {
-    auto now = std::chrono::steady_clock::now();
-    auto frame_time = now - prev_time;
-    prev_time = now;
-
-    accumulator += frame_time;
-
-    while (accumulator >= dt) {
-      accumulator -= dt;
-
-      this->poll_network();
-      this->server->ping_all();
-    }
-  }
-
-  return Err::ok();
+void ServerApp::fixed_update() {
+  this->poll_network();
+  this->server->ping_all();
 }
 
-void ServerApp::shutdown() {}
+void ServerApp::shutdown() { this->server->shutdown(); }
 
 void ServerApp::handle_message(const Net::Message &message) {
   io::debug("[s_id: {}] [ack: {} | bits: {:b}]", message.header.sequence_id,

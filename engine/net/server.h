@@ -19,6 +19,7 @@ public:
   Server(u32 port, u8 max_clients);
 
   void begin();
+  void shutdown();
 
   std::vector<ClientSlot> &get_clients();
 

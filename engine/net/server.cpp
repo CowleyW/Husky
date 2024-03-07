@@ -24,6 +24,11 @@ void Net::Server::begin() {
   this->listener.listen();
 }
 
+void Net::Server::shutdown() {
+  this->context->stop();
+  this->context_thread.join();
+}
+
 std::optional<Net::ClientSlot *const>
 Net::Server::get_client(const asio::ip::udp::endpoint &remote) {
   for (ClientSlot &c : this->clients) {

@@ -11,10 +11,15 @@ class ClientApp : public Application, CallbackHandler {
 public:
   ClientApp(u32 server_port, u32 client_port);
 
-  Err run() override;
-  void shutdown() override;
-
   Err init();
+
+public:
+  // Methods inherited from Application
+  void begin() override;
+  void update() override;
+  void fixed_update() override;
+  void render() override;
+  void shutdown() override;
 
 public:
   // Methods inherited from CallbackHandler

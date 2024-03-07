@@ -13,7 +13,12 @@ public:
 
 public:
   // Methods inherited from Application
-  Err run() override;
+  void begin() override;
+  
+  // The server doesn't need to do anything during update
+  // void update() override;
+  
+  void fixed_update() override;
   void shutdown() override;
 
 private:
