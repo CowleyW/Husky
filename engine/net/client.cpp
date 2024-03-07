@@ -1,4 +1,5 @@
 #include "client.h"
+#include "core/random.h"
 #include "fmt/format.h"
 #include "io/logging.h"
 #include "message_handler.h"
@@ -10,7 +11,9 @@
 
 Net::Client::Client(u32 server_port, u32 client_port)
     : context(std::make_unique<asio::io_context>()),
-      status(Net::ConnectionStatus::Disconnected) {
+      status(Net::ConnectionStatus::Disconnected),
+      client_salt(Random().random_u64()), server_salt(0) {
+  io::debug("rolled salt {}", this->client_salt);
   using udp = asio::ip::udp;
   udp::resolver resolver(*this->context);
   udp::endpoint server_endpoint =
@@ -19,7 +22,8 @@ Net::Client::Client(u32 server_port, u32 client_port)
   auto socket = std::make_shared<udp::socket>(
       *context, udp::endpoint(udp::v4(), client_port));
   this->listener = std::make_unique<Net::Listener>(socket);
-  this->sender = std::make_unique<Net::Sender>(socket, server_endpoint, 0);
+  this->sender =
+      std::make_unique<Net::Sender>(socket, server_endpoint, this->client_salt);
 }
 
 void Net::Client::begin() {
@@ -90,17 +94,32 @@ void Net::Client::on_connection_accepted(
 
   if (!this->is_connected()) {
     this->status = Net::ConnectionStatus::Connected;
-
-    u32 remote_id = Serialize::deserialize_u32(MutBuf<u8>(message.body));
-    this->sender->set_remote_id(remote_id);
   }
 
   this->add_message(message);
+  io::debug("connection accepted body: {}",
+            Serialize::deserialize_u8(MutBuf<u8>(message.body)));
+  io::debug("connectino accepted salt: {}", message.header.salt);
 }
 
 void Net::Client::on_connection_denied(const Net::Message &message,
                                        const asio::ip::udp::endpoint &remote) {
   this->add_message(message);
+}
+
+void Net::Client::on_challenge(const Net::Message &message,
+                               const asio::ip::udp::endpoint &remote) {
+  if (message.body.size() != 8) {
+    io::error("Invalid Challenge size: {} (actual) != 8 (expected)",
+              message.body.size());
+  }
+
+  this->server_salt = Serialize::deserialize_u64(MutBuf<u8>(message.body));
+  io::info("Server salt: {}, xor_salt: {}", this->server_salt,
+           message.header.salt);
+
+  this->sender->update_salts(this->client_salt, this->server_salt);
+  this->sender->write_challenge_response();
 }
 
 void Net::Client::on_ping(const Net::Message &message,

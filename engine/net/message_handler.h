@@ -21,6 +21,12 @@ public:
     case Net::MessageType::ConnectionDenied:
       this->on_connection_denied(message, remote);
       break;
+    case Net::MessageType::Challenge:
+      this->on_challenge(message, remote);
+      break;
+    case Net::MessageType::ChallengeResponse:
+      this->on_challenge_response(message, remote);
+      break;
     case Net::MessageType::Disconnected:
       this->on_disconnected(message, remote);
       break;
@@ -49,6 +55,16 @@ public:
   virtual void on_connection_denied(const Message &message,
                                     const asio::ip::udp::endpoint &remote) {
     io::error("Unexpected ConnectionDenied message");
+  }
+
+  virtual void on_challenge(const Message &message,
+                            const asio::ip::udp::endpoint &remote) {
+    io::error("Unexpected Challenge message");
+  }
+
+  virtual void on_challenge_response(const Message &message,
+                                     const asio::ip::udp::endpoint &remote) {
+    io::error("Unexpected ChallengeResponse message");
   }
 
   virtual void on_disconnected(const Message &message,

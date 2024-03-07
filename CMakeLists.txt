@@ -13,6 +13,7 @@ add_library(engine
   engine/core/client_app.h engine/core/client_app.cpp
   engine/core/server_app.h engine/core/server_app.cpp
   engine/core/types.h engine/core/def.h
+  engine/core/random.h engine/core/random.cpp
   
   # Crypto
   engine/crypto/checksum.h engine/crypto/checksum.cpp
@@ -43,8 +44,7 @@ add_library(engine
   #Util
   engine/util/err.h engine/util/result.h
   engine/util/serialize.h engine/util/serialize.cpp
-  engine/util/buf.h
-)
+  engine/util/buf.h)
 
 target_compile_definitions(engine PRIVATE ASSETS_PATH="${PROJECT_SOURCE_DIR}/assets/")
 target_compile_features(engine PRIVATE cxx_std_17)
@@ -74,8 +74,7 @@ target_compile_definitions(engine PRIVATE _WIN32_WINNT=0x0A00)
 
 # Main Configuration
 add_executable(runtime 
-  runtime/main.cpp
-)
+  runtime/main.cpp)
 
 target_compile_definitions(runtime PRIVATE _WIN32_WINNT=x0A00)
 
@@ -88,8 +87,7 @@ add_subdirectory(lib/Catch2)
 add_executable(tests 
   test/io/files.cpp
   test/net/message.cpp
-  test/util/serialize.cpp
-)
+  test/util/serialize.cpp)
 
 target_compile_features(tests PRIVATE cxx_std_17)
 

@@ -2,15 +2,16 @@
 
 #include "io/logging.h"
 #include "net/message_handler.h"
+#include "util/serialize.h"
 
-#include <cstdlib>
+#include "core/random.h"
 
 Net::Server::Server(u32 port, u8 max_clients)
     : port(port), max_clients(max_clients), num_connected_clients(0), clients(),
       context(std::make_unique<asio::io_context>()), listener(*context, port),
       recv_buf(1024), handler(nullptr), denier(*context) {
   for (u8 client = 0; client < max_clients; client += 1) {
-    this->clients.emplace_back(Net::ClientSlot(*this->context));
+    this->clients.emplace_back(Net::ClientSlot(*this->context, client));
   }
 
   this->listener.register_callbacks(this);
@@ -30,7 +31,7 @@ void Net::Server::shutdown() {
 }
 
 std::optional<Net::ClientSlot *const>
-Net::Server::get_client(const asio::ip::udp::endpoint &remote) {
+Net::Server::get_by_endpoint(const asio::ip::udp::endpoint &remote) {
   for (ClientSlot &c : this->clients) {
     if (c.connected_to(remote)) {
       &c;
@@ -41,9 +42,21 @@ Net::Server::get_client(const asio::ip::udp::endpoint &remote) {
 }
 
 std::optional<Net::ClientSlot *const>
-Net::Server::get_client(u32 remote_id) {
+Net::Server::get_by_client_salt(u64 client_salt,
+                                const asio::ip::udp::endpoint &remote) {
   for (ClientSlot &c : this->clients) {
-    if (c.matches_id(remote_id)) {
+    if (c.matches_client_salt(client_salt) && c.connected_to(remote)) {
+      return &c;
+    }
+  }
+
+  return {};
+}
+std::optional<Net::ClientSlot *const>
+Net::Server::get_by_xor_salt(u64 xor_salt,
+                             const asio::ip::udp::endpoint &remote) {
+  for (ClientSlot &c : this->clients) {
+    if (c.matches_xor_salt(xor_salt) && c.connected_to(remote)) {
       return &c;
     }
   }
@@ -52,9 +65,31 @@ Net::Server::get_client(u32 remote_id) {
 }
 
 std::optional<Net::ClientSlot *const>
-Net::Server::get_client(u32 remote_id, const asio::ip::udp::endpoint &remote) {
+Net::Server::get_by_xor_salt(u64 xor_salt) {
   for (ClientSlot &c : this->clients) {
-    if (c.matches_id(remote_id) && c.connected_to(remote)) {
+    if (c.matches_xor_salt(xor_salt)) {
+      return &c;
+    }
+  }
+
+  return {};
+}
+std::optional<Net::ClientSlot *const>
+Net::Server::get_by_salts(u64 client_salt, u64 server_salt,
+    const asio::ip::udp::endpoint& remote) {
+  for (ClientSlot &c : this->clients) {
+    if (c.matches_salts(client_salt, server_salt)) {
+      return &c;
+    }
+  }
+
+  return {};
+}
+
+
+std::optional<Net::ClientSlot *const> Net::Server::get_open() {
+  for (ClientSlot &c : this->clients) {
+    if (c.connection_status() == Net::ConnectionStatus::Disconnected) {
       return &c;
     }
   }
@@ -82,8 +117,8 @@ void Net::Server::ping_all() {
   }
 }
 
-void Net::Server::disconnect(u32 remote_id) {
-  auto maybe = this->get_client(remote_id);
+void Net::Server::disconnect(u64 xor_salt) {
+  auto maybe = this->get_by_xor_salt(xor_salt);
 
   if (maybe.has_value()) {
     auto client = maybe.value();
@@ -92,18 +127,14 @@ void Net::Server::disconnect(u32 remote_id) {
   }
 }
 
-void Net::Server::accept(const asio::ip::udp::endpoint &remote) {
+void Net::Server::accept(const asio::ip::udp::endpoint &remote,
+                         u64 client_salt) {
   bool found_slot = false;
 
   for (ClientSlot &c : this->clients) {
     if (!c.is_connected()) {
-      std::srand(std::time(nullptr));
-
-      u32 remote_id = std::rand();
-      io::debug("New client with id {}.", remote_id);
-
-      c.bind(remote, remote_id);
-      c.get_sender().write_connection_accepted(remote_id);
+      c.bind(remote, client_salt);
+      c.accept();
 
       found_slot = true;
       break;
@@ -111,6 +142,26 @@ void Net::Server::accept(const asio::ip::udp::endpoint &remote) {
   }
 
   if (!found_slot) {
+    io::warn("Attempted to accept client when no slot was available.");
+  }
+}
+
+void Net::Server::challenge(const asio::ip::udp::endpoint &remote,
+                            u64 client_salt) {
+  auto maybe_client = this->get_by_client_salt(client_salt, remote);
+
+  if (maybe_client.has_value()) {
+    maybe_client.value()->send_challenge();
+    return;
+  }
+
+  auto maybe_open = this->get_open();
+
+  if (maybe_open.has_value()) {
+    auto client = maybe_open.value();
+    client->bind(remote, client_salt);
+    client->send_challenge();
+  } else {
     io::warn("Attempted to accept client when no slot was available.");
   }
 }
@@ -129,56 +180,77 @@ void Net::Server::on_connection_requested(
         message.body.size(), Net::Message::CONNECTION_REQUESTED_PADDING);
     return;
   }
-  io::debug("Received ConnectionRequested");
+  io::debug("Received ConnectionRequested with salt {}", message.header.salt);
 
-  std::optional<Net::ClientSlot *const> result = this->get_client(remote);
+  std::optional<Net::ClientSlot *const> result =
+      this->get_by_client_salt(message.header.salt, remote);
   if (result.has_value()) {
     io::debug("Client already connected.");
     Net::ClientSlot *const connection = result.value();
-    connection->get_sender().write_connection_accepted(connection->remote_id());
+    connection->send_challenge();
   } else if (this->has_open_slot()) {
-    this->accept(remote);
+    this->challenge(remote, message.header.salt);
   } else {
     this->deny_connection(remote);
   }
 }
 
+void Net::Server::on_challenge_response(const Net::Message &message,
+                                        const asio::ip::udp::endpoint &remote) {
+  if (message.body.size() != 8 + Net::Message::CHALLENGE_RESPONSE_PADDING) {
+    io::error("Invalid ChallengeResponse padding: {} (actual) != {} (expected)",
+              message.body.size(),
+              8 + Net::Message::CHALLENGE_RESPONSE_PADDING);
+    return;
+  }
+
+  io::debug("Received ChallengeResponse with salt {}", message.header.salt);
+  u64 server_salt = Serialize::deserialize_u64(MutBuf<u8>(message.body));
+  u64 client_salt = message.header.salt ^ server_salt;
+
+  auto maybe_client = this->get_by_salts(client_salt, server_salt, remote);
+  if (maybe_client.has_value()) {
+    io::debug("Client passed challenge");
+    maybe_client.value()->accept();
+  } else {
+    io::debug("Client failed challenge");
+  }
+}
+
 void Net::Server::on_disconnected(const Net::Message &message,
                                   const asio::ip::udp::endpoint &remote) {
-  auto maybe = this->get_client(message.header.remote_id, remote);
+  auto maybe = this->get_by_xor_salt(message.header.salt, remote);
 
   if (maybe.has_value()) {
     auto client = maybe.value();
     client->add_message(message);
   } else {
     io::warn("Received message from unknown remote id {}.",
-             message.header.remote_id);
+             message.header.salt);
   }
 }
 
 void Net::Server::on_ping(const Net::Message &message,
                           const asio::ip::udp::endpoint &remote) {
-  auto maybe = this->get_client(message.header.remote_id, remote);
+  auto maybe = this->get_by_xor_salt(message.header.salt, remote);
 
   if (maybe.has_value()) {
     auto client = maybe.value();
     client->add_message(message);
   } else {
-    io::warn("Received message from unknown remote id {}.",
-             message.header.remote_id);
+    io::warn("Received ping from unknown client {}.", message.header.salt);
   }
 }
 
 void Net::Server::on_user_inputs(const Net::Message &message,
                                  const asio::ip::udp::endpoint &remote) {
   std::optional<Net::ClientSlot *const> maybe =
-      this->get_client(message.header.remote_id, remote);
+      this->get_by_xor_salt(message.header.salt, remote);
 
   if (maybe.has_value()) {
     auto client = maybe.value();
     client->add_message(message);
   } else {
-    io::warn("Received message from unknown remote id {}.",
-             message.header.remote_id);
+    io::warn("Received inputs from unknown client {}.", message.header.salt);
   }
 }

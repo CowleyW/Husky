@@ -30,7 +30,7 @@ Err Net::MessageHeader::serialize_into(std::vector<u8> &buf, u32 offset) const {
     return Err::err("Insufficient space to serialize message header");
   }
 
-  offset = Serialize::serialize_u32(this->remote_id, buf, offset);
+  offset = Serialize::serialize_u64(this->salt, buf, offset);
   offset = Serialize::serialize_u32(this->sequence_id, buf, offset);
   offset = Serialize::serialize_u32(this->ack, buf, offset);
   offset = Serialize::serialize_u32(this->ack_bitfield, buf, offset);
@@ -49,8 +49,8 @@ Result<Net::MessageHeader> Net::MessageHeader::deserialize(const Buf<u8> &buf) {
 
   MutBuf<u8> mutbuf(buf);
   Net::MessageHeader header = {
-      // u32 remote_id
-      Serialize::deserialize_u32(mutbuf),
+      // u64 salt
+      Serialize::deserialize_u64(mutbuf),
       // u32 sequence_id
       // u32 ack
       // u32 ack_bitfield

@@ -60,7 +60,8 @@ void ClientApp::on_window_close() {
 }
 
 void ClientApp::on_connection_accepted(const Net::Message &message) {
-  io::debug("Received ConnectionAccepted");
+  this->client_index = Serialize::deserialize_u32(MutBuf<u8>(message.body));
+  io::debug("[{}]: Received ConnectionAccepted", this->client_index.value());
 }
 
 void ClientApp::on_connection_denied(const Net::Message &message) {

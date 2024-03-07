@@ -13,25 +13,28 @@ namespace Net {
 class Sender {
 public:
   Sender(std::shared_ptr<asio::ip::udp::socket> socket,
-         asio::ip::udp::endpoint endpoint, u32 remote_id);
+         asio::ip::udp::endpoint endpoint, u64 client_salt);
   Sender(asio::io_context &context, u32 port, asio::ip::udp::endpoint endpoint);
   Sender(asio::io_context &context);
 
   void write_connection_requested();
-  void write_connection_accepted(u32 remote_id);
+  void write_connection_accepted(u8 client_index);
   void write_connection_denied();
+  void write_challenge();
+  void write_challenge_response();
   void write_disconnected();
   void write_ping();
   void write_user_inputs(const InputMap &inputs);
 
   void write_disconnected_blocking();
 
-  void bind(const asio::ip::udp::endpoint &endpoint, u32 remote_id);
-  void set_remote_id(u32 remote_id);
+  void bind(const asio::ip::udp::endpoint &endpoint, u64 client_salt);
+  void update_salts(u64 client_salt, u64 server_salt);
 
   bool connected_to(const asio::ip::udp::endpoint &endpoint);
-  bool matches_id(u32 remote);
-  u32 get_remote_id();
+  bool matches_client_salt(u64 client_salt);
+  bool matches_xor_salt(u64 xor_salt);
+  bool matches_salts(u64 client_salt, u64 server_salt);
 
   /**
    * Updates the sender's acks based on the sequence id of the message
@@ -55,7 +58,8 @@ private:
 
   std::vector<u8> send_buf;
 
-  u32 remote_id;
+  u64 client_salt;
+  u64 server_salt;
 
   u32 sequence_id;
   u32 ack;

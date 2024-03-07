@@ -13,6 +13,8 @@ enum class MessageType : u8 {
   ConnectionRequested = 0,
   ConnectionAccepted,
   ConnectionDenied,
+  Challenge,
+  ChallengeResponse,
   Disconnected,
   Ping,
   UserInputs
@@ -31,7 +33,7 @@ struct PacketHeader {
 };
 
 struct MessageHeader {
-  u32 remote_id;
+  u64 salt;
 
   // Networking-specific information including packet sequence number
   // and acknowledgments about received packets
@@ -52,9 +54,10 @@ struct MessageHeader {
   // the size of the header in bytes, since message_type will be aligned to 4
   // bytes, but when serializing we want to pack the bytes.
   static u32 packed_size() {
-    // 6 u32s = 6 * 4 = 24 bytes
+    // 1 u64          =  8 bytes
+    // 6 u32s = 5 * 4 = 20 bytes
     // 1 MessageType  =  1 byte
-    return 25;
+    return 29;
   }
 
   // Serialize the message header into the buffer at the given offset. Returns
@@ -66,10 +69,11 @@ struct MessageHeader {
 
 struct Message {
   static constexpr u32 CONNECTION_REQUESTED_PADDING = 512;
+  static constexpr u32 CHALLENGE_RESPONSE_PADDING = 512;
 
   // The body for a connection accepted message should contain only the new
   // remote id for the client to use (for now)
-  static constexpr u32 CONNECTION_ACCEPTED_BODY_SIZE = 4;
+  static constexpr u32 CONNECTION_ACCEPTED_BODY_SIZE = 1;
 
   MessageHeader header;
 

@@ -5,7 +5,8 @@
 
 TEST_CASE("MessageHeader transmission works correctly", "[net]") {
   Net::MessageHeader header = {
-      0x10, 0x20, 0x30, 0x40, 0x50, Net::MessageType::ConnectionAccepted, 0x60};
+      0x10, 0x20, 0x30, 0x40, 0x50, Net::MessageType::ConnectionAccepted,
+      0x60};
 
   std::vector<u8> buf(Net::MessageHeader::packed_size());
   Err err = header.serialize_into(buf, 0);
@@ -17,7 +18,7 @@ TEST_CASE("MessageHeader transmission works correctly", "[net]") {
 
   Net::MessageHeader received = result.value;
 
-  REQUIRE(header.remote_id == received.remote_id);
+  REQUIRE(header.salt == received.salt);
   REQUIRE(header.sequence_id == received.sequence_id);
   REQUIRE(header.ack == received.ack);
   REQUIRE(header.ack_bitfield == received.ack_bitfield);
@@ -46,7 +47,7 @@ TEST_CASE("Message transmission works correctly", "[net]") {
   {
     Net::MessageHeader new_header = received.header;
 
-    REQUIRE(header.remote_id == new_header.remote_id);
+    REQUIRE(header.salt == new_header.salt);
     REQUIRE(header.sequence_id == new_header.sequence_id);
     REQUIRE(header.ack == new_header.ack);
     REQUIRE(header.ack_bitfield == new_header.ack_bitfield);

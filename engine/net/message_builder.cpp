@@ -7,9 +7,14 @@
 Net::MessageBuilder::MessageBuilder(Net::MessageType type)
     : type(type), padding(0), body() {}
 
-Net::MessageBuilder &Net::MessageBuilder::with_ids(u32 remote_id, u32 seq_id,
+Net::MessageBuilder &Net::MessageBuilder::with_salt(u64 salt) {
+  this->salt = salt;
+
+  return *this;
+}
+
+Net::MessageBuilder &Net::MessageBuilder::with_ids(u32 seq_id,
                                                    u32 message_id) {
-  this->remote_id = remote_id;
   this->sequence_id = seq_id;
   this->message_id = message_id;
 
@@ -42,21 +47,12 @@ Net::MessageBuilder &Net::MessageBuilder::with_body(std::vector<u8> body) {
 }
 
 Net::Message Net::MessageBuilder::build() {
-  auto value_or_0 = [](std::optional<u32> opt, const std::string &msg) {
-    if (opt.has_value()) {
-      return *opt;
-    }
-
-    io::warn(msg);
-    return (u32)0;
-  };
-
   Net::MessageHeader header = {
-      value_or_0(this->remote_id, "Did not specify remote_id"),
-      value_or_0(this->sequence_id, "Did not specify sequence_id"),
-      value_or_0(this->ack, "Did not specify ack"),
-      value_or_0(this->ack_bitfield, "Did not specify ack_bitfield"),
-      value_or_0(this->message_id, "Did not specify message_id"),
+      this->unwrap(this->salt, "Did not specify salt"),
+      this->unwrap(this->sequence_id, "Did not specify sequence_id"),
+      this->unwrap(this->ack, "Did not specify ack"),
+      this->unwrap(this->ack_bitfield, "Did not specify ack_bitfield"),
+      this->unwrap(this->message_id, "Did not specify message_id"),
       this->type,
       (u32)this->body.size() + this->padding};
 
@@ -69,4 +65,14 @@ Net::Message Net::MessageBuilder::build() {
   }
 
   return message;
+}
+
+template <typename T>
+T Net::MessageBuilder::unwrap(std::optional<T> opt, std::string_view msg) {
+  if (opt.has_value()) {
+    return *opt;
+  }
+
+  io::warn(msg);
+  return T{};
 }

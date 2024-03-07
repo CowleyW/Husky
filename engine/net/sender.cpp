@@ -1,29 +1,31 @@
 #include "sender.h"
 
+#include "core/def.h"
+#include "core/random.h"
+#include "crypto/checksum.h"
 #include "io/input_map.h"
+#include "io/logging.h"
+#include "util/serialize.h"
 
 #include <asio.hpp>
-#include <core/def.h>
-#include <crypto/checksum.h>
-#include <io/logging.h>
-#include <util/serialize.h>
 
 Net::Sender::Sender(std::shared_ptr<asio::ip::udp::socket> socket,
-                    asio::ip::udp::endpoint endpoint, u32 remote_id)
-    : socket(socket), send_endpoint(endpoint), send_buf(0),
-      remote_id(remote_id), ack(0), ack_bitfield(0), sequence_id(0),
-      message_id(0) {}
+                    asio::ip::udp::endpoint endpoint, u64 client_salt)
+    : socket(socket), send_endpoint(endpoint), send_buf(0), ack(0),
+      ack_bitfield(0), sequence_id(0), message_id(0), client_salt(client_salt),
+      server_salt(0) {}
 
 Net::Sender::Sender(asio::io_context &context, u32 port,
                     asio::ip::udp::endpoint endpoint)
     : socket(std::make_shared<asio::ip::udp::socket>(
           context, asio::ip::udp::endpoint(asio::ip::udp::v4(), port))),
-      send_endpoint(endpoint), send_buf(0), remote_id(0), ack(0),
-      ack_bitfield(0), sequence_id(0), message_id(0) {}
+      send_endpoint(endpoint), send_buf(0), ack(0), ack_bitfield(0),
+      sequence_id(0), message_id(0), client_salt(0), server_salt(0) {}
 
 Net::Sender::Sender(asio::io_context &context)
     : socket(std::make_shared<asio::ip::udp::socket>(context)), send_buf(0),
-      remote_id(0), ack(0), ack_bitfield(0), sequence_id(0), message_id(0) {
+      ack(0), ack_bitfield(0), sequence_id(0), message_id(0), client_salt(0),
+      server_salt(0) {
   this->socket->open(asio::ip::udp::v4());
 }
 
@@ -36,9 +38,9 @@ void Net::Sender::write_connection_requested() {
   this->write_message(message);
 }
 
-void Net::Sender::write_connection_accepted(u32 remote_id) {
-  std::vector<u8> body(4);
-  Serialize::serialize_u32(remote_id, body, 0);
+void Net::Sender::write_connection_accepted(u8 client_index) {
+  std::vector<u8> body(sizeof(client_index));
+  Serialize::serialize_u8(client_index, body, 0);
   Net::Message message =
       this->message_scaffold(Net::MessageType::ConnectionAccepted)
           .with_body(body)
@@ -50,6 +52,29 @@ void Net::Sender::write_connection_accepted(u32 remote_id) {
 void Net::Sender::write_connection_denied() {
   Net::Message message =
       this->message_scaffold(Net::MessageType::ConnectionDenied).build();
+
+  this->write_message(message);
+}
+
+void Net::Sender::write_challenge() {
+  std::vector<u8> body(sizeof(this->server_salt));
+  Serialize::serialize_u64(this->server_salt, body, 0);
+  Net::Message message = this->message_scaffold(Net::MessageType::Challenge)
+                             .with_body(body)
+                             .build();
+
+  this->write_message(message);
+}
+
+void Net::Sender::write_challenge_response() {
+  std::vector<u8> body(sizeof(this->server_salt));
+  Serialize::serialize_u64(this->server_salt, body, 0);
+
+  Net::Message message =
+      this->message_scaffold(Net::MessageType::ChallengeResponse)
+          .with_body(body)
+          .with_padding(512)
+          .build();
 
   this->write_message(message);
 }
@@ -85,10 +110,13 @@ void Net::Sender::write_disconnected_blocking() {
   this->write_message_blocking(message);
 }
 
-void Net::Sender::bind(const asio::ip::udp::endpoint &endpoint, u32 remote_id) {
+void Net::Sender::bind(const asio::ip::udp::endpoint &endpoint,
+                       u64 client_salt) {
   this->send_endpoint = endpoint;
 
-  this->remote_id = remote_id;
+  this->client_salt = client_salt;
+  this->server_salt = Random().random_u64();
+  io::debug("Rolled new server salt {}", this->server_salt);
 
   this->ack = 0;
   this->ack_bitfield = 0;
@@ -97,17 +125,26 @@ void Net::Sender::bind(const asio::ip::udp::endpoint &endpoint, u32 remote_id) {
   this->sequence_id = 0;
 }
 
-void Net::Sender::set_remote_id(u32 remote_id) { this->remote_id = remote_id; }
+void Net::Sender::update_salts(u64 client_salt, u64 server_salt) {
+  this->client_salt = client_salt;
+  this->server_salt = server_salt;
+}
 
 bool Net::Sender::connected_to(const asio::ip::udp::endpoint &endpoint) {
   return this->send_endpoint == endpoint;
 }
 
-bool Net::Sender::matches_id(u32 remote_id) {
-  return this->remote_id == remote_id;
+bool Net::Sender::matches_client_salt(u64 client_salt) {
+  return this->client_salt == client_salt;
 }
 
-u32 Net::Sender::get_remote_id() { return this->remote_id; }
+bool Net::Sender::matches_xor_salt(u64 xor_salt) {
+  return xor_salt == (this->client_salt ^ this->server_salt);
+}
+
+bool Net::Sender::matches_salts(u64 client_salt, u64 server_salt) {
+  return this->client_salt == client_salt && this->server_salt == server_salt;
+}
 
 bool Net::Sender::update_acks(u32 sequence_id) {
   if (this->ack < sequence_id) {
@@ -124,9 +161,10 @@ bool Net::Sender::update_acks(u32 sequence_id) {
 
 Net::MessageBuilder Net::Sender::message_scaffold(Net::MessageType type) {
   return Net::MessageBuilder(type)
-      .with_ids(this->remote_id, this->sequence_id, this->message_id)
+      .with_ids(this->sequence_id, this->message_id)
       .with_acks(this->ack, this->ack_bitfield)
-      .with_padding(0);
+      .with_padding(0)
+      .with_salt(this->client_salt ^ this->server_salt);
 }
 
 void Net::Sender::fill_buffer(const Net::Message &message) {

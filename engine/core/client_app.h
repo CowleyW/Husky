@@ -43,5 +43,7 @@ private:
 
   std::shared_ptr<Net::Client> client;
 
+  std::optional<u32> client_index;
+
   bool running = false;
 };

@@ -39,6 +39,9 @@ public:
   void on_connection_denied(const Message &message,
                             const asio::ip::udp::endpoint &remote) override;
 
+  void on_challenge(const Message &message,
+                    const asio::ip::udp::endpoint &remote) override;
+
   void on_ping(const Message &message,
                const asio::ip::udp::endpoint &remote) override;
 
@@ -48,6 +51,8 @@ private:
 private:
   static constexpr std::chrono::seconds timeout_wait{5};
 
+  u64 client_salt;
+  u64 server_salt;
   ConnectionStatus status;
   std::chrono::steady_clock::time_point last_message;
 

@@ -24,11 +24,14 @@ public:
   std::vector<ClientSlot> &get_clients();
 
   void ping_all();
-  void disconnect(u32 remote_id);
+  void disconnect(u64 xor_salt);
 
 public:
   void on_connection_requested(const Net::Message &message,
                                const asio::ip::udp::endpoint &remote) override;
+
+  void on_challenge_response(const Net::Message &message,
+                             const asio::ip::udp::endpoint &remote) override;
 
   void on_disconnected(const Net::Message &message,
                        const asio::ip::udp::endpoint &remote) override;
@@ -41,12 +44,23 @@ public:
 
 private:
   std::optional<ClientSlot *const>
-  get_client(const asio::ip::udp::endpoint &remote);
-  std::optional<ClientSlot *const> get_client(u32 remote_id);
-  std::optional<ClientSlot *const>
-  get_client(u32 remote_id, const asio::ip::udp::endpoint &remote);
+  get_by_endpoint(const asio::ip::udp::endpoint &remote);
 
-  void accept(const asio::ip::udp::endpoint &remote);
+  std::optional<ClientSlot *const>
+  get_by_client_salt(u64 client_salt, const asio::ip::udp::endpoint &remote);
+
+  std::optional<ClientSlot *const>
+  get_by_xor_salt(u64 xor_salt, const asio::ip::udp::endpoint &remote);
+  std::optional<ClientSlot *const> get_by_xor_salt(u64 xor_salt);
+
+  std::optional<ClientSlot *const>
+  get_by_salts(u64 client_salt, u64 server_salt,
+               const asio::ip::udp::endpoint &remote);
+
+  std::optional<ClientSlot *const> get_open();
+
+  void accept(const asio::ip::udp::endpoint &remote, u64 client_salt);
+  void challenge(const asio::ip::udp::endpoint &remote, u64 client_salt);
   void deny_connection(const asio::ip::udp::endpoint &remote);
 
   bool has_open_slot();
