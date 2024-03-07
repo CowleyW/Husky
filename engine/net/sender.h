@@ -20,8 +20,11 @@ public:
   void write_connection_requested();
   void write_connection_accepted(u32 remote_id);
   void write_connection_denied();
+  void write_disconnected();
   void write_ping();
   void write_user_inputs(const InputMap &inputs);
+
+  void write_disconnected_blocking();
 
   void bind(const asio::ip::udp::endpoint &endpoint, u32 remote_id);
   void set_remote_id(u32 remote_id);
@@ -40,7 +43,11 @@ public:
 
 private:
   MessageBuilder message_scaffold(Net::MessageType type);
+
+  void fill_buffer(const Message &message);
+
   void write_message(const Message &message);
+  void write_message_blocking(const Message &message);
 
 private:
   std::shared_ptr<asio::ip::udp::socket> socket;

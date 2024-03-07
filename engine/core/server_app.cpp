@@ -22,10 +22,17 @@ void ServerApp::handle_message(const Net::Message &message) {
   io::debug("[s_id: {}] [ack: {} | bits: {:b}]", message.header.sequence_id,
             message.header.ack, message.header.ack_bitfield);
   switch (message.header.message_type) {
+  case Net::MessageType::ConnectionRequested:
+    io::debug("Connection requested from {}.", message.header.remote_id);
+    break;
+  case Net::MessageType::Disconnected:
+    io::debug("User {} disconnected :(", message.header.remote_id);
+    this->server->disconnect(message.header.remote_id);
+    break;
   case Net::MessageType::Ping:
     io::debug("Received ping from {}.", message.header.remote_id);
     break;
-  case Net::MessageType::ClientInputs: {
+  case Net::MessageType::UserInputs: {
     auto result = InputMap::deserialize(Buf<u8>(message.body));
     if (result.is_error) {
       io::error("Failed to read inputs from {}", message.header.remote_id);

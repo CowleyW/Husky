@@ -13,8 +13,9 @@ enum class MessageType : u8 {
   ConnectionRequested = 0,
   ConnectionAccepted,
   ConnectionDenied,
+  Disconnected,
   Ping,
-  ClientInputs
+  UserInputs
 };
 
 struct PacketHeader {

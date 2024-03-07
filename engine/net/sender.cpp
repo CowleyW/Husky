@@ -54,6 +54,13 @@ void Net::Sender::write_connection_denied() {
   this->write_message(message);
 }
 
+void Net::Sender::write_disconnected() {
+  Net::Message message =
+      this->message_scaffold(Net::MessageType::Disconnected).build();
+
+  this->write_message(message);
+}
+
 void Net::Sender::write_ping() {
   Net::Message message = this->message_scaffold(Net::MessageType::Ping).build();
 
@@ -64,11 +71,18 @@ void Net::Sender::write_user_inputs(const InputMap &inputs) {
   std::vector<u8> input_map(InputMap::packed_size());
   inputs.serialize_into(input_map, 0);
 
-  Net::Message message = this->message_scaffold(Net::MessageType::ClientInputs)
+  Net::Message message = this->message_scaffold(Net::MessageType::UserInputs)
                              .with_body(input_map)
                              .build();
 
   this->write_message(message);
+}
+
+void Net::Sender::write_disconnected_blocking() {
+  Net::Message message =
+      this->message_scaffold(Net::MessageType::Disconnected).build();
+
+  this->write_message_blocking(message);
 }
 
 void Net::Sender::bind(const asio::ip::udp::endpoint &endpoint, u32 remote_id) {
@@ -115,7 +129,7 @@ Net::MessageBuilder Net::Sender::message_scaffold(Net::MessageType type) {
       .with_padding(0);
 }
 
-void Net::Sender::write_message(const Net::Message &message) {
+void Net::Sender::fill_buffer(const Net::Message &message) {
   u32 message_size = message.packed_size() + Net::PacketHeader::packed_size();
   this->send_buf.resize(message_size);
   message.serialize_into(this->send_buf, PacketHeader::packed_size());
@@ -127,6 +141,10 @@ void Net::Sender::write_message(const Net::Message &message) {
   u32 crc = Crypto::calculate_checksum(
       &this->send_buf[PacketHeader::packed_size()], message.packed_size());
   Serialize::serialize_u32(crc, this->send_buf, offset);
+}
+
+void Net::Sender::write_message(const Net::Message &message) {
+  this->fill_buffer(message);
 
   auto on_send = [this](const asio::error_code &err, u64 size) {
     if (err) {
@@ -143,4 +161,10 @@ void Net::Sender::write_message(const Net::Message &message) {
 
   this->sequence_id += 1;
   this->message_id += 1;
+}
+
+void Net::Sender::write_message_blocking(const Net::Message &message) {
+  this->fill_buffer(message);
+
+  this->socket->send_to(asio::buffer(this->send_buf), this->send_endpoint);
 }

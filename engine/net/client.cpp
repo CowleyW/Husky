@@ -32,6 +32,7 @@ void Net::Client::begin() {
 }
 
 void Net::Client::shutdown() {
+  this->sender->write_disconnected_blocking();
   this->context->stop();
   this->context_thread.join();
 }

@@ -47,3 +47,10 @@ void Net::ClientSlot::ping() {
     this->sender->write_ping();
   }
 }
+
+void Net::ClientSlot::disconnect() {
+  if (this->connected) {
+    this->sender->write_disconnected();
+  }
+  this->connected = false;
+}

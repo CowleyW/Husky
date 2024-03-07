@@ -41,6 +41,17 @@ Net::Server::get_client(const asio::ip::udp::endpoint &remote) {
 }
 
 std::optional<Net::ClientSlot *const>
+Net::Server::get_client(u32 remote_id) {
+  for (ClientSlot &c : this->clients) {
+    if (c.matches_id(remote_id)) {
+      return &c;
+    }
+  }
+
+  return {};
+}
+
+std::optional<Net::ClientSlot *const>
 Net::Server::get_client(u32 remote_id, const asio::ip::udp::endpoint &remote) {
   for (ClientSlot &c : this->clients) {
     if (c.matches_id(remote_id) && c.connected_to(remote)) {
@@ -68,6 +79,16 @@ bool Net::Server::has_open_slot() {
 void Net::Server::ping_all() {
   for (ClientSlot &c : this->clients) {
     c.ping();
+  }
+}
+
+void Net::Server::disconnect(u32 remote_id) {
+  auto maybe = this->get_client(remote_id);
+
+  if (maybe.has_value()) {
+    auto client = maybe.value();
+
+    client->disconnect();
   }
 }
 
@@ -122,10 +143,22 @@ void Net::Server::on_connection_requested(
   }
 }
 
+void Net::Server::on_disconnected(const Net::Message &message,
+                                  const asio::ip::udp::endpoint &remote) {
+  auto maybe = this->get_client(message.header.remote_id, remote);
+
+  if (maybe.has_value()) {
+    auto client = maybe.value();
+    client->add_message(message);
+  } else {
+    io::warn("Received message from unknown remote id {}.",
+             message.header.remote_id);
+  }
+}
+
 void Net::Server::on_ping(const Net::Message &message,
-                                const asio::ip::udp::endpoint &remote) {
-  std::optional<Net::ClientSlot *const> maybe =
-      this->get_client(message.header.remote_id, remote);
+                          const asio::ip::udp::endpoint &remote) {
+  auto maybe = this->get_client(message.header.remote_id, remote);
 
   if (maybe.has_value()) {
     auto client = maybe.value();
@@ -137,7 +170,7 @@ void Net::Server::on_ping(const Net::Message &message,
 }
 
 void Net::Server::on_user_inputs(const Net::Message &message,
-                                       const asio::ip::udp::endpoint &remote) {
+                                 const asio::ip::udp::endpoint &remote) {
   std::optional<Net::ClientSlot *const> maybe =
       this->get_client(message.header.remote_id, remote);
 

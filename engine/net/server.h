@@ -24,10 +24,14 @@ public:
   std::vector<ClientSlot> &get_clients();
 
   void ping_all();
+  void disconnect(u32 remote_id);
 
 public:
   void on_connection_requested(const Net::Message &message,
                                const asio::ip::udp::endpoint &remote) override;
+
+  void on_disconnected(const Net::Message &message,
+                       const asio::ip::udp::endpoint &remote) override;
 
   void on_ping(const Net::Message &message,
                const asio::ip::udp::endpoint &remote) override;
@@ -38,6 +42,7 @@ public:
 private:
   std::optional<ClientSlot *const>
   get_client(const asio::ip::udp::endpoint &remote);
+  std::optional<ClientSlot *const> get_client(u32 remote_id);
   std::optional<ClientSlot *const>
   get_client(u32 remote_id, const asio::ip::udp::endpoint &remote);
 

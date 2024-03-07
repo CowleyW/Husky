@@ -20,6 +20,7 @@ public:
   void add_message(const Message &message);
 
   void ping();
+  void disconnect();
 
 private:
   bool connected;
