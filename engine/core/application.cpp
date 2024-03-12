@@ -30,7 +30,7 @@ void Application::run() {
   // Now is time to set up the core game loop.
   // https://gafferongames.com/post/fix_your_timestep/
   using namespace std::literals::chrono_literals;
-  constexpr std::chrono::nanoseconds dt(100ms);
+  constexpr std::chrono::nanoseconds dt(16ms);
 
   std::chrono::nanoseconds accumulator(0ns);
   auto prev_time = std::chrono::steady_clock::now();

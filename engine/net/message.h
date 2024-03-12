@@ -10,14 +10,29 @@
 namespace Net {
 
 enum class MessageType : u8 {
-  ConnectionRequested = 0,
-  ConnectionAccepted,
-  ConnectionDenied,
-  Challenge,
-  ChallengeResponse,
+  // X -> Y
+  // X disconnected
   Disconnected,
+  // X pings Y to indicate it is still alive
   Ping,
-  UserInputs
+
+  // Client -> Server
+  // Connection request
+  ConnectionRequested,
+  // Response to server challenge
+  ChallengeResponse,
+  // The client inputs
+  UserInputs,
+
+  // Server -> Client
+  // Accept client connection
+  ConnectionAccepted,
+  // Deny client connection
+  ConnectionDenied,
+  // Challenge to confirm client authenticity
+  Challenge,
+  // The state of all client inputs
+  WorldSnapshot
 };
 
 struct PacketHeader {

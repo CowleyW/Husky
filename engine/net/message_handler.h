@@ -36,6 +36,9 @@ public:
     case Net::MessageType::UserInputs:
       this->on_user_inputs(message, remote);
       break;
+    case Net::MessageType::WorldSnapshot:
+      this->on_world_snapshot(message, remote);
+      break;
     default:
       io::error("Got bad message type {}.", (u8)message.header.message_type);
       break;
@@ -80,6 +83,11 @@ public:
   virtual void on_user_inputs(const Message &message,
                               const asio::ip::udp::endpoint &remote) {
     io::error("Unexpected ClientInputs message");
+  }
+
+  virtual void on_world_snapshot(const Message &message,
+                                     const asio::ip::udp::endpoint &remote) {
+    io::error("Unexpected ServerWorldState message");
   }
 };
 

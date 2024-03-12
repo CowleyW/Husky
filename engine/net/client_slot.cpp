@@ -5,10 +5,10 @@
 Net::ClientSlot::ClientSlot(asio::io_context &context, u8 client_index)
     : sender(std::make_unique<Net::Sender>(context)),
       status(Net::ConnectionStatus::Disconnected), message_queue(),
-      last_message(std::chrono::steady_clock::now()), client_index(client_index) {}
+      last_message(std::chrono::steady_clock::now()),
+      client_index(client_index) {}
 
-void Net::ClientSlot::bind(const asio::ip::udp::endpoint &endpoint,
-                           u64 salt) {
+void Net::ClientSlot::bind(const asio::ip::udp::endpoint &endpoint, u64 salt) {
   this->sender->bind(endpoint, salt);
   this->status = Net::ConnectionStatus::Connecting;
 
@@ -38,6 +38,8 @@ bool Net::ClientSlot::matches_salts(u64 client_salt, u64 server_salt) {
 Net::ConnectionStatus Net::ClientSlot::connection_status() {
   return this->status;
 }
+
+u8 Net::ClientSlot::index() { return this->client_index; }
 
 std::optional<Net::Message> Net::ClientSlot::next_message() {
   if (this->message_queue.empty()) {

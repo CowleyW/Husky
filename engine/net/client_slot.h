@@ -20,6 +20,7 @@ public:
   bool matches_client_salt(u64 client_salt);
   bool matches_salts(u64 client_salt, u64 server_salt);
   ConnectionStatus connection_status();
+  u8 index();
 
   std::optional<Message> next_message();
   void add_message(const Message &message);

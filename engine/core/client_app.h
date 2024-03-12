@@ -46,4 +46,5 @@ private:
   std::optional<u32> client_index;
 
   bool running = false;
+  u32 frame;
 };

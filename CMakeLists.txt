@@ -3,8 +3,12 @@ cmake_minimum_required(VERSION 3.21)
 project(Husky)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-std=c++17 ${CMAKE_CXX_FLAGS}")
+
+if (MSVC)
+	set(CMAKE_CXX_STANDARD 17)
+else ()
+	set(CMAKE_CXX_FLAGS "-std=c++17 ${CMAKE_CXX_FLAGS}")
+endif()
 
 # Engine Library
 add_library(engine

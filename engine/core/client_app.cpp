@@ -9,7 +9,8 @@
 #include <chrono>
 
 ClientApp::ClientApp(u32 server_port, u32 client_port)
-    : client(std::make_shared<Net::Client>(server_port, client_port)) {}
+    : client(std::make_shared<Net::Client>(server_port, client_port)), frame(0) {
+}
 
 Err ClientApp::init() {
   Err err = this->window.init({1280, 720});
@@ -29,7 +30,10 @@ Err ClientApp::init() {
 
 void ClientApp::begin() { this->client->begin(); }
 
-void ClientApp::update() { this->window.poll_events(); }
+void ClientApp::update() {
+  this->window.poll_events();
+  this->poll_network();
+}
 
 void ClientApp::render() {
   this->context.clear();
@@ -40,8 +44,12 @@ void ClientApp::render() {
 void ClientApp::fixed_update() {
   InputMap inputs = this->window.build_input_map();
 
-  this->poll_network();
-  this->network_update(inputs);
+  this->frame += 1;
+
+  if (this->frame % 6 == 0) {
+    this->network_update(inputs);
+    this->frame = 0;
+  }
 }
 
 void ClientApp::shutdown() {

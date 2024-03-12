@@ -1,6 +1,7 @@
 #include "checksum.h"
 
 #include "core/types.h"
+#include "io/logging.h"
 
 u32 Crypto::calculate_checksum(Buf<u8> buf) {
   return Crypto::calculate_checksum(buf.data(), buf.size());
