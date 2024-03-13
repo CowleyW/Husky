@@ -3,16 +3,35 @@
 #include "io/logging.h"
 #include "net/message.h"
 #include "net/server.h"
+#include "world_state.h"
 
 #include <memory>
 
 ServerApp::ServerApp(u32 port)
     : server(std::make_unique<Net::Server>(port, ServerApp::MaxClients)),
-      frame(0) {}
+      frame(0), process_client_mask(), world_state() {
+  io::debug("world state size {}", this->world_state.packed_size());
+  std::vector<u8> buf(this->world_state.packed_size());
+  this->world_state.serialize_into(buf, 0);
+}
 
 void ServerApp::begin() { this->server->begin(); }
 
-void ServerApp::update() { this->poll_network(); }
+void ServerApp::update() {
+  this->poll_network();
+
+  auto dc_client = this->server->next_disconnected_client();
+  while (dc_client.has_value()) {
+    io::debug("User {} disconnected :(", dc_client.value());
+    dc_client = this->server->next_disconnected_client();
+  }
+
+  auto new_client = this->server->next_new_client();
+  while (new_client.has_value()) {
+    io::debug("New client {} :)", new_client.value());
+    new_client = this->server->next_new_client();
+  }
+}
 
 void ServerApp::fixed_update() {
   this->frame += 1;
@@ -24,7 +43,7 @@ void ServerApp::fixed_update() {
   }
 
   if (this->frame % 6 == 0) {
-    this->server->ping_all();
+    this->server->send_world_state(this->world_state);
     this->frame = 0;
   }
 
@@ -46,10 +65,6 @@ void ServerApp::handle_message(const Net::Message &message, u8 client_index) {
   switch (message.header.message_type) {
   case Net::MessageType::ConnectionRequested:
     io::debug("Connection requested from {}.", message.header.salt);
-    break;
-  case Net::MessageType::Disconnected:
-    io::debug("User {} disconnected :(", message.header.salt);
-    this->server->disconnect(message.header.salt);
     break;
   case Net::MessageType::Ping:
     io::debug("Received ping from {}.", message.header.salt);

@@ -110,6 +110,14 @@ void Net::Sender::write_disconnected_blocking() {
   this->write_message_blocking(message);
 }
 
+void Net::Sender::write_world_state(const std::vector<u8> &serialized_state) {
+  Net::Message message = this->message_scaffold(Net::MessageType::WorldSnapshot)
+                             .with_body(serialized_state)
+                             .build();
+
+  this->write_message(message);
+}
+
 void Net::Sender::bind(const asio::ip::udp::endpoint &endpoint,
                        u64 client_salt) {
   this->send_endpoint = endpoint;
@@ -186,7 +194,7 @@ void Net::Sender::write_message(const Net::Message &message) {
 
   auto on_send = [this](const asio::error_code &err, u64 size) {
     if (err) {
-      io::error(err.message());
+      io::error("Sender::write_message -- {}", err.message());
       return;
     }
 

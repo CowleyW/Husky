@@ -38,6 +38,15 @@ u32 Serialize::serialize_u64(u64 value, std::vector<u8> &buf, u32 offset) {
   return offset + 8;
 }
 
+u32 Serialize::serialize_float(float value, std::vector<u8> &buf, u32 offset) {
+  union {
+    float f;
+    u32 val;
+  } u = {value};
+
+  return Serialize::serialize_u32(u.val, buf, offset);
+}
+
 u8 Serialize::deserialize_u8(MutBuf<u8> &buf) {
   u8 value = buf.data()[0];
 
@@ -85,4 +94,13 @@ u64 Serialize::deserialize_u64(MutBuf<u8> &buf) {
 
   buf.trim_left(8);
   return value;
+}
+
+float Serialize::deserialize_float(MutBuf<u8> &buf) {
+  union {
+    float f;
+    u32 val;
+  } u = {Serialize::deserialize_u32(buf)};
+
+  return u.f;
 }

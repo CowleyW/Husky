@@ -6,6 +6,7 @@
 #include "client_slot.h"
 #include "listener.h"
 #include "net/message_handler.h"
+#include "core/world_state.h"
 
 #include <asio.hpp>
 
@@ -23,8 +24,11 @@ public:
 
   std::vector<ClientSlot> &get_clients();
 
+  std::optional<u8> next_new_client();
+  std::optional<u8> next_disconnected_client();
+
   void ping_all();
-  void disconnect(u64 xor_salt);
+  void send_world_state(WorldState &world_state);
 
 public:
   void on_connection_requested(const Net::Message &message,
@@ -72,6 +76,9 @@ private:
   u8 num_connected_clients;
   std::vector<ClientSlot> clients;
 
+  std::queue<u8> new_clients;
+  std::queue<u8> disconnected_clients;
+
   std::unique_ptr<asio::io_context> context;
   // asio::ip::udp::socket socket;
   Listener listener;
@@ -80,8 +87,6 @@ private:
 
   std::thread context_thread;
   std::vector<u8> recv_buf;
-
-  Net::MessageHandler *handler;
 };
 
 } // namespace Net

@@ -3,13 +3,14 @@
 #include "io/logging.h"
 #include "net/message_handler.h"
 #include "util/serialize.h"
+#include "core/world_state.h"
 
 #include "core/random.h"
 
 Net::Server::Server(u32 port, u8 max_clients)
     : port(port), max_clients(max_clients), num_connected_clients(0), clients(),
       context(std::make_unique<asio::io_context>()), listener(*context, port),
-      recv_buf(1024), handler(nullptr), denier(*context) {
+      recv_buf(1024), denier(*context), new_clients(), disconnected_clients() {
   for (u8 client = 0; client < max_clients; client += 1) {
     this->clients.emplace_back(Net::ClientSlot(*this->context, client));
   }
@@ -76,7 +77,7 @@ Net::Server::get_by_xor_salt(u64 xor_salt) {
 }
 std::optional<Net::ClientSlot *const>
 Net::Server::get_by_salts(u64 client_salt, u64 server_salt,
-    const asio::ip::udp::endpoint& remote) {
+                          const asio::ip::udp::endpoint &remote) {
   for (ClientSlot &c : this->clients) {
     if (c.matches_salts(client_salt, server_salt)) {
       return &c;
@@ -85,7 +86,6 @@ Net::Server::get_by_salts(u64 client_salt, u64 server_salt,
 
   return {};
 }
-
 
 std::optional<Net::ClientSlot *const> Net::Server::get_open() {
   for (ClientSlot &c : this->clients) {
@@ -99,6 +99,26 @@ std::optional<Net::ClientSlot *const> Net::Server::get_open() {
 
 std::vector<Net::ClientSlot> &Net::Server::get_clients() {
   return this->clients;
+}
+
+std::optional<u8> Net::Server::next_new_client() {
+  if (this->new_clients.empty()) {
+    return {};
+  } else {
+    u8 client_index = this->new_clients.front();
+    this->new_clients.pop();
+    return client_index;
+  }
+}
+
+std::optional<u8> Net::Server::next_disconnected_client() {
+  if (this->disconnected_clients.empty()) {
+    return {};
+  } else {
+    u8 client_index = this->disconnected_clients.front();
+    this->disconnected_clients.pop();
+    return client_index;
+  }
 }
 
 bool Net::Server::has_open_slot() {
@@ -117,16 +137,17 @@ void Net::Server::ping_all() {
   }
 }
 
-void Net::Server::disconnect(u64 xor_salt) {
-  auto maybe = this->get_by_xor_salt(xor_salt);
+void Net::Server::send_world_state(WorldState &world_state) {
+  std::vector<u8> buf(world_state.packed_size());
+  world_state.serialize_into(buf, 0);
 
-  if (maybe.has_value()) {
-    auto client = maybe.value();
-
-    client->disconnect();
+  for (ClientSlot &c : this->clients) {
+    c.send_world_state(buf);
   }
 }
 
+// Can we get rid of the Server::accept() method? It doesn't seem to get called
+// anywhere
 void Net::Server::accept(const asio::ip::udp::endpoint &remote,
                          u64 client_salt) {
   bool found_slot = false;
@@ -212,6 +233,7 @@ void Net::Server::on_challenge_response(const Net::Message &message,
   if (maybe_client.has_value()) {
     io::debug("Client passed challenge");
     maybe_client.value()->accept();
+    this->new_clients.push(maybe_client.value()->index());
   } else {
     io::debug("Client failed challenge");
   }
@@ -223,7 +245,9 @@ void Net::Server::on_disconnected(const Net::Message &message,
 
   if (maybe.has_value()) {
     auto client = maybe.value();
-    client->add_message(message);
+
+    client->disconnect();
+    this->disconnected_clients.push(client->index());
   } else {
     io::warn("Received message from unknown remote id {}.",
              message.header.salt);

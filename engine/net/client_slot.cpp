@@ -73,6 +73,13 @@ void Net::ClientSlot::ping() {
   }
 }
 
+void Net::ClientSlot::send_world_state(
+    const std::vector<u8> &serialized_state) {
+  if (this->is_connected()) {
+    this->sender->write_world_state(serialized_state);
+  }
+}
+
 void Net::ClientSlot::disconnect() {
   if (this->status != Net::ConnectionStatus::Disconnected) {
     this->sender->write_disconnected();

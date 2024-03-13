@@ -17,7 +17,9 @@ add_library(engine
   engine/core/client_app.h engine/core/client_app.cpp
   engine/core/server_app.h engine/core/server_app.cpp
   engine/core/types.h engine/core/def.h
+  engine/core/position.h engine/core/position.cpp
   engine/core/random.h engine/core/random.cpp
+  engine/core/world_state.h engine/core/world_state.cpp
   
   # Crypto
   engine/crypto/checksum.h engine/crypto/checksum.cpp

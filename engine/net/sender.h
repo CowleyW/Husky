@@ -25,6 +25,7 @@ public:
   void write_disconnected();
   void write_ping();
   void write_user_inputs(const InputMap &inputs);
+  void write_world_state(const std::vector<u8> &serialized_state);
 
   void write_disconnected_blocking();
 

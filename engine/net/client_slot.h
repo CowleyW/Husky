@@ -28,6 +28,7 @@ public:
   void accept();
   void send_challenge();
   void ping();
+  void send_world_state(const std::vector<u8> &serialized_state);
   void disconnect();
   bool maybe_timeout();
 

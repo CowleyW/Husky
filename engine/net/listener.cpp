@@ -30,7 +30,7 @@ void Net::Listener::listen() {
     if (!err) {
       this->handle_receive((u32)size);
     } else {
-      io::error("on_receive: {}", err.message());
+      io::error("Listener::on_receive: {}", err.message());
     }
   };
   this->socket->async_receive_from(asio::buffer(this->recv_buf),

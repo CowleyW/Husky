@@ -6,6 +6,7 @@
 #include "net/server.h"
 #include "types.h"
 #include "util/err.h"
+#include "world_state.h"
 
 class ServerApp : public Application {
 public:
@@ -38,4 +39,5 @@ private:
   std::array<bool, ServerApp::MaxClients> process_client_mask;
 
   u32 frame;
+  WorldState world_state;
 };
