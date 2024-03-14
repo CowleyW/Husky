@@ -6,6 +6,7 @@
 #include "render/callback_handler.h"
 #include "render/context.h"
 #include "render/window.h"
+#include "world_state.h"
 
 class ClientApp : public Application, CallbackHandler {
 public:
@@ -28,10 +29,9 @@ public:
 
 private:
   void on_connection_accepted(const Net::Message &message);
-
   void on_connection_denied(const Net::Message &message);
-
   void on_ping(const Net::Message &message);
+  void on_world_snapshot(const WorldState &world_state);
 
   void network_update(const InputMap &inputs);
   void poll_network();
@@ -47,4 +47,5 @@ private:
 
   bool running = false;
   u32 frame;
+  WorldState world_state;
 };

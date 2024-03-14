@@ -13,12 +13,16 @@ public:
   WorldState();
   WorldState(std::vector<std::pair<u8, Position>> player_positions);
 
-  u32 packed_size() {
-    // 1 byte for the number of players, rest to store positions vec
-    return sizeof(u8) + this->player_positions.size() * WorldState::pair_size();
-  }
+  u32 packed_size() const;
 
-  Err serialize_into(std::vector<u8> &buf, u32 offset);
+  u32 player_count() const;
+  Result<Position> player_position(u8 player_index);
+
+  void remove_player(u8 player_index);
+  void add_player(u8 player_index);
+  void transform_player(u8 player_index, const Position &transform);
+
+  Err serialize_into(std::vector<u8> &buf, u32 offset) const;
 
   static Result<WorldState> deserialize(Buf<u8> &buf);
 

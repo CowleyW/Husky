@@ -28,7 +28,7 @@ public:
   std::optional<u8> next_disconnected_client();
 
   void ping_all();
-  void send_world_state(WorldState &world_state);
+  void send_world_state(const WorldState &world_state);
 
 public:
   void on_connection_requested(const Net::Message &message,

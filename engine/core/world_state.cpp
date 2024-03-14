@@ -7,7 +7,46 @@ WorldState::WorldState() : player_positions() {}
 WorldState::WorldState(std::vector<std::pair<u8, Position>> player_positions)
     : player_positions(player_positions) {}
 
-Err WorldState::serialize_into(std::vector<u8> &buf, u32 offset) {
+u32 WorldState::packed_size() const {
+  // 1 byte for the number of players, rest to store positions vec
+  return sizeof(u8) + this->player_positions.size() * WorldState::pair_size();
+}
+
+u32 WorldState::player_count() const { return this->player_positions.size(); }
+
+Result<Position> WorldState::player_position(u8 player_index) {
+  for (auto &pair : this->player_positions) {
+    if (pair.first == player_index) {
+      return Result<Position>::ok(pair.second);
+    }
+  }
+
+  return Result<Position>::err("No player of the given index.");
+}
+
+void WorldState::remove_player(u8 player_index) {
+  for (u32 i = 0; i < this->player_positions.size(); i += 1) {
+    if (this->player_positions[i].first == player_index) {
+      this->player_positions.erase(this->player_positions.begin() + i,
+                                   this->player_positions.begin() + i + 1);
+    }
+  }
+}
+
+void WorldState::add_player(u8 player_index) {
+  this->player_positions.push_back({player_index, {0.0, 0.0}});
+}
+
+void WorldState::transform_player(u8 player_index, const Position &transform) {
+  for (auto &pair : this->player_positions) {
+    if (pair.first == player_index) {
+      pair.second.x += transform.x;
+      pair.second.y += transform.y;
+    }
+  }
+}
+
+Err WorldState::serialize_into(std::vector<u8> &buf, u32 offset) const {
   if (buf.size() < offset + this->packed_size()) {
     return Err::err("Insufficient space to serialize position");
   }
@@ -37,7 +76,7 @@ Result<WorldState> WorldState::deserialize(Buf<u8> &buf) {
     u8 player_index = Serialize::deserialize_u8(mutbuf);
     Position player_position = Position::deserialize(mutbuf).value;
 
-    player_positions.push_back({player_index, player_position});
+    player_positions[i] = {player_index, player_position};
   }
 
   return Result<WorldState>::ok(WorldState(player_positions));

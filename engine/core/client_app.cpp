@@ -5,12 +5,13 @@
 #include "render/window.h"
 #include "util/err.h"
 #include "util/serialize.h"
+#include "world_state.h"
 
 #include <chrono>
 
 ClientApp::ClientApp(u32 server_port, u32 client_port)
-    : client(std::make_shared<Net::Client>(server_port, client_port)), frame(0) {
-}
+    : client(std::make_shared<Net::Client>(server_port, client_port)), frame(0),
+      world_state() {}
 
 Err ClientApp::init() {
   Err err = this->window.init({1280, 720});
@@ -45,6 +46,15 @@ void ClientApp::fixed_update() {
   InputMap inputs = this->window.build_input_map();
 
   this->frame += 1;
+  if (this->client_index.has_value()) {
+    auto pos = this->world_state.player_position(this->client_index.value());
+
+    if (pos.is_error) {
+      io::error("{} {}", pos.msg, this->client_index.value());
+    } else {
+      io::debug("client position: [{}, {}]", pos.value.x, pos.value.y);
+    }
+  }
 
   if (this->frame % 6 == 0) {
     this->network_update(inputs);
@@ -68,7 +78,7 @@ void ClientApp::on_window_close() {
 }
 
 void ClientApp::on_connection_accepted(const Net::Message &message) {
-  this->client_index = Serialize::deserialize_u32(MutBuf<u8>(message.body));
+  this->client_index = Serialize::deserialize_u8(MutBuf<u8>(message.body));
   io::debug("[{}]: Received ConnectionAccepted", this->client_index.value());
 }
 
@@ -78,6 +88,11 @@ void ClientApp::on_connection_denied(const Net::Message &message) {
 
 void ClientApp::on_ping(const Net::Message &message) {
   io::debug("Received Ping");
+}
+
+void ClientApp::on_world_snapshot(const WorldState &world_state) {
+  this->world_state = world_state;
+  io::debug("Received world state: {} clients", world_state.player_count());
 }
 
 void ClientApp::network_update(const InputMap &inputs) {
@@ -115,6 +130,15 @@ void ClientApp::handle_message(const Net::Message &message) {
   case Net::MessageType::Ping:
     this->on_ping(message);
     break;
+  case Net::MessageType::WorldSnapshot: {
+    auto world_state = WorldState::deserialize(Buf<u8>(message.body));
+    if (world_state.is_error) {
+      io::error("Failed to deserialize WorldState: {}", world_state.msg);
+    } else {
+      this->on_world_snapshot(world_state.value);
+    }
+    break;
+  }
   default:
     io::error("Unknown message type {}", (u8)message.header.message_type);
     break;

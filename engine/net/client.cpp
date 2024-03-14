@@ -127,6 +127,12 @@ void Net::Client::on_ping(const Net::Message &message,
   this->add_message(message);
 }
 
+void Net::Client::on_world_snapshot(const Net::Message& message,
+    const asio::ip::udp::endpoint& remote)
+{
+  this->add_message(message);
+}
+
 void Net::Client::add_message(const Net::Message &message) {
   if (this->sender->update_acks(message.header.sequence_id)) {
     this->messages.push(message);

@@ -137,7 +137,8 @@ void Net::Server::ping_all() {
   }
 }
 
-void Net::Server::send_world_state(WorldState &world_state) {
+void Net::Server::send_world_state(const WorldState &world_state) {
+  io::debug("{} clients in world state", world_state.player_count());
   std::vector<u8> buf(world_state.packed_size());
   world_state.serialize_into(buf, 0);
 

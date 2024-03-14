@@ -6,7 +6,7 @@
 
 #include <vector>
 
-Err Position::serialize_into(std::vector<u8> &buf, u32 offset) {
+Err Position::serialize_into(std::vector<u8> &buf, u32 offset) const {
   if (buf.size() < offset + Position::packed_size()) {
     return Err::err("Insufficient space to serialize position");
   }

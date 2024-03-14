@@ -98,9 +98,10 @@ u64 Serialize::deserialize_u64(MutBuf<u8> &buf) {
 
 float Serialize::deserialize_float(MutBuf<u8> &buf) {
   union {
-    float f;
     u32 val;
+    float f;
   } u = {Serialize::deserialize_u32(buf)};
 
+  io::debug("float: {} int: {}", u.val, u.f);
   return u.f;
 }

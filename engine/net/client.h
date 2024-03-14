@@ -45,6 +45,9 @@ public:
   void on_ping(const Message &message,
                const asio::ip::udp::endpoint &remote) override;
 
+  void on_world_snapshot(const Message &message,
+                         const asio::ip::udp::endpoint &remote) override;
+
 private:
   void add_message(const Message &message);
 

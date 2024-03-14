@@ -23,12 +23,14 @@ void ServerApp::update() {
   auto dc_client = this->server->next_disconnected_client();
   while (dc_client.has_value()) {
     io::debug("User {} disconnected :(", dc_client.value());
+    this->world_state.remove_player(dc_client.value());
     dc_client = this->server->next_disconnected_client();
   }
 
   auto new_client = this->server->next_new_client();
   while (new_client.has_value()) {
     io::debug("New client {} :)", new_client.value());
+    this->world_state.add_player(new_client.value());
     new_client = this->server->next_new_client();
   }
 }
@@ -40,6 +42,16 @@ void ServerApp::fixed_update() {
     InputMap map = pair.second;
     io::debug("Received inputs from [{}] : ({}, {}, {})", pair.first,
               map.press_left, map.press_right, map.press_jump);
+
+    if (map.press_left) {
+      this->world_state.transform_player(pair.first, {-1.0, 0.0});
+    }
+    if (map.press_right) {
+      this->world_state.transform_player(pair.first, {1.0, 0.0});
+    }
+    if (map.press_jump) {
+      this->world_state.transform_player(pair.first, {0.0, 1.0});
+    }
   }
 
   if (this->frame % 6 == 0) {
