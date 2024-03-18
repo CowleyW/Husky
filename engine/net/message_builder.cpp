@@ -7,34 +7,35 @@
 Net::MessageBuilder::MessageBuilder(Net::MessageType type)
     : type(type), padding(0), body() {}
 
-Net::MessageBuilder &Net::MessageBuilder::with_salt(u64 salt) {
+Net::MessageBuilder &Net::MessageBuilder::with_salt(uint64_t salt) {
   this->salt = salt;
 
   return *this;
 }
 
-Net::MessageBuilder &Net::MessageBuilder::with_ids(u32 seq_id,
-                                                   u32 message_id) {
+Net::MessageBuilder &Net::MessageBuilder::with_ids(uint32_t seq_id,
+                                                   uint32_t message_id) {
   this->sequence_id = seq_id;
   this->message_id = message_id;
 
   return *this;
 }
 
-Net::MessageBuilder &Net::MessageBuilder::with_acks(u32 ack, u32 ack_bitfield) {
+Net::MessageBuilder &Net::MessageBuilder::with_acks(uint32_t ack,
+                                                    uint32_t ack_bitfield) {
   this->ack = ack;
   this->ack_bitfield = ack_bitfield;
 
   return *this;
 }
 
-Net::MessageBuilder &Net::MessageBuilder::with_padding(u32 padding) {
+Net::MessageBuilder &Net::MessageBuilder::with_padding(uint32_t padding) {
   this->padding = padding;
 
   return *this;
 }
 
-Net::MessageBuilder &Net::MessageBuilder::with_body(std::vector<u8> body) {
+Net::MessageBuilder &Net::MessageBuilder::with_body(std::vector<uint8_t> body) {
   // I'm not thrilled with how this part of message_builder is handled at the
   // moment, as it seems to be performing wasteful copies. This is code that in
   // the future I would like to redo, but it likely doesn't have a huge impact,
@@ -54,9 +55,9 @@ Net::Message Net::MessageBuilder::build() {
       this->unwrap(this->ack_bitfield, "Did not specify ack_bitfield"),
       this->unwrap(this->message_id, "Did not specify message_id"),
       this->type,
-      (u32)this->body.size() + this->padding};
+      (uint32_t)this->body.size() + this->padding};
 
-  std::vector<u8> message_body;
+  std::vector<uint8_t> message_body;
   message_body.resize(header.body_size);
   Net::Message message = {header, message_body};
 

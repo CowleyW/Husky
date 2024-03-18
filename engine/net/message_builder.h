@@ -9,32 +9,32 @@ class MessageBuilder {
 public:
   MessageBuilder(MessageType type);
 
-  MessageBuilder &with_salt(u64 salt);
-  MessageBuilder &with_ids(u32 sequence_id, u32 message_id);
-  MessageBuilder &with_acks(u32 ack, u32 ack_bitfield);
-  MessageBuilder &with_padding(u32 padding);
-  MessageBuilder &with_body(std::vector<u8> body);
+  MessageBuilder &with_salt(uint64_t salt);
+  MessageBuilder &with_ids(uint32_t sequence_id, uint32_t message_id);
+  MessageBuilder &with_acks(uint32_t ack, uint32_t ack_bitfield);
+  MessageBuilder &with_padding(uint32_t padding);
+  MessageBuilder &with_body(std::vector<uint8_t> body);
 
   Message build();
 
-  private:
+private:
   template <typename T> T unwrap(std::optional<T> opt, std::string_view msg);
 
 private:
   MessageType type;
 
-  std::optional<u64> salt;
+  std::optional<uint64_t> salt;
 
-  std::optional<u32> sequence_id;
+  std::optional<uint32_t> sequence_id;
 
-  std::optional<u32> ack;
-  std::optional<u32> ack_bitfield;
+  std::optional<uint32_t> ack;
+  std::optional<uint32_t> ack_bitfield;
 
-  std::optional<u32> message_id;
+  std::optional<uint32_t> message_id;
 
-  u32 padding;
+  uint32_t padding;
 
-  std::vector<u8> body;
+  std::vector<uint8_t> body;
 };
 
 } // namespace Net

@@ -1,25 +1,23 @@
 #include "random.h"
 
-#include "types.h"
-
 #include <random>
 
 Random::Random() : rng(std::random_device()()) {}
 
-Random::Random(u64 seed) : rng(seed) {}
+Random::Random(uint64_t seed) : rng(seed) {}
 
-u32 Random::random_u32() {
-  return std::uniform_int_distribution<u32>()(this->rng);
+uint32_t Random::random_u32() {
+  return std::uniform_int_distribution<uint32_t>()(this->rng);
 }
 
-u32 Random::random_u32(u32 max) {
-  return std::uniform_int_distribution<u32>(0, max)(this->rng);
+uint32_t Random::random_u32(uint32_t max) {
+  return std::uniform_int_distribution<uint32_t>(0, max)(this->rng);
 }
 
-u64 Random::random_u64() {
-  return std::uniform_int_distribution<u64>()(this->rng);
+uint64_t Random::random_u64() {
+  return std::uniform_int_distribution<uint64_t>()(this->rng);
 }
 
-u64 Random::random_u64(u64 max) {
-  return std::uniform_int_distribution<u64>(0, max)(this->rng);
+uint64_t Random::random_u64(uint64_t max) {
+  return std::uniform_int_distribution<uint64_t>(0, max)(this->rng);
 }

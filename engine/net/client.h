@@ -1,6 +1,5 @@
 #pragma once
 
-#include "core/types.h"
 #include "listener.h"
 #include "message_handler.h"
 #include "sender.h"
@@ -17,7 +16,7 @@ using namespace std::literals::chrono_literals;
 
 class Client : MessageHandler {
 public:
-  Client(u32 server_port, u32 client_port);
+  Client(uint32_t server_port, uint32_t client_port);
 
   void begin();
   void shutdown();
@@ -54,8 +53,8 @@ private:
 private:
   static constexpr std::chrono::seconds timeout_wait{5};
 
-  u64 client_salt;
-  u64 server_salt;
+  uint64_t client_salt;
+  uint64_t server_salt;
   ConnectionStatus status;
   std::chrono::steady_clock::time_point last_message;
 
@@ -65,7 +64,7 @@ private:
   std::unique_ptr<Sender> sender;
 
   std::thread context_thread;
-  std::array<u8, 1024> recv_buf;
+  std::array<uint8_t, 1024> recv_buf;
 
   std::queue<Net::Message> messages;
 };

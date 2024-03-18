@@ -16,7 +16,7 @@ add_library(engine
   engine/core/application.h engine/core/application.cpp
   engine/core/client_app.h engine/core/client_app.cpp
   engine/core/server_app.h engine/core/server_app.cpp
-  engine/core/types.h engine/core/def.h
+  engine/core/def.h
   engine/core/position.h engine/core/position.cpp
   engine/core/random.h engine/core/random.cpp
   engine/core/world_state.h engine/core/world_state.cpp
@@ -42,10 +42,12 @@ add_library(engine
 
   # Render
   engine/render/window.h engine/render/window.cpp
-  engine/render/context.h engine/render/context.cpp
-  engine/render/shader.h engine/render/shader.cpp
+  # engine/render/context.h engine/render/context.cpp
+  # engine/render/shader.h engine/render/shader.cpp
   engine/render/callback_handler.h
-  engine/render/gl_types.h
+  # engine/render/gl_types.h
+  engine/render/vk_engine.h engine/render/vk_engine.cpp
+  engine/render/vk_types.h
 
   #Util
   engine/util/err.h engine/util/result.h
@@ -55,26 +57,32 @@ add_library(engine
 target_compile_definitions(engine PRIVATE ASSETS_PATH="${PROJECT_SOURCE_DIR}/assets/")
 target_compile_features(engine PRIVATE cxx_std_17)
 
-find_package(OpenGL REQUIRED)
+find_package(Vulkan REQUIRED)
 
 add_subdirectory(lib/glfw)
-add_subdirectory(lib/glad)
+add_subdirectory(lib/glm)
 add_subdirectory(lib/fmt)
+add_subdirectory(lib/VulkanMemoryAllocator)
+add_subdirectory(lib/vk-bootstrap)
 target_link_libraries(engine PUBLIC 
   fmt 
-  glfw 
-  OpenGL::GL 
-  glad
+  glfw
+  glm::glm
+  Vulkan::Vulkan
+  GPUOpen::VulkanMemoryAllocator
+  vk-bootstrap::vk-bootstrap
   ws2_32
   wsock32
 )
 
 target_include_directories(engine PUBLIC 
   engine/ 
-  lib/asio/asio/include
+  lib/asio/asio/include/
   lib/fmt/include/
-  lib/glfw/include/ 
-  lib/glad/include/)
+  lib/glfw/include/
+  lib/vk-bootstrap/src/
+  lib/VulkanMemoryAllocator/include/
+  lib/Vulkan-Utility-Libraries/include/vulkan/)
 
 target_compile_definitions(engine PRIVATE _WIN32_WINNT=0x0A00)
 

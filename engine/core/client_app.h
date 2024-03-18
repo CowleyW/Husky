@@ -4,13 +4,12 @@
 
 #include "net/client.h"
 #include "render/callback_handler.h"
-#include "render/context.h"
 #include "render/window.h"
 #include "world_state.h"
 
 class ClientApp : public Application, CallbackHandler {
 public:
-  ClientApp(u32 server_port, u32 client_port);
+  ClientApp(uint32_t server_port, uint32_t client_port);
 
   Err init();
 
@@ -39,13 +38,13 @@ private:
 
 private:
   Window window;
-  Context context;
+  // Context context;
 
   std::shared_ptr<Net::Client> client;
 
-  std::optional<u32> client_index;
+  std::optional<uint32_t> client_index;
 
   bool running = false;
-  u32 frame;
+  uint32_t frame;
   WorldState world_state;
 };

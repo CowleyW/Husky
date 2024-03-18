@@ -1,12 +1,11 @@
 #include "engine/util/serialize.h"
-#include "core/types.h"
 #include "util/buf.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("Basic serialization works correctly", "[serialization]") {
-  std::vector<u8> buf(15);
-  u32 offset = 0;
+  std::vector<uint8_t> buf(15);
+  uint32_t offset = 0;
 
   offset = Serialize::serialize_u64(0x8877665544332211, buf, offset);
   REQUIRE(offset == 8);
@@ -41,17 +40,17 @@ TEST_CASE("Basic serialization works correctly", "[serialization]") {
 }
 
 TEST_CASE("Basic deserialization works correctly", "[serialization]") {
-  std::vector<u8> bytes = {0xFF, 0xEE, 0xDD, 0xCC, 0xBB, 0xAA, 0x99, 0x88,
+  std::vector<uint8_t> bytes = {0xFF, 0xEE, 0xDD, 0xCC, 0xBB, 0xAA, 0x99, 0x88,
                            0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11};
-  MutBuf<u8> buf(bytes.data(), bytes.size());
+  MutBuf<uint8_t> buf(bytes.data(), bytes.size());
 
-  u64 oct = Serialize::deserialize_u64(buf);
+  uint64_t oct = Serialize::deserialize_u64(buf);
 
-  u32 quad = Serialize::deserialize_u32(buf);
+  uint32_t quad = Serialize::deserialize_u32(buf);
 
-  u16 doub = Serialize::deserialize_u16(buf);
+  uint16_t doub = Serialize::deserialize_u16(buf);
 
-  u8 single = Serialize::deserialize_u8(buf);
+  uint8_t single = Serialize::deserialize_u8(buf);
 
   REQUIRE(oct == 0xFFEEDDCCBBAA9988);
   REQUIRE(quad == 0x77665544);

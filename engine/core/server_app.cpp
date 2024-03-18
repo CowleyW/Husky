@@ -7,11 +7,11 @@
 
 #include <memory>
 
-ServerApp::ServerApp(u32 port)
+ServerApp::ServerApp(uint32_t port)
     : server(std::make_unique<Net::Server>(port, ServerApp::MaxClients)),
-      frame(0), process_client_mask(), world_state() {
+      process_client_mask(), frame(0), world_state() {
   io::debug("world state size {}", this->world_state.packed_size());
-  std::vector<u8> buf(this->world_state.packed_size());
+  std::vector<uint8_t> buf(this->world_state.packed_size());
   this->world_state.serialize_into(buf, 0);
 }
 
@@ -66,12 +66,13 @@ void ServerApp::fixed_update() {
 void ServerApp::shutdown() { this->server->shutdown(); }
 
 void ServerApp::reset_process_mask() {
-  for (u32 i = 0; i < this->MaxClients; i += 1) {
+  for (uint32_t i = 0; i < this->MaxClients; i += 1) {
     this->process_client_mask[i] = false;
   }
 }
 
-void ServerApp::handle_message(const Net::Message &message, u8 client_index) {
+void ServerApp::handle_message(const Net::Message &message,
+                               uint8_t client_index) {
   io::debug("[s_id: {}] [ack: {} | bits: {:b}]", message.header.sequence_id,
             message.header.ack, message.header.ack_bitfield);
   switch (message.header.message_type) {
@@ -86,7 +87,7 @@ void ServerApp::handle_message(const Net::Message &message, u8 client_index) {
     break;
   }
   default:
-    io::error("Unknown message type {}", (u8)message.header.message_type);
+    io::error("Unknown message type {}", (uint8_t)message.header.message_type);
     break;
   }
 }
@@ -114,8 +115,8 @@ void ServerApp::poll_network() {
 }
 
 void ServerApp::handle_user_inputs(const Net::Message &message,
-                                   u8 client_index) {
-  auto result = InputMap::deserialize(Buf<u8>(message.body));
+                                   uint8_t client_index) {
+  auto result = InputMap::deserialize(Buf<uint8_t>(message.body));
   if (result.is_error) {
     io::error("Failed to read inputs from {}", message.header.salt);
   } else {

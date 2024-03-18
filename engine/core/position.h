@@ -1,6 +1,5 @@
 #pragma once
 
-#include "types.h"
 #include "util/err.h"
 #include "util/result.h"
 #include "util/buf.h"
@@ -10,9 +9,9 @@ struct Position
   float x;
   float y;
 
-  static u32 packed_size() { return 2 * sizeof(float); }
+  static uint32_t packed_size() { return 2 * sizeof(float); }
 
-  Err serialize_into(std::vector<u8> &buf, u32 offset) const;
+  Err serialize_into(std::vector<uint8_t> &buf, uint32_t offset) const;
 
-  static Result<Position> deserialize(MutBuf<u8> &buf);
+  static Result<Position> deserialize(MutBuf<uint8_t> &buf);
 };

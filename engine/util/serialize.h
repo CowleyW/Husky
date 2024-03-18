@@ -1,6 +1,5 @@
 #pragma once
 
-#include "core/types.h"
 #include "util/buf.h"
 
 #include <cstring>
@@ -9,47 +8,56 @@
 
 namespace Serialize {
 
-// Serialize the given u8 into the buffer at the given offset.
+// Serialize the given uint8_t into the buffer at the given offset.
 //
 // Returns the new offset.
-u32 serialize_u8(u8 value, std::vector<u8> &buf, u32 offset);
+uint32_t serialize_u8(uint8_t value, std::vector<uint8_t> &buf,
+                      uint32_t offset);
 
-// Serialize the given u16 into the buffer at the given offset.
+// Serialize the given uint16_t into the buffer at the given offset.
 //
 // Returns the new offset.
-u32 serialize_u16(u16 value, std::vector<u8> &buf, u32 offset);
+uint32_t serialize_u16(uint16_t value, std::vector<uint8_t> &buf,
+                       uint32_t offset);
 
-// Serialize the given u32 into the buffer at the given offset.
+// Serialize the given uint32_t into the buffer at the given offset.
 //
 // Returns the new offset.
-u32 serialize_u32(u32 value, std::vector<u8> &buf, u32 offset);
+uint32_t serialize_u32(uint32_t value, std::vector<uint8_t> &buf,
+                       uint32_t offset);
 
-// Serialize the given u64 into the buffer at the given offset.
+// Serialize the given uint64_t into the buffer at the given offset.
 //
 // Returns the new offset.
-u32 serialize_u64(u64 value, std::vector<u8> &buf, u32 offset);
+uint32_t serialize_u64(uint64_t value, std::vector<uint8_t> &buf,
+                       uint32_t offset);
 
 // Serialize the given float into the buffer at the given offset.
 //
 // Returns the new offset.
-u32 serialize_float(float value, std::vector<u8> &buf, u32 offset);
+uint32_t serialize_float(float value, std::vector<uint8_t> &buf,
+                         uint32_t offset);
 
-// Deserialize the first byte of the buffer into a u8 and update the buffer
-u8 deserialize_u8(MutBuf<u8> &buf);
+// Deserialize the first byte of the buffer into a uint8_t and update the buffer
+uint8_t deserialize_u8(MutBuf<uint8_t> &buf);
 
-// Deserialize the first 2 bytes of the buffer into a u16 and update the buffer
-u16 deserialize_u16(MutBuf<u8> &buf);
+// Deserialize the first 2 bytes of the buffer into a uint16_t and update the
+// buffer
+uint16_t deserialize_u16(MutBuf<uint8_t> &buf);
 //
-// Deserialize the first 4 bytes of the buffer into a u32 and update the buffer
-u32 deserialize_u32(MutBuf<u8> &buf);
+// Deserialize the first 4 bytes of the buffer into a uint32_t and update the
+// buffer
+uint32_t deserialize_u32(MutBuf<uint8_t> &buf);
 
-// Deserialize the first 8 bytes of the buffer into a u64 and update the buffer
-u64 deserialize_u64(MutBuf<u8> &buf);
+// Deserialize the first 8 bytes of the buffer into a uint64_t and update the
+// buffer
+uint64_t deserialize_u64(MutBuf<uint8_t> &buf);
 
-// Deserialize the first 4 bytes of the buffer into a float and update the buffer
-float deserialize_float(MutBuf<u8> &buf);
+// Deserialize the first 4 bytes of the buffer into a float and update the
+// buffer
+float deserialize_float(MutBuf<uint8_t> &buf);
 
-template <typename T> T deserialize_enum(MutBuf<u8> &buf) {
+template <typename T> T deserialize_enum(MutBuf<uint8_t> &buf) {
   static_assert(std::is_enum<T>::value,
                 "Cannot deserialize to a non-enum type.");
 

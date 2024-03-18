@@ -1,6 +1,5 @@
 #pragma once
 
-#include "core/types.h"
 #include "util/buf.h"
 #include "util/err.h"
 #include "util/result.h"
@@ -12,12 +11,12 @@ struct InputMap {
   bool press_left;
   bool press_right;
 
-  static u32 packed_size() {
+  static uint32_t packed_size() {
     // 3 booleans -> 3 bits
     return 1;
   }
 
-  Err serialize_into(std::vector<u8> &buf, u32 offset) const;
+  Err serialize_into(std::vector<uint8_t> &buf, uint32_t offset) const;
 
-  static Result<InputMap> deserialize(const Buf<u8> &buf);
+  static Result<InputMap> deserialize(const Buf<uint8_t> &buf);
 };

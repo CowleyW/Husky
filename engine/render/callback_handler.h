@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render/gl_types.h"
+#include "render/vk_types.h"
 
 class CallbackHandler {
 public:

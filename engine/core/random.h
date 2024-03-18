@@ -1,19 +1,17 @@
 #pragma once
 
-#include "types.h"
-
 #include <random>
 
 class Random {
 public:
   Random();
-  Random(u64 seed);
+  Random(uint64_t seed);
 
-  u32 random_u32();
-  u32 random_u32(u32 max);
+  uint32_t random_u32();
+  uint32_t random_u32(uint32_t max);
 
-  u64 random_u64();
-  u64 random_u64(u64 max);
+  uint64_t random_u64();
+  uint64_t random_u64(uint64_t max);
 
 private:
   std::mt19937 rng;

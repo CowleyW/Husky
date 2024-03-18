@@ -1,12 +1,11 @@
 #include "position.h"
 
-#include "types.h"
 #include "util/err.h"
 #include "util/serialize.h"
 
 #include <vector>
 
-Err Position::serialize_into(std::vector<u8> &buf, u32 offset) const {
+Err Position::serialize_into(std::vector<uint8_t> &buf, uint32_t offset) const {
   if (buf.size() < offset + Position::packed_size()) {
     return Err::err("Insufficient space to serialize position");
   }
@@ -17,7 +16,7 @@ Err Position::serialize_into(std::vector<u8> &buf, u32 offset) const {
   return Err::ok();
 }
 
-Result<Position> Position::deserialize(MutBuf<u8> &buf) {
+Result<Position> Position::deserialize(MutBuf<uint8_t> &buf) {
   if (buf.size() < Position::packed_size()) {
     return Result<Position>::err("Buffer is insufficiently sized");
   }

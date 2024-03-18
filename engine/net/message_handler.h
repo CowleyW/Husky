@@ -40,7 +40,8 @@ public:
       this->on_world_snapshot(message, remote);
       break;
     default:
-      io::error("Got bad message type {}.", (u8)message.header.message_type);
+      io::error("Got bad message type {}.",
+                (uint8_t)message.header.message_type);
       break;
     }
   }
@@ -86,7 +87,7 @@ public:
   }
 
   virtual void on_world_snapshot(const Message &message,
-                                     const asio::ip::udp::endpoint &remote) {
+                                 const asio::ip::udp::endpoint &remote) {
     io::error("Unexpected ServerWorldState message");
   }
 };

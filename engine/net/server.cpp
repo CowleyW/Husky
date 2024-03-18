@@ -1,17 +1,18 @@
 #include "server.h"
 
+#include "core/world_state.h"
 #include "io/logging.h"
 #include "net/message_handler.h"
 #include "util/serialize.h"
-#include "core/world_state.h"
 
 #include "core/random.h"
 
-Net::Server::Server(u32 port, u8 max_clients)
+Net::Server::Server(uint32_t port, uint8_t max_clients)
     : port(port), max_clients(max_clients), num_connected_clients(0), clients(),
+      new_clients(), disconnected_clients(),
       context(std::make_unique<asio::io_context>()), listener(*context, port),
-      recv_buf(1024), denier(*context), new_clients(), disconnected_clients() {
-  for (u8 client = 0; client < max_clients; client += 1) {
+      denier(*context), recv_buf(1024) {
+  for (uint8_t client = 0; client < max_clients; client += 1) {
     this->clients.emplace_back(Net::ClientSlot(*this->context, client));
   }
 
@@ -43,7 +44,7 @@ Net::Server::get_by_endpoint(const asio::ip::udp::endpoint &remote) {
 }
 
 std::optional<Net::ClientSlot *const>
-Net::Server::get_by_client_salt(u64 client_salt,
+Net::Server::get_by_client_salt(uint64_t client_salt,
                                 const asio::ip::udp::endpoint &remote) {
   for (ClientSlot &c : this->clients) {
     if (c.matches_client_salt(client_salt) && c.connected_to(remote)) {
@@ -54,7 +55,7 @@ Net::Server::get_by_client_salt(u64 client_salt,
   return {};
 }
 std::optional<Net::ClientSlot *const>
-Net::Server::get_by_xor_salt(u64 xor_salt,
+Net::Server::get_by_xor_salt(uint64_t xor_salt,
                              const asio::ip::udp::endpoint &remote) {
   for (ClientSlot &c : this->clients) {
     if (c.matches_xor_salt(xor_salt) && c.connected_to(remote)) {
@@ -66,7 +67,7 @@ Net::Server::get_by_xor_salt(u64 xor_salt,
 }
 
 std::optional<Net::ClientSlot *const>
-Net::Server::get_by_xor_salt(u64 xor_salt) {
+Net::Server::get_by_xor_salt(uint64_t xor_salt) {
   for (ClientSlot &c : this->clients) {
     if (c.matches_xor_salt(xor_salt)) {
       return &c;
@@ -76,7 +77,7 @@ Net::Server::get_by_xor_salt(u64 xor_salt) {
   return {};
 }
 std::optional<Net::ClientSlot *const>
-Net::Server::get_by_salts(u64 client_salt, u64 server_salt,
+Net::Server::get_by_salts(uint64_t client_salt, uint64_t server_salt,
                           const asio::ip::udp::endpoint &remote) {
   for (ClientSlot &c : this->clients) {
     if (c.matches_salts(client_salt, server_salt)) {
@@ -101,21 +102,21 @@ std::vector<Net::ClientSlot> &Net::Server::get_clients() {
   return this->clients;
 }
 
-std::optional<u8> Net::Server::next_new_client() {
+std::optional<uint8_t> Net::Server::next_new_client() {
   if (this->new_clients.empty()) {
     return {};
   } else {
-    u8 client_index = this->new_clients.front();
+    uint8_t client_index = this->new_clients.front();
     this->new_clients.pop();
     return client_index;
   }
 }
 
-std::optional<u8> Net::Server::next_disconnected_client() {
+std::optional<uint8_t> Net::Server::next_disconnected_client() {
   if (this->disconnected_clients.empty()) {
     return {};
   } else {
-    u8 client_index = this->disconnected_clients.front();
+    uint8_t client_index = this->disconnected_clients.front();
     this->disconnected_clients.pop();
     return client_index;
   }
@@ -139,7 +140,7 @@ void Net::Server::ping_all() {
 
 void Net::Server::send_world_state(const WorldState &world_state) {
   io::debug("{} clients in world state", world_state.player_count());
-  std::vector<u8> buf(world_state.packed_size());
+  std::vector<uint8_t> buf(world_state.packed_size());
   world_state.serialize_into(buf, 0);
 
   for (ClientSlot &c : this->clients) {
@@ -150,7 +151,7 @@ void Net::Server::send_world_state(const WorldState &world_state) {
 // Can we get rid of the Server::accept() method? It doesn't seem to get called
 // anywhere
 void Net::Server::accept(const asio::ip::udp::endpoint &remote,
-                         u64 client_salt) {
+                         uint64_t client_salt) {
   bool found_slot = false;
 
   for (ClientSlot &c : this->clients) {
@@ -169,7 +170,7 @@ void Net::Server::accept(const asio::ip::udp::endpoint &remote,
 }
 
 void Net::Server::challenge(const asio::ip::udp::endpoint &remote,
-                            u64 client_salt) {
+                            uint64_t client_salt) {
   auto maybe_client = this->get_by_client_salt(client_salt, remote);
 
   if (maybe_client.has_value()) {
@@ -227,8 +228,9 @@ void Net::Server::on_challenge_response(const Net::Message &message,
   }
 
   io::debug("Received ChallengeResponse with salt {}", message.header.salt);
-  u64 server_salt = Serialize::deserialize_u64(MutBuf<u8>(message.body));
-  u64 client_salt = message.header.salt ^ server_salt;
+  MutBuf<uint8_t> mutbuf(message.body);
+  uint64_t server_salt = Serialize::deserialize_u64(mutbuf);
+  uint64_t client_salt = message.header.salt ^ server_salt;
 
   auto maybe_client = this->get_by_salts(client_salt, server_salt, remote);
   if (maybe_client.has_value()) {

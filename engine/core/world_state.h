@@ -1,7 +1,6 @@
 #pragma once
 
 #include "position.h"
-#include "types.h"
 #include "util/buf.h"
 #include "util/err.h"
 #include "util/result.h"
@@ -11,24 +10,26 @@
 class WorldState {
 public:
   WorldState();
-  WorldState(std::vector<std::pair<u8, Position>> player_positions);
+  WorldState(std::vector<std::pair<uint8_t, Position>> player_positions);
 
-  u32 packed_size() const;
+  uint32_t packed_size() const;
 
-  u32 player_count() const;
-  Result<Position> player_position(u8 player_index);
+  uint32_t player_count() const;
+  Result<Position> player_position(uint8_t player_index);
 
-  void remove_player(u8 player_index);
-  void add_player(u8 player_index);
-  void transform_player(u8 player_index, const Position &transform);
+  void remove_player(uint8_t player_index);
+  void add_player(uint8_t player_index);
+  void transform_player(uint8_t player_index, const Position &transform);
 
-  Err serialize_into(std::vector<u8> &buf, u32 offset) const;
+  Err serialize_into(std::vector<uint8_t> &buf, uint32_t offset) const;
 
-  static Result<WorldState> deserialize(Buf<u8> &buf);
-
-private:
-  static u32 pair_size() { return sizeof(u8) + Position::packed_size(); }
+  static Result<WorldState> deserialize(Buf<uint8_t> &buf);
 
 private:
-  std::vector<std::pair<u8, Position>> player_positions;
+  static uint32_t pair_size() {
+    return sizeof(uint8_t) + Position::packed_size();
+  }
+
+private:
+  std::vector<std::pair<uint8_t, Position>> player_positions;
 };

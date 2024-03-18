@@ -1,7 +1,6 @@
 #include "message.h"
 
 #include "core/def.h"
-#include "core/types.h"
 #include "crypto/checksum.h"
 #include "io/logging.h"
 #include "util/buf.h"
@@ -11,12 +10,13 @@
 
 #include <cstring>
 
-Result<Net::PacketHeader> Net::PacketHeader::deserialize(const Buf<u8> &buf) {
+Result<Net::PacketHeader>
+Net::PacketHeader::deserialize(const Buf<uint8_t> &buf) {
   if (buf.size() < Net::PacketHeader::packed_size()) {
     return Result<Net::PacketHeader>::err("Buffer is insufficiently sized");
   }
 
-  MutBuf<u8> mutbuf(buf);
+  MutBuf<uint8_t> mutbuf(buf);
   Net::PacketHeader header = {// Protocol ID
                               Serialize::deserialize_u32(mutbuf),
                               // Checksum
@@ -25,7 +25,8 @@ Result<Net::PacketHeader> Net::PacketHeader::deserialize(const Buf<u8> &buf) {
   return Result<Net::PacketHeader>::ok(header);
 }
 
-Err Net::MessageHeader::serialize_into(std::vector<u8> &buf, u32 offset) const {
+Err Net::MessageHeader::serialize_into(std::vector<uint8_t> &buf,
+                                       uint32_t offset) const {
   if (buf.size() < offset + Net::MessageHeader::packed_size()) {
     return Err::err("Insufficient space to serialize message header");
   }
@@ -35,19 +36,20 @@ Err Net::MessageHeader::serialize_into(std::vector<u8> &buf, u32 offset) const {
   offset = Serialize::serialize_u32(this->ack, buf, offset);
   offset = Serialize::serialize_u32(this->ack_bitfield, buf, offset);
   offset = Serialize::serialize_u32(this->message_id, buf, offset);
-  offset =
-      Serialize::serialize_u8(static_cast<u8>(this->message_type), buf, offset);
+  offset = Serialize::serialize_u8(static_cast<uint8_t>(this->message_type),
+                                   buf, offset);
   offset = Serialize::serialize_u32(this->body_size, buf, offset);
 
   return Err::ok();
 }
 
-Result<Net::MessageHeader> Net::MessageHeader::deserialize(const Buf<u8> &buf) {
+Result<Net::MessageHeader>
+Net::MessageHeader::deserialize(const Buf<uint8_t> &buf) {
   if (buf.size() < Net::MessageHeader::packed_size()) {
     return Result<Net::MessageHeader>::err("Buffer is insufficiently sized");
   }
 
-  MutBuf<u8> mutbuf(buf);
+  MutBuf<uint8_t> mutbuf(buf);
   Net::MessageHeader header = {
       // u64 salt
       Serialize::deserialize_u64(mutbuf),
@@ -68,15 +70,16 @@ Result<Net::MessageHeader> Net::MessageHeader::deserialize(const Buf<u8> &buf) {
   return Result<Net::MessageHeader>::ok(header);
 }
 
-u32 Net::Message::min_required_size() {
+uint32_t Net::Message::min_required_size() {
   return PacketHeader::packed_size() + MessageHeader::packed_size();
 }
 
-u32 Net::Message::packed_size() const {
+uint32_t Net::Message::packed_size() const {
   return MessageHeader::packed_size() + this->body.size();
 }
 
-Err Net::Message::serialize_into(std::vector<u8> &buf, u32 offset) const {
+Err Net::Message::serialize_into(std::vector<uint8_t> &buf,
+                                 uint32_t offset) const {
   if (buf.size() < offset + this->packed_size()) {
     return Err::err("Insufficient space to serialize message");
   }
@@ -94,7 +97,7 @@ Err Net::Message::serialize_into(std::vector<u8> &buf, u32 offset) const {
   return Err::ok();
 }
 
-Result<Net::Message> Net::Message::deserialize(const Buf<u8> &buf) {
+Result<Net::Message> Net::Message::deserialize(const Buf<uint8_t> &buf) {
   Result<Net::MessageHeader> result = Net::MessageHeader::deserialize(buf);
   if (result.is_error) {
     return Result<Net::Message>::err(result.msg);
@@ -106,7 +109,7 @@ Result<Net::Message> Net::Message::deserialize(const Buf<u8> &buf) {
         "Buffer size does not match expected size");
   }
 
-  std::vector<u8> body(header.body_size);
+  std::vector<uint8_t> body(header.body_size);
   if (body.size() != 0) {
     std::memcpy(&body[0], buf.data() + header.packed_size(), header.body_size);
   }
@@ -116,8 +119,8 @@ Result<Net::Message> Net::Message::deserialize(const Buf<u8> &buf) {
   return Result<Net::Message>::ok(message);
 }
 
-Err Net::verify_packet(const Buf<u8> &buf) {
-  u32 header_size =
+Err Net::verify_packet(const Buf<uint8_t> &buf) {
+  uint32_t header_size =
       Net::MessageHeader::packed_size() + Net::PacketHeader::packed_size();
   if (buf.size() < header_size) {
     return Err::err("Invalid message, size is too small.");
@@ -134,7 +137,7 @@ Err Net::verify_packet(const Buf<u8> &buf) {
                     packet_header.protocol_id, NET_PROTOCOL_ID);
   }
 
-  u32 checksum = Crypto::calculate_checksum(
+  uint32_t checksum = Crypto::calculate_checksum(
       buf.trim_left(Net::PacketHeader::packed_size()));
   if (checksum != packet_header.checksum) {
     return Err::err(

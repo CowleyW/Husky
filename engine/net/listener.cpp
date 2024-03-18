@@ -5,12 +5,12 @@
 #include <asio.hpp>
 
 Net::Listener::Listener(std::shared_ptr<asio::ip::udp::socket> socket)
-    : socket(socket), handler(nullptr), recv_buf(1024) {}
+    : socket(socket), recv_buf(1024), handler(nullptr) {}
 
-Net::Listener::Listener(asio::io_context &context, u32 port)
+Net::Listener::Listener(asio::io_context &context, uint32_t port)
     : socket(std::make_shared<asio::ip::udp::socket>(
           context, asio::ip::udp::endpoint(asio::ip::udp::v4(), port))),
-      handler(nullptr), recv_buf(1024) {}
+      recv_buf(1024), handler(nullptr) {}
 
 void Net::Listener::register_callbacks(Net::MessageHandler *handler) {
   this->handler = handler;
@@ -26,9 +26,9 @@ void Net::Listener::listen() {
   // When ungracefully closing the client, the server is unaware and continues
   // to send messages, but when the server is forcefully closed the client gets
   // a connection refused error.
-  auto on_receive = [this](const std::error_code &err, u64 size) {
+  auto on_receive = [this](const std::error_code &err, uint64_t size) {
     if (!err) {
-      this->handle_receive((u32)size);
+      this->handle_receive((uint32_t)size);
     } else {
       io::error("Listener::on_receive: {}", err.message());
     }
@@ -37,8 +37,8 @@ void Net::Listener::listen() {
                                    this->recv_endpoint, on_receive);
 }
 
-void Net::Listener::handle_receive(u32 size) {
-  Buf<u8> buf(this->recv_buf.data(), size);
+void Net::Listener::handle_receive(uint32_t size) {
+  Buf<uint8_t> buf(this->recv_buf.data(), size);
   Err err = Net::verify_packet(buf);
   if (err.is_error) {
     io::error(err.msg);
@@ -46,7 +46,7 @@ void Net::Listener::handle_receive(u32 size) {
     return;
   }
 
-  Buf<u8> trimmed_buf = buf.trim_left(Net::PacketHeader::packed_size());
+  Buf<uint8_t> trimmed_buf = buf.trim_left(Net::PacketHeader::packed_size());
   Result<Net::Message> result = Net::Message::deserialize(trimmed_buf);
   if (result.is_error) {
     io::error(result.msg);

@@ -1,13 +1,11 @@
 #include "window.h"
 
-#include "core/types.h"
-#include "render/callback_handler.h"
-#include "render/gl_types.h"
-#include "util/err.h"
 #include "io/logging.h"
+#include "render/callback_handler.h"
+#include "render/vk_types.h"
+#include "util/err.h"
 
 #include <GLFW/glfw3.h>
-#include <glad/gl.h>
 
 Err Window::init(Dimensions dimensions) {
   this->dimensions = dimensions;
@@ -16,9 +14,9 @@ Err Window::init(Dimensions dimensions) {
     return Err::err("Failed to initialize GLFW");
   }
 
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  // glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+  // glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+  // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
   this->handle =
       glfwCreateWindow(this->dimensions.width, this->dimensions.height,
@@ -28,7 +26,7 @@ Err Window::init(Dimensions dimensions) {
     return Err::err("Failed to create a window.");
   }
 
-  glfwMakeContextCurrent(this->handle);
+  // glfwMakeContextCurrent(this->handle);
 
   return Err::ok();
 }
@@ -37,11 +35,11 @@ void Window::register_callbacks(CallbackHandler *callback) {
   glfwSetWindowUserPointer(this->handle, (void *)callback);
 
   glfwSetFramebufferSizeCallback(
-      this->handle, [](GLFWwindow *window, i32 width, i32 height) {
+      this->handle, [](GLFWwindow *window, int32_t width, int32_t height) {
         CallbackHandler *callback =
             static_cast<CallbackHandler *>(glfwGetWindowUserPointer(window));
 
-        callback->on_window_resize({(u32)width, (u32)height});
+        callback->on_window_resize({(uint32_t)width, (uint32_t)height});
       });
 
   glfwSetWindowCloseCallback(this->handle, [](GLFWwindow *window) {
@@ -60,7 +58,9 @@ void Window::shutdown() {
   glfwTerminate();
 }
 
-void Window::swap_buffers() { glfwSwapBuffers(this->handle); }
+void Window::swap_buffers() {
+  // glfwSwapBuffers(this->handle);
+}
 
 void Window::poll_events() { glfwPollEvents(); }
 

@@ -3,20 +3,23 @@
 
 #include <vector>
 
-u32 Serialize::serialize_u8(u8 value, std::vector<u8> &buf, u32 offset) {
+uint32_t Serialize::serialize_u8(uint8_t value, std::vector<uint8_t> &buf,
+                                 uint32_t offset) {
   buf[offset] = value;
 
   return offset + 1;
 }
 
-u32 Serialize::serialize_u16(u16 value, std::vector<u8> &buf, u32 offset) {
+uint32_t Serialize::serialize_u16(uint16_t value, std::vector<uint8_t> &buf,
+                                  uint32_t offset) {
   buf[offset] = value >> 8;
   buf[offset + 1] = value;
 
   return offset + 2;
 }
 
-u32 Serialize::serialize_u32(u32 value, std::vector<u8> &buf, u32 offset) {
+uint32_t Serialize::serialize_u32(uint32_t value, std::vector<uint8_t> &buf,
+                                  uint32_t offset) {
   buf[offset] = value >> 24;
   buf[offset + 1] = value >> 16;
   buf[offset + 2] = value >> 8;
@@ -25,7 +28,8 @@ u32 Serialize::serialize_u32(u32 value, std::vector<u8> &buf, u32 offset) {
   return offset + 4;
 }
 
-u32 Serialize::serialize_u64(u64 value, std::vector<u8> &buf, u32 offset) {
+uint32_t Serialize::serialize_u64(uint64_t value, std::vector<uint8_t> &buf,
+                                  uint32_t offset) {
   buf[offset] = value >> 56;
   buf[offset + 1] = value >> 48;
   buf[offset + 2] = value >> 40;
@@ -38,67 +42,68 @@ u32 Serialize::serialize_u64(u64 value, std::vector<u8> &buf, u32 offset) {
   return offset + 8;
 }
 
-u32 Serialize::serialize_float(float value, std::vector<u8> &buf, u32 offset) {
+uint32_t Serialize::serialize_float(float value, std::vector<uint8_t> &buf,
+                                    uint32_t offset) {
   union {
     float f;
-    u32 val;
+    uint32_t val;
   } u = {value};
 
   return Serialize::serialize_u32(u.val, buf, offset);
 }
 
-u8 Serialize::deserialize_u8(MutBuf<u8> &buf) {
-  u8 value = buf.data()[0];
+uint8_t Serialize::deserialize_u8(MutBuf<uint8_t> &buf) {
+  uint8_t value = buf.data()[0];
 
   buf.trim_left(1);
   return value;
 }
 
-u16 Serialize::deserialize_u16(MutBuf<u8> &buf) {
-  u16 value = 0;
+uint16_t Serialize::deserialize_u16(MutBuf<uint8_t> &buf) {
+  uint16_t value = 0;
 
-  const u8 *data = buf.data();
+  const uint8_t *data = buf.data();
 
-  value += (u16)data[0] << 8;
-  value += (u16)data[1];
+  value += (uint16_t)data[0] << 8;
+  value += (uint16_t)data[1];
 
   buf.trim_left(2);
   return value;
 }
 
-u32 Serialize::deserialize_u32(MutBuf<u8> &buf) {
-  u32 value = 0;
+uint32_t Serialize::deserialize_u32(MutBuf<uint8_t> &buf) {
+  uint32_t value = 0;
 
-  const u8 *data = buf.data();
-  value += (u32)data[0] << 24;
-  value += (u32)data[1] << 16;
-  value += (u32)data[2] << 8;
-  value += (u32)data[3];
+  const uint8_t *data = buf.data();
+  value += (uint32_t)data[0] << 24;
+  value += (uint32_t)data[1] << 16;
+  value += (uint32_t)data[2] << 8;
+  value += (uint32_t)data[3];
 
   buf.trim_left(4);
   return value;
 }
 
-u64 Serialize::deserialize_u64(MutBuf<u8> &buf) {
-  u64 value = 0;
+uint64_t Serialize::deserialize_u64(MutBuf<uint8_t> &buf) {
+  uint64_t value = 0;
 
-  const u8 *data = buf.data();
-  value += (u64)data[0] << 56;
-  value += (u64)data[1] << 48;
-  value += (u64)data[2] << 40;
-  value += (u64)data[3] << 32;
-  value += (u64)data[4] << 24;
-  value += (u64)data[5] << 16;
-  value += (u64)data[6] << 8;
-  value += (u64)data[7];
+  const uint8_t *data = buf.data();
+  value += (uint64_t)data[0] << 56;
+  value += (uint64_t)data[1] << 48;
+  value += (uint64_t)data[2] << 40;
+  value += (uint64_t)data[3] << 32;
+  value += (uint64_t)data[4] << 24;
+  value += (uint64_t)data[5] << 16;
+  value += (uint64_t)data[6] << 8;
+  value += (uint64_t)data[7];
 
   buf.trim_left(8);
   return value;
 }
 
-float Serialize::deserialize_float(MutBuf<u8> &buf) {
+float Serialize::deserialize_float(MutBuf<uint8_t> &buf) {
   union {
-    u32 val;
+    uint32_t val;
     float f;
   } u = {Serialize::deserialize_u32(buf)};
 

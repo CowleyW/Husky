@@ -9,7 +9,7 @@
 
 #include <chrono>
 
-ClientApp::ClientApp(u32 server_port, u32 client_port)
+ClientApp::ClientApp(uint32_t server_port, uint32_t client_port)
     : client(std::make_shared<Net::Client>(server_port, client_port)), frame(0),
       world_state() {}
 
@@ -19,10 +19,10 @@ Err ClientApp::init() {
     return err;
   }
 
-  err = this->context.init(this->window.dimensions);
-  if (err.is_error) {
-    return err;
-  }
+  // err = this->context.init(this->window.dimensions);
+  // if (err.is_error) {
+  //   return err;
+  // }
 
   this->window.register_callbacks(this);
 
@@ -37,15 +37,16 @@ void ClientApp::update() {
 }
 
 void ClientApp::render() {
-  this->context.clear();
-  this->context.render();
+  // this->context.clear();
+  // this->context.render();
   this->window.swap_buffers();
 }
 
 void ClientApp::fixed_update() {
+  this->frame += 1;
+
   InputMap inputs = this->window.build_input_map();
 
-  this->frame += 1;
   if (this->client_index.has_value()) {
     auto pos = this->world_state.player_position(this->client_index.value());
 
@@ -69,7 +70,7 @@ void ClientApp::shutdown() {
 
 void ClientApp::on_window_resize(Dimensions dimensions) {
   io::debug("Resizing window");
-  this->context.resize(dimensions);
+  // this->context.resize(dimensions);
 }
 
 void ClientApp::on_window_close() {
@@ -78,7 +79,8 @@ void ClientApp::on_window_close() {
 }
 
 void ClientApp::on_connection_accepted(const Net::Message &message) {
-  this->client_index = Serialize::deserialize_u8(MutBuf<u8>(message.body));
+  MutBuf<uint8_t> buf(message.body);
+  this->client_index = Serialize::deserialize_u8(buf);
   io::debug("[{}]: Received ConnectionAccepted", this->client_index.value());
 }
 
@@ -131,7 +133,8 @@ void ClientApp::handle_message(const Net::Message &message) {
     this->on_ping(message);
     break;
   case Net::MessageType::WorldSnapshot: {
-    auto world_state = WorldState::deserialize(Buf<u8>(message.body));
+    Buf<uint8_t> buf(message.body);
+    auto world_state = WorldState::deserialize(buf);
     if (world_state.is_error) {
       io::error("Failed to deserialize WorldState: {}", world_state.msg);
     } else {
@@ -140,7 +143,7 @@ void ClientApp::handle_message(const Net::Message &message) {
     break;
   }
   default:
-    io::error("Unknown message type {}", (u8)message.header.message_type);
+    io::error("Unknown message type {}", (uint8_t)message.header.message_type);
     break;
   }
 }

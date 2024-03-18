@@ -8,12 +8,12 @@ TEST_CASE("MessageHeader transmission works correctly", "[net]") {
       0x10, 0x20, 0x30, 0x40, 0x50, Net::MessageType::ConnectionAccepted,
       0x60};
 
-  std::vector<u8> buf(Net::MessageHeader::packed_size());
+  std::vector<uint8_t> buf(Net::MessageHeader::packed_size());
   Err err = header.serialize_into(buf, 0);
   REQUIRE(!err.is_error);
 
   Result<Net::MessageHeader> result =
-      Net::MessageHeader::deserialize(Buf<u8>(buf));
+      Net::MessageHeader::deserialize(Buf<uint8_t>(buf));
   REQUIRE(!result.is_error);
 
   Net::MessageHeader received = result.value;
@@ -34,11 +34,11 @@ TEST_CASE("Message transmission works correctly", "[net]") {
 
   Net::Message message = {header, {0x60, 0x70, 0x80, 0x90, 0xA0}};
 
-  std::vector<u8> buf(message.packed_size());
+  std::vector<uint8_t> buf(message.packed_size());
   Err err = message.serialize_into(buf, 0);
   REQUIRE(!err.is_error);
 
-  Result<Net::Message> result = Net::Message::deserialize(Buf<u8>(buf));
+  Result<Net::Message> result = Net::Message::deserialize(Buf<uint8_t>(buf));
   REQUIRE(!result.is_error);
 
   Net::Message received = result.value;

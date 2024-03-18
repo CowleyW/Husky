@@ -10,17 +10,17 @@ namespace Net {
 
 class ClientSlot {
 public:
-  ClientSlot(asio::io_context &context, u8 client_index);
+  ClientSlot(asio::io_context &context, uint8_t client_index);
 
-  void bind(const asio::ip::udp::endpoint &endpoint, u64 salt);
-  
+  void bind(const asio::ip::udp::endpoint &endpoint, uint64_t salt);
+
   bool is_connected();
   bool connected_to(const asio::ip::udp::endpoint &endpoint);
-  bool matches_xor_salt(u64 xor_salt);
-  bool matches_client_salt(u64 client_salt);
-  bool matches_salts(u64 client_salt, u64 server_salt);
+  bool matches_xor_salt(uint64_t xor_salt);
+  bool matches_client_salt(uint64_t client_salt);
+  bool matches_salts(uint64_t client_salt, uint64_t server_salt);
   ConnectionStatus connection_status();
-  u8 index();
+  uint8_t index();
 
   std::optional<Message> next_message();
   void add_message(const Message &message);
@@ -28,14 +28,14 @@ public:
   void accept();
   void send_challenge();
   void ping();
-  void send_world_state(const std::vector<u8> &serialized_state);
+  void send_world_state(const std::vector<uint8_t> &serialized_state);
   void disconnect();
   bool maybe_timeout();
 
 private:
   static constexpr std::chrono::seconds timeout_wait{5};
 
-  u8 client_index;
+  uint8_t client_index;
 
   ConnectionStatus status;
 

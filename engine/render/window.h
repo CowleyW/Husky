@@ -2,7 +2,7 @@
 
 #include "io/input_map.h"
 #include "render/callback_handler.h"
-#include "render/gl_types.h"
+#include "render/vk_types.h"
 #include "util/err.h"
 
 #define GLFW_INCLUDE_NONE

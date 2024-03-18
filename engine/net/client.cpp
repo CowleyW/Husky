@@ -9,10 +9,10 @@
 
 #include <memory>
 
-Net::Client::Client(u32 server_port, u32 client_port)
-    : context(std::make_unique<asio::io_context>()),
+Net::Client::Client(uint32_t server_port, uint32_t client_port)
+    : client_salt(Random().random_u64()), server_salt(0),
       status(Net::ConnectionStatus::Disconnected),
-      client_salt(Random().random_u64()), server_salt(0) {
+      context(std::make_unique<asio::io_context>()) {
   io::debug("rolled salt {}", this->client_salt);
   using udp = asio::ip::udp;
   udp::resolver resolver(*this->context);
@@ -97,8 +97,8 @@ void Net::Client::on_connection_accepted(
   }
 
   this->add_message(message);
-  io::debug("connection accepted body: {}",
-            Serialize::deserialize_u8(MutBuf<u8>(message.body)));
+  MutBuf<uint8_t> mutbuf(message.body);
+  io::debug("connection accepted body: {}", Serialize::deserialize_u8(mutbuf));
   io::debug("connectino accepted salt: {}", message.header.salt);
 }
 
@@ -114,7 +114,8 @@ void Net::Client::on_challenge(const Net::Message &message,
               message.body.size());
   }
 
-  this->server_salt = Serialize::deserialize_u64(MutBuf<u8>(message.body));
+  MutBuf<uint8_t> mutbuf(message.body);
+  this->server_salt = Serialize::deserialize_u64(mutbuf);
   io::info("Server salt: {}, xor_salt: {}", this->server_salt,
            message.header.salt);
 
@@ -127,9 +128,8 @@ void Net::Client::on_ping(const Net::Message &message,
   this->add_message(message);
 }
 
-void Net::Client::on_world_snapshot(const Net::Message& message,
-    const asio::ip::udp::endpoint& remote)
-{
+void Net::Client::on_world_snapshot(const Net::Message &message,
+                                    const asio::ip::udp::endpoint &remote) {
   this->add_message(message);
 }
 

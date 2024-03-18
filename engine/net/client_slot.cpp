@@ -2,13 +2,13 @@
 
 #include <asio.hpp>
 
-Net::ClientSlot::ClientSlot(asio::io_context &context, u8 client_index)
-    : sender(std::make_unique<Net::Sender>(context)),
-      status(Net::ConnectionStatus::Disconnected), message_queue(),
-      last_message(std::chrono::steady_clock::now()),
-      client_index(client_index) {}
+Net::ClientSlot::ClientSlot(asio::io_context &context, uint8_t client_index)
+    : client_index(client_index), status(Net::ConnectionStatus::Disconnected),
+      message_queue(), sender(std::make_unique<Net::Sender>(context)),
+      last_message(std::chrono::steady_clock::now()) {}
 
-void Net::ClientSlot::bind(const asio::ip::udp::endpoint &endpoint, u64 salt) {
+void Net::ClientSlot::bind(const asio::ip::udp::endpoint &endpoint,
+                           uint64_t salt) {
   this->sender->bind(endpoint, salt);
   this->status = Net::ConnectionStatus::Connecting;
 
@@ -23,15 +23,16 @@ bool Net::ClientSlot::connected_to(const asio::ip::udp::endpoint &endpoint) {
   return this->sender->connected_to(endpoint);
 }
 
-bool Net::ClientSlot::matches_xor_salt(u64 xor_salt) {
+bool Net::ClientSlot::matches_xor_salt(uint64_t xor_salt) {
   return this->sender->matches_xor_salt(xor_salt);
 }
 
-bool Net::ClientSlot::matches_client_salt(u64 client_salt) {
+bool Net::ClientSlot::matches_client_salt(uint64_t client_salt) {
   return this->sender->matches_client_salt(client_salt);
 }
 
-bool Net::ClientSlot::matches_salts(u64 client_salt, u64 server_salt) {
+bool Net::ClientSlot::matches_salts(uint64_t client_salt,
+                                    uint64_t server_salt) {
   return this->sender->matches_salts(client_salt, server_salt);
 }
 
@@ -39,7 +40,7 @@ Net::ConnectionStatus Net::ClientSlot::connection_status() {
   return this->status;
 }
 
-u8 Net::ClientSlot::index() { return this->client_index; }
+uint8_t Net::ClientSlot::index() { return this->client_index; }
 
 std::optional<Net::Message> Net::ClientSlot::next_message() {
   if (this->message_queue.empty()) {
@@ -74,7 +75,7 @@ void Net::ClientSlot::ping() {
 }
 
 void Net::ClientSlot::send_world_state(
-    const std::vector<u8> &serialized_state) {
+    const std::vector<uint8_t> &serialized_state) {
   if (this->is_connected()) {
     this->sender->write_world_state(serialized_state);
   }

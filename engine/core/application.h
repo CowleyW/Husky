@@ -1,6 +1,5 @@
 #pragma once
 
-#include "types.h"
 #include "util/err.h"
 #include "util/result.h"
 
@@ -17,8 +16,9 @@ public:
 
   virtual ~Application() {}
 
-  static Result<Application *> create_server(u32 port);
-  static Result<Application *> create_client(u32 server_port, u32 client_port);
+  static Result<Application *> create_server(uint32_t port);
+  static Result<Application *> create_client(uint32_t server_port,
+                                             uint32_t client_port);
 
 private:
   bool running;
