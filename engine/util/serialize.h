@@ -11,32 +11,32 @@ namespace Serialize {
 // Serialize the given uint8_t into the buffer at the given offset.
 //
 // Returns the new offset.
-uint32_t serialize_u8(uint8_t value, std::vector<uint8_t> &buf,
-                      uint32_t offset);
+uint32_t
+serialize_u8(uint8_t value, std::vector<uint8_t> &buf, uint32_t offset);
 
 // Serialize the given uint16_t into the buffer at the given offset.
 //
 // Returns the new offset.
-uint32_t serialize_u16(uint16_t value, std::vector<uint8_t> &buf,
-                       uint32_t offset);
+uint32_t
+serialize_u16(uint16_t value, std::vector<uint8_t> &buf, uint32_t offset);
 
 // Serialize the given uint32_t into the buffer at the given offset.
 //
 // Returns the new offset.
-uint32_t serialize_u32(uint32_t value, std::vector<uint8_t> &buf,
-                       uint32_t offset);
+uint32_t
+serialize_u32(uint32_t value, std::vector<uint8_t> &buf, uint32_t offset);
 
 // Serialize the given uint64_t into the buffer at the given offset.
 //
 // Returns the new offset.
-uint32_t serialize_u64(uint64_t value, std::vector<uint8_t> &buf,
-                       uint32_t offset);
+uint32_t
+serialize_u64(uint64_t value, std::vector<uint8_t> &buf, uint32_t offset);
 
 // Serialize the given float into the buffer at the given offset.
 //
 // Returns the new offset.
-uint32_t serialize_float(float value, std::vector<uint8_t> &buf,
-                         uint32_t offset);
+uint32_t
+serialize_float(float value, std::vector<uint8_t> &buf, uint32_t offset);
 
 // Deserialize the first byte of the buffer into a uint8_t and update the buffer
 uint8_t deserialize_u8(MutBuf<uint8_t> &buf);
@@ -57,9 +57,11 @@ uint64_t deserialize_u64(MutBuf<uint8_t> &buf);
 // buffer
 float deserialize_float(MutBuf<uint8_t> &buf);
 
-template <typename T> T deserialize_enum(MutBuf<uint8_t> &buf) {
-  static_assert(std::is_enum<T>::value,
-                "Cannot deserialize to a non-enum type.");
+template <typename T>
+T deserialize_enum(MutBuf<uint8_t> &buf) {
+  static_assert(
+      std::is_enum<T>::value,
+      "Cannot deserialize to a non-enum type.");
 
   T result;
   std::memcpy(&result, buf.data(), sizeof(T));

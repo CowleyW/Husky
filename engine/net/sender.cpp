@@ -9,21 +9,46 @@
 
 #include <asio.hpp>
 
-Net::Sender::Sender(std::shared_ptr<asio::ip::udp::socket> socket,
-                    asio::ip::udp::endpoint endpoint, uint64_t client_salt)
-    : socket(socket), send_endpoint(endpoint), send_buf(0), client_salt(0),
-      server_salt(0), sequence_id(0), ack(0), ack_bitfield(0), message_id(0) {}
+Net::Sender::Sender(
+    std::shared_ptr<asio::ip::udp::socket> socket,
+    asio::ip::udp::endpoint endpoint,
+    uint64_t client_salt)
+    : socket(socket),
+      send_endpoint(endpoint),
+      send_buf(0),
+      client_salt(client_salt),
+      server_salt(0),
+      sequence_id(0),
+      ack(0),
+      ack_bitfield(0),
+      message_id(0) {
+}
 
-Net::Sender::Sender(asio::io_context &context, uint32_t port,
-                    asio::ip::udp::endpoint endpoint)
+Net::Sender::Sender(
+    asio::io_context &context,
+    uint32_t port,
+    asio::ip::udp::endpoint endpoint)
     : socket(std::make_shared<asio::ip::udp::socket>(
-          context, asio::ip::udp::endpoint(asio::ip::udp::v4(), port))),
-      send_endpoint(endpoint), send_buf(0), client_salt(0), server_salt(0),
-      sequence_id(0), ack(0), ack_bitfield(0), message_id(0) {}
+          context,
+          asio::ip::udp::endpoint(asio::ip::udp::v4(), port))),
+      send_endpoint(endpoint),
+      send_buf(0),
+      client_salt(0),
+      server_salt(0),
+      sequence_id(0),
+      ack(0),
+      ack_bitfield(0),
+      message_id(0) {
+}
 
 Net::Sender::Sender(asio::io_context &context)
-    : socket(std::make_shared<asio::ip::udp::socket>(context)), send_buf(0),
-      client_salt(0), server_salt(0), sequence_id(0), ack(0), ack_bitfield(0),
+    : socket(std::make_shared<asio::ip::udp::socket>(context)),
+      send_buf(0),
+      client_salt(0),
+      server_salt(0),
+      sequence_id(0),
+      ack(0),
+      ack_bitfield(0),
       message_id(0) {
   this->socket->open(asio::ip::udp::v4());
 }
@@ -118,8 +143,9 @@ void Net::Sender::write_world_state(
   this->write_message(message);
 }
 
-void Net::Sender::bind(const asio::ip::udp::endpoint &endpoint,
-                       uint64_t client_salt) {
+void Net::Sender::bind(
+    const asio::ip::udp::endpoint &endpoint,
+    uint64_t client_salt) {
   this->send_endpoint = endpoint;
 
   this->client_salt = client_salt;
@@ -187,7 +213,8 @@ void Net::Sender::fill_buffer(const Net::Message &message) {
 
   // Calculate and serialize the checksum
   uint32_t crc = Crypto::calculate_checksum(
-      &this->send_buf[PacketHeader::packed_size()], message.packed_size());
+      &this->send_buf[PacketHeader::packed_size()],
+      message.packed_size());
   Serialize::serialize_u32(crc, this->send_buf, offset);
 }
 
@@ -200,12 +227,16 @@ void Net::Sender::write_message(const Net::Message &message) {
       return;
     }
 
-    io::debug("Sent {} bytes to {}:{}.", size,
-              this->send_endpoint.address().to_string(),
-              this->send_endpoint.port());
+    io::debug(
+        "Sent {} bytes to {}:{}.",
+        size,
+        this->send_endpoint.address().to_string(),
+        this->send_endpoint.port());
   };
-  this->socket->async_send_to(asio::buffer(this->send_buf), this->send_endpoint,
-                              on_send);
+  this->socket->async_send_to(
+      asio::buffer(this->send_buf),
+      this->send_endpoint,
+      on_send);
 
   this->sequence_id += 1;
   this->message_id += 1;

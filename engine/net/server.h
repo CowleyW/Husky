@@ -30,36 +30,42 @@ public:
   void send_world_state(const WorldState &world_state);
 
 public:
-  void on_connection_requested(const Net::Message &message,
-                               const asio::ip::udp::endpoint &remote) override;
+  void on_connection_requested(
+      const Net::Message &message,
+      const asio::ip::udp::endpoint &remote) override;
 
-  void on_challenge_response(const Net::Message &message,
-                             const asio::ip::udp::endpoint &remote) override;
+  void on_challenge_response(
+      const Net::Message &message,
+      const asio::ip::udp::endpoint &remote) override;
 
-  void on_disconnected(const Net::Message &message,
-                       const asio::ip::udp::endpoint &remote) override;
+  void on_disconnected(
+      const Net::Message &message,
+      const asio::ip::udp::endpoint &remote) override;
 
-  void on_ping(const Net::Message &message,
-               const asio::ip::udp::endpoint &remote) override;
+  void on_ping(
+      const Net::Message &message,
+      const asio::ip::udp::endpoint &remote) override;
 
-  void on_user_inputs(const Net::Message &message,
-                      const asio::ip::udp::endpoint &remote) override;
+  void on_user_inputs(
+      const Net::Message &message,
+      const asio::ip::udp::endpoint &remote) override;
 
 private:
   std::optional<ClientSlot *const>
   get_by_endpoint(const asio::ip::udp::endpoint &remote);
 
-  std::optional<ClientSlot *const>
-  get_by_client_salt(uint64_t client_salt,
-                     const asio::ip::udp::endpoint &remote);
+  std::optional<ClientSlot *const> get_by_client_salt(
+      uint64_t client_salt,
+      const asio::ip::udp::endpoint &remote);
 
   std::optional<ClientSlot *const>
   get_by_xor_salt(uint64_t xor_salt, const asio::ip::udp::endpoint &remote);
   std::optional<ClientSlot *const> get_by_xor_salt(uint64_t xor_salt);
 
-  std::optional<ClientSlot *const>
-  get_by_salts(uint64_t client_salt, uint64_t server_salt,
-               const asio::ip::udp::endpoint &remote);
+  std::optional<ClientSlot *const> get_by_salts(
+      uint64_t client_salt,
+      uint64_t server_salt,
+      const asio::ip::udp::endpoint &remote);
 
   std::optional<ClientSlot *const> get_open();
 

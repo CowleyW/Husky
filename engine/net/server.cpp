@@ -8,10 +8,16 @@
 #include "core/random.h"
 
 Net::Server::Server(uint32_t port, uint8_t max_clients)
-    : port(port), max_clients(max_clients), num_connected_clients(0), clients(),
-      new_clients(), disconnected_clients(),
-      context(std::make_unique<asio::io_context>()), listener(*context, port),
-      denier(*context), recv_buf(1024) {
+    : port(port),
+      max_clients(max_clients),
+      num_connected_clients(0),
+      clients(),
+      new_clients(),
+      disconnected_clients(),
+      context(std::make_unique<asio::io_context>()),
+      listener(*context, port),
+      denier(*context),
+      recv_buf(1024) {
   for (uint8_t client = 0; client < max_clients; client += 1) {
     this->clients.emplace_back(Net::ClientSlot(*this->context, client));
   }
@@ -43,9 +49,9 @@ Net::Server::get_by_endpoint(const asio::ip::udp::endpoint &remote) {
   return {};
 }
 
-std::optional<Net::ClientSlot *const>
-Net::Server::get_by_client_salt(uint64_t client_salt,
-                                const asio::ip::udp::endpoint &remote) {
+std::optional<Net::ClientSlot *const> Net::Server::get_by_client_salt(
+    uint64_t client_salt,
+    const asio::ip::udp::endpoint &remote) {
   for (ClientSlot &c : this->clients) {
     if (c.matches_client_salt(client_salt) && c.connected_to(remote)) {
       return &c;
@@ -54,9 +60,9 @@ Net::Server::get_by_client_salt(uint64_t client_salt,
 
   return {};
 }
-std::optional<Net::ClientSlot *const>
-Net::Server::get_by_xor_salt(uint64_t xor_salt,
-                             const asio::ip::udp::endpoint &remote) {
+std::optional<Net::ClientSlot *const> Net::Server::get_by_xor_salt(
+    uint64_t xor_salt,
+    const asio::ip::udp::endpoint &remote) {
   for (ClientSlot &c : this->clients) {
     if (c.matches_xor_salt(xor_salt) && c.connected_to(remote)) {
       return &c;
@@ -76,9 +82,10 @@ Net::Server::get_by_xor_salt(uint64_t xor_salt) {
 
   return {};
 }
-std::optional<Net::ClientSlot *const>
-Net::Server::get_by_salts(uint64_t client_salt, uint64_t server_salt,
-                          const asio::ip::udp::endpoint &remote) {
+std::optional<Net::ClientSlot *const> Net::Server::get_by_salts(
+    uint64_t client_salt,
+    uint64_t server_salt,
+    const asio::ip::udp::endpoint &remote) {
   for (ClientSlot &c : this->clients) {
     if (c.matches_salts(client_salt, server_salt)) {
       return &c;
@@ -150,8 +157,9 @@ void Net::Server::send_world_state(const WorldState &world_state) {
 
 // Can we get rid of the Server::accept() method? It doesn't seem to get called
 // anywhere
-void Net::Server::accept(const asio::ip::udp::endpoint &remote,
-                         uint64_t client_salt) {
+void Net::Server::accept(
+    const asio::ip::udp::endpoint &remote,
+    uint64_t client_salt) {
   bool found_slot = false;
 
   for (ClientSlot &c : this->clients) {
@@ -169,8 +177,9 @@ void Net::Server::accept(const asio::ip::udp::endpoint &remote,
   }
 }
 
-void Net::Server::challenge(const asio::ip::udp::endpoint &remote,
-                            uint64_t client_salt) {
+void Net::Server::challenge(
+    const asio::ip::udp::endpoint &remote,
+    uint64_t client_salt) {
   auto maybe_client = this->get_by_client_salt(client_salt, remote);
 
   if (maybe_client.has_value()) {
@@ -196,11 +205,13 @@ void Net::Server::deny_connection(const asio::ip::udp::endpoint &remote) {
 }
 
 void Net::Server::on_connection_requested(
-    const Net::Message &message, const asio::ip::udp::endpoint &remote) {
+    const Net::Message &message,
+    const asio::ip::udp::endpoint &remote) {
   if (message.body.size() != Net::Message::CONNECTION_REQUESTED_PADDING) {
     io::error(
         "Invalid ConnectionRequested padding: {} (actual) != {} (expected)",
-        message.body.size(), Net::Message::CONNECTION_REQUESTED_PADDING);
+        message.body.size(),
+        Net::Message::CONNECTION_REQUESTED_PADDING);
     return;
   }
   io::debug("Received ConnectionRequested with salt {}", message.header.salt);
@@ -218,12 +229,14 @@ void Net::Server::on_connection_requested(
   }
 }
 
-void Net::Server::on_challenge_response(const Net::Message &message,
-                                        const asio::ip::udp::endpoint &remote) {
+void Net::Server::on_challenge_response(
+    const Net::Message &message,
+    const asio::ip::udp::endpoint &remote) {
   if (message.body.size() != 8 + Net::Message::CHALLENGE_RESPONSE_PADDING) {
-    io::error("Invalid ChallengeResponse padding: {} (actual) != {} (expected)",
-              message.body.size(),
-              8 + Net::Message::CHALLENGE_RESPONSE_PADDING);
+    io::error(
+        "Invalid ChallengeResponse padding: {} (actual) != {} (expected)",
+        message.body.size(),
+        8 + Net::Message::CHALLENGE_RESPONSE_PADDING);
     return;
   }
 
@@ -242,8 +255,9 @@ void Net::Server::on_challenge_response(const Net::Message &message,
   }
 }
 
-void Net::Server::on_disconnected(const Net::Message &message,
-                                  const asio::ip::udp::endpoint &remote) {
+void Net::Server::on_disconnected(
+    const Net::Message &message,
+    const asio::ip::udp::endpoint &remote) {
   auto maybe = this->get_by_xor_salt(message.header.salt, remote);
 
   if (maybe.has_value()) {
@@ -252,13 +266,15 @@ void Net::Server::on_disconnected(const Net::Message &message,
     client->disconnect();
     this->disconnected_clients.push(client->index());
   } else {
-    io::warn("Received message from unknown remote id {}.",
-             message.header.salt);
+    io::warn(
+        "Received message from unknown remote id {}.",
+        message.header.salt);
   }
 }
 
-void Net::Server::on_ping(const Net::Message &message,
-                          const asio::ip::udp::endpoint &remote) {
+void Net::Server::on_ping(
+    const Net::Message &message,
+    const asio::ip::udp::endpoint &remote) {
   auto maybe = this->get_by_xor_salt(message.header.salt, remote);
 
   if (maybe.has_value()) {
@@ -269,8 +285,9 @@ void Net::Server::on_ping(const Net::Message &message,
   }
 }
 
-void Net::Server::on_user_inputs(const Net::Message &message,
-                                 const asio::ip::udp::endpoint &remote) {
+void Net::Server::on_user_inputs(
+    const Net::Message &message,
+    const asio::ip::udp::endpoint &remote) {
   std::optional<Net::ClientSlot *const> maybe =
       this->get_by_xor_salt(message.header.salt, remote);
 

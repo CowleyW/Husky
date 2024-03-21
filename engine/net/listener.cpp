@@ -5,12 +5,18 @@
 #include <asio.hpp>
 
 Net::Listener::Listener(std::shared_ptr<asio::ip::udp::socket> socket)
-    : socket(socket), recv_buf(1024), handler(nullptr) {}
+    : socket(socket),
+      recv_buf(1024),
+      handler(nullptr) {
+}
 
 Net::Listener::Listener(asio::io_context &context, uint32_t port)
     : socket(std::make_shared<asio::ip::udp::socket>(
-          context, asio::ip::udp::endpoint(asio::ip::udp::v4(), port))),
-      recv_buf(1024), handler(nullptr) {}
+          context,
+          asio::ip::udp::endpoint(asio::ip::udp::v4(), port))),
+      recv_buf(1024),
+      handler(nullptr) {
+}
 
 void Net::Listener::register_callbacks(Net::MessageHandler *handler) {
   this->handler = handler;
@@ -33,8 +39,10 @@ void Net::Listener::listen() {
       io::error("Listener::on_receive: {}", err.message());
     }
   };
-  this->socket->async_receive_from(asio::buffer(this->recv_buf),
-                                   this->recv_endpoint, on_receive);
+  this->socket->async_receive_from(
+      asio::buffer(this->recv_buf),
+      this->recv_endpoint,
+      on_receive);
 }
 
 void Net::Listener::handle_receive(uint32_t size) {

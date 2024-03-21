@@ -32,20 +32,24 @@ public:
   std::optional<Message> next_message();
 
 public:
-  void on_connection_accepted(const Message &message,
-                              const asio::ip::udp::endpoint &remote) override;
+  void on_connection_accepted(
+      const Message &message,
+      const asio::ip::udp::endpoint &remote) override;
 
-  void on_connection_denied(const Message &message,
-                            const asio::ip::udp::endpoint &remote) override;
+  void on_connection_denied(
+      const Message &message,
+      const asio::ip::udp::endpoint &remote) override;
 
-  void on_challenge(const Message &message,
-                    const asio::ip::udp::endpoint &remote) override;
+  void on_challenge(
+      const Message &message,
+      const asio::ip::udp::endpoint &remote) override;
 
-  void on_ping(const Message &message,
-               const asio::ip::udp::endpoint &remote) override;
+  void on_ping(const Message &message, const asio::ip::udp::endpoint &remote)
+      override;
 
-  void on_world_snapshot(const Message &message,
-                         const asio::ip::udp::endpoint &remote) override;
+  void on_world_snapshot(
+      const Message &message,
+      const asio::ip::udp::endpoint &remote) override;
 
 private:
   void add_message(const Message &message);

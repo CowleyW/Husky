@@ -72,8 +72,9 @@ Err files::write_file(const std::string &path, std::vector<uint8_t> contents) {
 }
 
 Err files::write_text_file(const std::string &path, std::string_view contents) {
-  std::vector<uint8_t> data(contents.data(),
-                            contents.data() + contents.length());
+  std::vector<uint8_t> data(
+      contents.data(),
+      contents.data() + contents.length());
   return files::write_file(path, data);
 }
 

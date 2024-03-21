@@ -7,11 +7,11 @@
 #include "util/serialize.h"
 #include "world_state.h"
 
-#include <chrono>
-
 ClientApp::ClientApp(uint32_t server_port, uint32_t client_port)
-    : client(std::make_shared<Net::Client>(server_port, client_port)), frame(0),
-      world_state() {}
+    : client(std::make_shared<Net::Client>(server_port, client_port)),
+      frame(0),
+      world_state() {
+}
 
 Err ClientApp::init() {
   Err err = this->window.init({1280, 720});
@@ -29,7 +29,9 @@ Err ClientApp::init() {
   return Err::ok();
 }
 
-void ClientApp::begin() { this->client->begin(); }
+void ClientApp::begin() {
+  this->client->begin();
+}
 
 void ClientApp::update() {
   this->window.poll_events();
@@ -120,8 +122,11 @@ void ClientApp::poll_network() {
 }
 
 void ClientApp::handle_message(const Net::Message &message) {
-  io::debug("[s_id: {}] [ack: {} | bits: {:b}]", message.header.sequence_id,
-            message.header.ack, message.header.ack_bitfield);
+  io::debug(
+      "[s_id: {}] [ack: {} | bits: {:b}]",
+      message.header.sequence_id,
+      message.header.ack,
+      message.header.ack_bitfield);
   switch (message.header.message_type) {
   case Net::MessageType::ConnectionAccepted:
     this->on_connection_accepted(message);

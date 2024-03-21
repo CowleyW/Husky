@@ -9,13 +9,17 @@
 
 ServerApp::ServerApp(uint32_t port)
     : server(std::make_unique<Net::Server>(port, ServerApp::MaxClients)),
-      process_client_mask(), frame(0), world_state() {
+      process_client_mask(),
+      frame(0),
+      world_state() {
   io::debug("world state size {}", this->world_state.packed_size());
   std::vector<uint8_t> buf(this->world_state.packed_size());
   this->world_state.serialize_into(buf, 0);
 }
 
-void ServerApp::begin() { this->server->begin(); }
+void ServerApp::begin() {
+  this->server->begin();
+}
 
 void ServerApp::update() {
   this->poll_network();
@@ -40,8 +44,12 @@ void ServerApp::fixed_update() {
 
   for (auto &pair : this->client_inputs) {
     InputMap map = pair.second;
-    io::debug("Received inputs from [{}] : ({}, {}, {})", pair.first,
-              map.press_left, map.press_right, map.press_jump);
+    io::debug(
+        "Received inputs from [{}] : ({}, {}, {})",
+        pair.first,
+        map.press_left,
+        map.press_right,
+        map.press_jump);
 
     if (map.press_left) {
       this->world_state.transform_player(pair.first, {-1.0, 0.0});
@@ -63,7 +71,9 @@ void ServerApp::fixed_update() {
   this->reset_process_mask();
 }
 
-void ServerApp::shutdown() { this->server->shutdown(); }
+void ServerApp::shutdown() {
+  this->server->shutdown();
+}
 
 void ServerApp::reset_process_mask() {
   for (uint32_t i = 0; i < this->MaxClients; i += 1) {
@@ -71,10 +81,14 @@ void ServerApp::reset_process_mask() {
   }
 }
 
-void ServerApp::handle_message(const Net::Message &message,
-                               uint8_t client_index) {
-  io::debug("[s_id: {}] [ack: {} | bits: {:b}]", message.header.sequence_id,
-            message.header.ack, message.header.ack_bitfield);
+void ServerApp::handle_message(
+    const Net::Message &message,
+    uint8_t client_index) {
+  io::debug(
+      "[s_id: {}] [ack: {} | bits: {:b}]",
+      message.header.sequence_id,
+      message.header.ack,
+      message.header.ack_bitfield);
   switch (message.header.message_type) {
   case Net::MessageType::ConnectionRequested:
     io::debug("Connection requested from {}.", message.header.salt);
@@ -114,8 +128,9 @@ void ServerApp::poll_network() {
   }
 }
 
-void ServerApp::handle_user_inputs(const Net::Message &message,
-                                   uint8_t client_index) {
+void ServerApp::handle_user_inputs(
+    const Net::Message &message,
+    uint8_t client_index) {
   auto result = InputMap::deserialize(Buf<uint8_t>(message.body));
   if (result.is_error) {
     io::error("Failed to read inputs from {}", message.header.salt);

@@ -3,29 +3,34 @@ import os
 from subprocess import call
 from scripts.include_assets import include_assets
 
-def configure():
-    call(["cmake", "-G", "MinGW Makefiles", "-S", ".", "-B", "out/"])
-    call(["cp", "out/compile_commands.json", "compile_commands.json"])
+# Write to run_flag
+def set_run_flag(text):
+    with open("run_flag", "w") as f:
+        f.write(text)
 
 
-def build_test(run):
-    call(["cmake", "-G", "MinGW Makefiles", "-S", ".", "-B", "out/"])
+# Build using MSVC compiler
+def build_msvc():
+    call(["cmake", "-G", "Visual Studio 17 2022", "-S", ".", "-B", "out/msvc"])
 
-    os.chdir("out")
-    call(["make", "tests"])
+    os.chdir("out/msvc")
+    call(["msbuild", "ALL_BUILD.vcxproj"])
 
-    if (run):
-        call(["tests.exe"])
-
+    os.chdir("..")
+    set_run_flag("msvc")
     os.chdir("..")
 
 
-def build_main():
-    call(["cmake", "-G", "MinGW Makefiles", "-S", ".", "-B", "out/"])
+# Build using GNU compiler
+def build_gnu():
+    call(["cmake", "-G", "MinGW Makefiles", "-S", ".", "-B", "out/gnu"])
 
-    os.chdir("out")
+    os.chdir("out/gnu")
     call(["make", "runtime"])
+    call(["make", "test"])
 
+    os.chdir("..")
+    set_run_flag("gnu")
     os.chdir("..")
 
 
@@ -33,16 +38,12 @@ def build_main():
 if __name__ == "__main__":
     include_assets(os.getcwd() + "/assets/")
     parser = argparse.ArgumentParser(description="build")
-    parser.add_argument("--test", dest="build", action="store_const",
-                        const=build_test, default=build_main,
-                        help="build tests")
-    parser.add_argument("--configure", dest="configure", action="store_true", 
-                        help="only configure CMake")
+    parser.add_argument("--gnu", dest="gnu", action="store_true", 
+                        help="Build using the GNU compiler")
 
     args = parser.parse_args()
-
-    if args.configure:
-        configure()
+    if args.gnu:
+        build_gnu()
     else:
-        args.build()
+        build_msvc()
 

@@ -41,7 +41,9 @@ struct PacketHeader {
   // Read `MessageHeader::packed_size` for explanation on why this method
   // exists. In this case it is unnecessary since all fields are the same size,
   // but it is best not to rely on that fact when it might change in the future.
-  static uint32_t packed_size() { return 8; }
+  static uint32_t packed_size() {
+    return 8;
+  }
 
   static Result<PacketHeader> deserialize(const Buf<uint8_t> &buf);
 };

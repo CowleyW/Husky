@@ -18,7 +18,8 @@ public:
   Message build();
 
 private:
-  template <typename T> T unwrap(std::optional<T> opt, std::string_view msg);
+  template <typename T>
+  T unwrap(std::optional<T> opt, std::string_view msg);
 
 private:
   MessageType type;

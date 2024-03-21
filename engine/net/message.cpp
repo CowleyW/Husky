@@ -25,8 +25,9 @@ Net::PacketHeader::deserialize(const Buf<uint8_t> &buf) {
   return Result<Net::PacketHeader>::ok(header);
 }
 
-Err Net::MessageHeader::serialize_into(std::vector<uint8_t> &buf,
-                                       uint32_t offset) const {
+Err Net::MessageHeader::serialize_into(
+    std::vector<uint8_t> &buf,
+    uint32_t offset) const {
   if (buf.size() < offset + Net::MessageHeader::packed_size()) {
     return Err::err("Insufficient space to serialize message header");
   }
@@ -36,8 +37,10 @@ Err Net::MessageHeader::serialize_into(std::vector<uint8_t> &buf,
   offset = Serialize::serialize_u32(this->ack, buf, offset);
   offset = Serialize::serialize_u32(this->ack_bitfield, buf, offset);
   offset = Serialize::serialize_u32(this->message_id, buf, offset);
-  offset = Serialize::serialize_u8(static_cast<uint8_t>(this->message_type),
-                                   buf, offset);
+  offset = Serialize::serialize_u8(
+      static_cast<uint8_t>(this->message_type),
+      buf,
+      offset);
   offset = Serialize::serialize_u32(this->body_size, buf, offset);
 
   return Err::ok();
@@ -78,8 +81,8 @@ uint32_t Net::Message::packed_size() const {
   return MessageHeader::packed_size() + this->body.size();
 }
 
-Err Net::Message::serialize_into(std::vector<uint8_t> &buf,
-                                 uint32_t offset) const {
+Err Net::Message::serialize_into(std::vector<uint8_t> &buf, uint32_t offset)
+    const {
   if (buf.size() < offset + this->packed_size()) {
     return Err::err("Insufficient space to serialize message");
   }
@@ -133,8 +136,10 @@ Err Net::verify_packet(const Buf<uint8_t> &buf) {
 
   Net::PacketHeader packet_header = ph_result.value;
   if (packet_header.protocol_id != NET_PROTOCOL_ID) {
-    return Err::err("Invalid protocol id {} (received) != {} (expected)",
-                    packet_header.protocol_id, NET_PROTOCOL_ID);
+    return Err::err(
+        "Invalid protocol id {} (received) != {} (expected)",
+        packet_header.protocol_id,
+        NET_PROTOCOL_ID);
   }
 
   uint32_t checksum = Crypto::calculate_checksum(
@@ -142,7 +147,8 @@ Err Net::verify_packet(const Buf<uint8_t> &buf) {
   if (checksum != packet_header.checksum) {
     return Err::err(
         "Failed checksum validation. {} (received) != {} (expected)",
-        packet_header.checksum, checksum);
+        packet_header.checksum,
+        checksum);
   }
 
   return Err::ok();

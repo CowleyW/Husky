@@ -10,10 +10,14 @@ namespace Net {
 
 class Sender {
 public:
-  Sender(std::shared_ptr<asio::ip::udp::socket> socket,
-         asio::ip::udp::endpoint endpoint, uint64_t client_salt);
-  Sender(asio::io_context &context, uint32_t port,
-         asio::ip::udp::endpoint endpoint);
+  Sender(
+      std::shared_ptr<asio::ip::udp::socket> socket,
+      asio::ip::udp::endpoint endpoint,
+      uint64_t client_salt);
+  Sender(
+      asio::io_context &context,
+      uint32_t port,
+      asio::ip::udp::endpoint endpoint);
   Sender(asio::io_context &context);
 
   void write_connection_requested();

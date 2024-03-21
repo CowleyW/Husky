@@ -2,9 +2,11 @@
 
 #include <random>
 
-Random::Random() : rng(std::random_device()()) {}
+Random::Random() : rng(std::random_device()()) {
+}
 
-Random::Random(uint64_t seed) : rng(seed) {}
+Random::Random(uint64_t seed) : rng(seed) {
+}
 
 uint32_t Random::random_u32() {
   return std::uniform_int_distribution<uint32_t>()(this->rng);

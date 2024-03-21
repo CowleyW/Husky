@@ -3,23 +3,29 @@
 
 #include <vector>
 
-uint32_t Serialize::serialize_u8(uint8_t value, std::vector<uint8_t> &buf,
-                                 uint32_t offset) {
+uint32_t Serialize::serialize_u8(
+    uint8_t value,
+    std::vector<uint8_t> &buf,
+    uint32_t offset) {
   buf[offset] = value;
 
   return offset + 1;
 }
 
-uint32_t Serialize::serialize_u16(uint16_t value, std::vector<uint8_t> &buf,
-                                  uint32_t offset) {
+uint32_t Serialize::serialize_u16(
+    uint16_t value,
+    std::vector<uint8_t> &buf,
+    uint32_t offset) {
   buf[offset] = value >> 8;
   buf[offset + 1] = value;
 
   return offset + 2;
 }
 
-uint32_t Serialize::serialize_u32(uint32_t value, std::vector<uint8_t> &buf,
-                                  uint32_t offset) {
+uint32_t Serialize::serialize_u32(
+    uint32_t value,
+    std::vector<uint8_t> &buf,
+    uint32_t offset) {
   buf[offset] = value >> 24;
   buf[offset + 1] = value >> 16;
   buf[offset + 2] = value >> 8;
@@ -28,8 +34,10 @@ uint32_t Serialize::serialize_u32(uint32_t value, std::vector<uint8_t> &buf,
   return offset + 4;
 }
 
-uint32_t Serialize::serialize_u64(uint64_t value, std::vector<uint8_t> &buf,
-                                  uint32_t offset) {
+uint32_t Serialize::serialize_u64(
+    uint64_t value,
+    std::vector<uint8_t> &buf,
+    uint32_t offset) {
   buf[offset] = value >> 56;
   buf[offset + 1] = value >> 48;
   buf[offset + 2] = value >> 40;
@@ -42,8 +50,10 @@ uint32_t Serialize::serialize_u64(uint64_t value, std::vector<uint8_t> &buf,
   return offset + 8;
 }
 
-uint32_t Serialize::serialize_float(float value, std::vector<uint8_t> &buf,
-                                    uint32_t offset) {
+uint32_t Serialize::serialize_float(
+    float value,
+    std::vector<uint8_t> &buf,
+    uint32_t offset) {
   union {
     float f;
     uint32_t val;

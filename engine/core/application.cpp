@@ -9,8 +9,8 @@ Result<Application *> Application::create_server(uint32_t port) {
   return Result<Application *>::ok(new ServerApp(port));
 }
 
-Result<Application *> Application::create_client(uint32_t server_port,
-                                                 uint32_t client_port) {
+Result<Application *>
+Application::create_client(uint32_t server_port, uint32_t client_port) {
   ClientApp *app = new ClientApp(server_port, client_port);
   Err err = app->init();
   if (err.is_error) {
@@ -59,4 +59,6 @@ void Application::run() {
   this->shutdown();
 }
 
-void Application::stop() { this->running = false; }
+void Application::stop() {
+  this->running = false;
+}

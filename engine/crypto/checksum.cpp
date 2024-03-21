@@ -1,7 +1,5 @@
 #include "checksum.h"
 
-#include "io/logging.h"
-
 uint32_t Crypto::calculate_checksum(Buf<uint8_t> buf) {
   return Crypto::calculate_checksum(buf.data(), buf.size());
 }

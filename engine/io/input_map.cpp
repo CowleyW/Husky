@@ -19,8 +19,10 @@ Result<InputMap> InputMap::deserialize(const Buf<uint8_t> &buf) {
     return (mask & (1 << bit)) != 0;
   };
 
-  InputMap map = {bit_set(input_mask, 0), bit_set(input_mask, 1),
-                  bit_set(input_mask, 2)};
+  InputMap map = {
+      bit_set(input_mask, 0),
+      bit_set(input_mask, 1),
+      bit_set(input_mask, 2)};
 
   return Result<InputMap>::ok(map);
 }

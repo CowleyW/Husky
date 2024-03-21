@@ -2,11 +2,13 @@
 
 #include "util/serialize.h"
 
-WorldState::WorldState() : player_positions() {}
+WorldState::WorldState() : player_positions() {
+}
 
 WorldState::WorldState(
     std::vector<std::pair<uint8_t, Position>> player_positions)
-    : player_positions(player_positions) {}
+    : player_positions(player_positions) {
+}
 
 uint32_t WorldState::packed_size() const {
   // 1 byte for the number of players, rest to store positions vec
@@ -31,8 +33,9 @@ Result<Position> WorldState::player_position(uint8_t player_index) {
 void WorldState::remove_player(uint8_t player_index) {
   for (uint32_t i = 0; i < this->player_positions.size(); i += 1) {
     if (this->player_positions[i].first == player_index) {
-      this->player_positions.erase(this->player_positions.begin() + i,
-                                   this->player_positions.begin() + i + 1);
+      this->player_positions.erase(
+          this->player_positions.begin() + i,
+          this->player_positions.begin() + i + 1);
     }
   }
 }
@@ -41,8 +44,9 @@ void WorldState::add_player(uint8_t player_index) {
   this->player_positions.push_back({player_index, {0.0, 0.0}});
 }
 
-void WorldState::transform_player(uint8_t player_index,
-                                  const Position &transform) {
+void WorldState::transform_player(
+    uint8_t player_index,
+    const Position &transform) {
   for (auto &pair : this->player_positions) {
     if (pair.first == player_index) {
       pair.second.x += transform.x;
@@ -51,14 +55,13 @@ void WorldState::transform_player(uint8_t player_index,
   }
 }
 
-Err WorldState::serialize_into(std::vector<uint8_t> &buf,
-                               uint32_t offset) const {
+Err WorldState::serialize_into(std::vector<uint8_t> &buf, uint32_t offset)
+    const {
   if (buf.size() < offset + this->packed_size()) {
     return Err::err("Insufficient space to serialize position");
   }
 
-  offset =
-      Serialize::serialize_u8(this->player_positions.size(), buf, offset);
+  offset = Serialize::serialize_u8(this->player_positions.size(), buf, offset);
   for (auto &pair : this->player_positions) {
     offset = Serialize::serialize_u8(pair.first, buf, offset);
 
