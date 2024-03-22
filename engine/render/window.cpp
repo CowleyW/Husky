@@ -1,10 +1,20 @@
 #include "window.h"
 
+#include "io/logging.h"
 #include "render/callback_handler.h"
 #include "render/vk_types.h"
 #include "util/err.h"
 
 #include <GLFW/glfw3.h>
+#include <vulkan/vulkan_core.h>
+
+Window::~Window() {
+  if (this->handle != nullptr) {
+    glfwDestroyWindow(this->handle);
+  }
+
+  glfwTerminate();
+}
 
 Err Window::init(Dimensions dimensions) {
   this->dimensions = dimensions;
@@ -13,9 +23,7 @@ Err Window::init(Dimensions dimensions) {
     return Err::err("Failed to initialize GLFW");
   }
 
-  // glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-  // glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-  // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
   this->handle = glfwCreateWindow(
       this->dimensions.width,
@@ -24,11 +32,8 @@ Err Window::init(Dimensions dimensions) {
       nullptr,
       nullptr);
   if (!this->handle) {
-    this->shutdown();
     return Err::err("Failed to create a window.");
   }
-
-  // glfwMakeContextCurrent(this->handle);
 
   return Err::ok();
 }
@@ -53,14 +58,6 @@ void Window::register_callbacks(CallbackHandler *callback) {
   });
 }
 
-void Window::shutdown() {
-  if (this->handle != nullptr) {
-    glfwDestroyWindow(this->handle);
-  }
-
-  glfwTerminate();
-}
-
 void Window::swap_buffers() {
   // glfwSwapBuffers(this->handle);
 }
@@ -69,10 +66,22 @@ void Window::poll_events() {
   glfwPollEvents();
 }
 
-InputMap Window::build_input_map() {
+InputMap Window::get_inputs() {
   bool jump = glfwGetKey(this->handle, GLFW_KEY_SPACE);
   bool left = glfwGetKey(this->handle, GLFW_KEY_A);
   bool right = glfwGetKey(this->handle, GLFW_KEY_D);
 
   return {jump, left, right};
+}
+
+VkSurfaceKHR Window::create_surface(VkInstance instance) {
+  VkSurfaceKHR surface;
+  VkResult err =
+      glfwCreateWindowSurface(instance, this->handle, nullptr, &surface);
+
+  if (err) {
+    io::error("Failed to create window surface.");
+  }
+
+  return surface;
 }

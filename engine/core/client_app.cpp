@@ -2,7 +2,6 @@
 
 #include "io/input_map.h"
 #include "io/logging.h"
-#include "render/window.h"
 #include "util/err.h"
 #include "util/serialize.h"
 #include "world_state.h"
@@ -14,17 +13,10 @@ ClientApp::ClientApp(uint32_t server_port, uint32_t client_port)
 }
 
 Err ClientApp::init() {
-  Err err = this->window.init({1280, 720});
+  Err err = this->render_engine.init({1280, 720}, this);
   if (err.is_error) {
     return err;
   }
-
-  // err = this->context.init(this->window.dimensions);
-  // if (err.is_error) {
-  //   return err;
-  // }
-
-  this->window.register_callbacks(this);
 
   return Err::ok();
 }
@@ -34,20 +26,18 @@ void ClientApp::begin() {
 }
 
 void ClientApp::update() {
-  this->window.poll_events();
+  this->render_engine.poll_events();
   this->poll_network();
 }
 
 void ClientApp::render() {
-  // this->context.clear();
-  // this->context.render();
-  this->window.swap_buffers();
+  this->render_engine.render();
 }
 
 void ClientApp::fixed_update() {
   this->frame += 1;
 
-  InputMap inputs = this->window.build_input_map();
+  InputMap inputs = this->render_engine.get_inputs();
 
   if (this->client_index.has_value()) {
     auto pos = this->world_state.player_position(this->client_index.value());
@@ -66,13 +56,12 @@ void ClientApp::fixed_update() {
 }
 
 void ClientApp::shutdown() {
-  this->window.shutdown();
   this->client->shutdown();
 }
 
 void ClientApp::on_window_resize(Dimensions dimensions) {
   io::debug("Resizing window");
-  // this->context.resize(dimensions);
+  this->render_engine.resize(dimensions);
 }
 
 void ClientApp::on_window_close() {

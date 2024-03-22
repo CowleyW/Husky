@@ -10,6 +10,8 @@
 
 class Window {
 public:
+  ~Window();
+
   /**
    * Initializes the window.
    * @return true iff the window was successfully initialized, else false
@@ -18,15 +20,14 @@ public:
 
   void register_callbacks(CallbackHandler *callback);
 
-  /**
-   * Shuts down the window and performs the appropriate cleanup.
-   */
-  void shutdown();
-
   void swap_buffers();
   void poll_events();
 
-  InputMap build_input_map();
+  InputMap get_inputs();
+
+  void *raw_window_handle();
+
+  VkSurfaceKHR create_surface(VkInstance instance);
 
 public:
   Dimensions dimensions;

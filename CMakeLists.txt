@@ -42,11 +42,9 @@ add_library(engine
 
   # Render
   engine/render/window.h engine/render/window.cpp
-  # engine/render/context.h engine/render/context.cpp
-  # engine/render/shader.h engine/render/shader.cpp
   engine/render/callback_handler.h
-  # engine/render/gl_types.h
   engine/render/vk_engine.h engine/render/vk_engine.cpp
+  engine/render/vk_init.h engine/render/vk_init.cpp
   engine/render/vk_types.h
 
   #Util

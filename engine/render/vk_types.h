@@ -6,6 +6,8 @@
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan.h>
 
+#include <cstdint>
+
 #define VK_ASSERT(x)                                                           \
   do {                                                                         \
     VkResult err = x;                                                          \

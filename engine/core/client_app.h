@@ -4,7 +4,7 @@
 
 #include "net/client.h"
 #include "render/callback_handler.h"
-#include "render/window.h"
+#include "render/vk_engine.h"
 #include "world_state.h"
 
 class ClientApp : public Application, CallbackHandler {
@@ -37,8 +37,7 @@ private:
   void handle_message(const Net::Message &message);
 
 private:
-  Window window;
-  // Context context;
+  Render::VulkanEngine render_engine{};
 
   std::shared_ptr<Net::Client> client;
 
