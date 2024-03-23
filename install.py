@@ -27,7 +27,14 @@ if __name__ == "__main__":
     git_clone("git@github.com:g-truc/glm.git", "glm", args.clean)
     git_clone("git@github.com:fmtlib/fmt.git", "fmt", args.clean)
     git_clone("git@github.com:chriskohlhoff/asio.git", "asio", args.clean)
-    git_clone("git@github.com:charles-lunarg/vk-bootstrap.git", "vk-bootstrap", args.clean)
-    git_clone("git@github.com:GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git", "VulkanMemoryAllocator", args.clean)
-    git_clone("git@github.com:KhronosGroup/Vulkan-Utility-Libraries.git", "Vulkan-Utility-Libraries", args.clean)
+    git_clone("git@github.com:charles-lunarg/vk-bootstrap.git",
+              "vk-bootstrap", 
+              args.clean)
+    git_clone("git@github.com:GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git",
+              "VulkanMemoryAllocator", 
+              args.clean)
+    git_clone("git@github.com:KhronosGroup/Vulkan-Utility-Libraries.git", 
+              "Vulkan-Utility-Libraries", 
+              args.clean)
+    git_clone("git@github.com:ocornut/imgui.git", "imgui", args.clean)
 

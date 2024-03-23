@@ -42,6 +42,7 @@ add_library(engine
 
   # Render
   engine/render/callback_handler.h
+  engine/render/mesh.h engine/render/mesh.cpp
   engine/render/pipeline_builder.h engine/render/pipeline_builder.cpp
   engine/render/shader.h engine/render/shader.cpp
   engine/render/vk_engine.h engine/render/vk_engine.cpp
@@ -64,6 +65,22 @@ add_subdirectory(lib/glm)
 add_subdirectory(lib/fmt)
 add_subdirectory(lib/VulkanMemoryAllocator)
 add_subdirectory(lib/vk-bootstrap)
+
+# imgui
+add_library(imgui STATIC 
+  lib/imgui/imconfig.h
+  lib/imgui/imgui.h lib/imgui/imgui.cpp 
+  lib/imgui/imgui_demo.cpp lib/imgui/imgui_draw.cpp 
+  lib/imgui/imgui_internal.h lib/imgui/imgui_tables.cpp
+  lib/imgui/imgui_widgets.cpp lib/imgui/imstb_rectpack.h 
+  lib/imgui/imstb_textedit.h lib/imgui/imstb_truetype.h
+  lib/imgui/backends/imgui_impl_glfw.h lib/imgui/backends/imgui_impl_glfw.cpp
+  lib/imgui/backends/imgui_impl_vulkan.h lib/imgui/backends/imgui_impl_vulkan.cpp)
+
+target_include_directories(imgui PUBLIC lib/imgui)
+
+target_link_libraries(imgui PUBLIC glfw Vulkan::Vulkan)
+
 target_link_libraries(engine PUBLIC 
   fmt 
   glfw
@@ -73,6 +90,7 @@ target_link_libraries(engine PUBLIC
   vk-bootstrap::vk-bootstrap
   ws2_32
   wsock32
+  imgui
 )
 
 target_include_directories(engine PUBLIC 
@@ -82,7 +100,9 @@ target_include_directories(engine PUBLIC
   lib/glfw/include/
   lib/vk-bootstrap/src/
   lib/VulkanMemoryAllocator/include/
-  lib/Vulkan-Utility-Libraries/include/vulkan/)
+  lib/Vulkan-Utility-Libraries/include/vulkan/
+  lib/imgui
+  lib/imgui/backends)
 
 target_compile_definitions(engine PRIVATE _WIN32_WINNT=0x0A00)
 

@@ -1,5 +1,4 @@
 #include "pipeline_builder.h"
-#include "fmt/base.h"
 #include "io/logging.h"
 #include <vulkan/vulkan_core.h>
 
@@ -7,6 +6,18 @@ PipelineBuilder::PipelineBuilder() : shader_stages() {
 }
 
 VkPipeline PipelineBuilder::build(VkDevice device, VkRenderPass render_pass) {
+  if (vertex_input_info.vertexAttributeDescriptionCount == 3) {
+    io::info(
+        "desc[0] format: {}",
+        (uint32_t)vertex_input_info.pVertexAttributeDescriptions[0].format);
+    io::info(
+        "desc[0] format: {}",
+        (uint32_t)vertex_input_info.pVertexAttributeDescriptions[1].format);
+    io::info(
+        "desc[0] format: {}",
+        (uint32_t)vertex_input_info.pVertexAttributeDescriptions[2].format);
+  }
+
   VkPipelineViewportStateCreateInfo viewport_state = {};
   viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   viewport_state.pNext = nullptr;
@@ -53,6 +64,12 @@ VkPipeline PipelineBuilder::build(VkDevice device, VkRenderPass render_pass) {
   } else {
     return pipeline;
   }
+}
+
+PipelineBuilder &PipelineBuilder::clear_shader_stages() {
+  this->shader_stages.clear();
+
+  return *this;
 }
 
 PipelineBuilder &PipelineBuilder::add_shader_stage(

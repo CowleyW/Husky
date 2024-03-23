@@ -2,21 +2,37 @@
 
 #include "io/logging.h"
 #include "render/callback_handler.h"
+#include "render/mesh.h"
 #include "render/pipeline_builder.h"
 #include "render/shader.h"
 #include "render/vk_init.h"
 #include "render/vk_types.h"
 
 #include "VkBootstrap.h"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <vulkan/vulkan_core.h>
+
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
 
 Render::VulkanEngine::~VulkanEngine() {
   // Make sure the GPU is not doing anything before we do any cleanup
   vkDeviceWaitIdle(this->device);
 
-  vkDestroyPipeline(this->device, this->pipeline, nullptr);
+  vmaDestroyBuffer(
+      this->allocator,
+      this->triangle_mesh.vertex_buffer.buffer,
+      this->triangle_mesh.vertex_buffer.allocation);
+  vmaDestroyAllocator(this->allocator);
+
+  vkDestroyPipeline(this->device, this->mono_pipeline, nullptr);
+  vkDestroyPipeline(this->device, this->rainbow_pipeline, nullptr);
+  vkDestroyPipeline(this->device, this->mesh_pipeline, nullptr);
   vkDestroyPipelineLayout(this->device, this->pipeline_layout, nullptr);
 
   vkDestroyCommandPool(this->device, this->command_pool, nullptr);
@@ -54,6 +70,8 @@ Err Render::VulkanEngine::init(
   this->init_framebuffers();
   this->init_sync_structs();
   this->init_pipelines();
+  this->init_allocator();
+  this->init_meshes();
 
   return Err::ok();
 }
@@ -95,8 +113,21 @@ void Render::VulkanEngine::render() {
   vkCmdBindPipeline(
       this->main_command_buffer,
       VK_PIPELINE_BIND_POINT_GRAPHICS,
-      this->pipeline);
-  vkCmdDraw(this->main_command_buffer, 3, 1, 0, 0);
+      this->mesh_pipeline);
+
+  VkDeviceSize offset = 0;
+  vkCmdBindVertexBuffers(
+      this->main_command_buffer,
+      0,
+      1,
+      &this->triangle_mesh.vertex_buffer.buffer,
+      &offset);
+  vkCmdDraw(
+      this->main_command_buffer,
+      this->triangle_mesh.vertices.size(),
+      1,
+      0,
+      0);
 
   vkCmdEndRenderPass(this->main_command_buffer);
   VK_ASSERT(vkEndCommandBuffer(this->main_command_buffer));
@@ -269,21 +300,48 @@ void Render::VulkanEngine::init_sync_structs() {
 }
 
 void Render::VulkanEngine::init_pipelines() {
-  VkShaderModule frag_shader;
-  VkShaderModule vert_shader;
+  VkShaderModule mono_frag;
+  VkShaderModule mono_vert;
+  VkShaderModule rainbow_frag;
+  VkShaderModule rainbow_vert;
+  VkShaderModule mesh_vert;
 
   Err err = Shader::load_shader_module(
-      "shaders/frag.spv",
+      "shaders/color_frag.spv",
       this->device,
-      &frag_shader);
+      &rainbow_frag);
   if (err.is_error) {
     io::error(err.msg);
   }
 
   err = Shader::load_shader_module(
-      "shaders/vert.spv",
+      "shaders/color_vert.spv",
       this->device,
-      &vert_shader);
+      &rainbow_vert);
+  if (err.is_error) {
+    io::error(err.msg);
+  }
+
+  err = Shader::load_shader_module(
+      "shaders/tri_frag.spv",
+      this->device,
+      &mono_frag);
+  if (err.is_error) {
+    io::error(err.msg);
+  }
+
+  err = Shader::load_shader_module(
+      "shaders/tri_vert.spv",
+      this->device,
+      &mono_vert);
+  if (err.is_error) {
+    io::error(err.msg);
+  }
+
+  err = Shader::load_shader_module(
+      "shaders/mesh_vert.spv",
+      this->device,
+      &mesh_vert);
   if (err.is_error) {
     io::error(err.msg);
   }
@@ -311,14 +369,14 @@ void Render::VulkanEngine::init_pipelines() {
 
   PipelineBuilder builder;
 
-  this->pipeline =
+  this->mono_pipeline =
       builder
           .add_shader_stage(VkInit::pipeline_shader_stage_create_info(
               VK_SHADER_STAGE_VERTEX_BIT,
-              vert_shader))
+              mono_vert))
           .add_shader_stage(VkInit::pipeline_shader_stage_create_info(
               VK_SHADER_STAGE_FRAGMENT_BIT,
-              frag_shader))
+              mono_frag))
           .with_vertex_input(VkInit::vertex_input_state_create_info())
           .with_input_assembly(VkInit::input_assembly_state_create_info(
               VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST))
@@ -331,6 +389,109 @@ void Render::VulkanEngine::init_pipelines() {
           .with_pipeline_layout(this->pipeline_layout)
           .build(this->device, this->render_pass);
 
-  vkDestroyShaderModule(device, frag_shader, nullptr);
-  vkDestroyShaderModule(device, vert_shader, nullptr);
+  this->rainbow_pipeline =
+      builder.clear_shader_stages()
+          .add_shader_stage(VkInit::pipeline_shader_stage_create_info(
+              VK_SHADER_STAGE_VERTEX_BIT,
+              rainbow_vert))
+          .add_shader_stage(VkInit::pipeline_shader_stage_create_info(
+              VK_SHADER_STAGE_FRAGMENT_BIT,
+              rainbow_frag))
+          .build(this->device, this->render_pass);
+
+  VertexInputDescription vertex_input = Vertex::get_description();
+  io::info("num_attributes: {}", vertex_input.attributes.size());
+  this->mesh_pipeline =
+      builder.clear_shader_stages()
+          .add_shader_stage(VkInit::pipeline_shader_stage_create_info(
+              VK_SHADER_STAGE_VERTEX_BIT,
+              mesh_vert))
+          .add_shader_stage(VkInit::pipeline_shader_stage_create_info(
+              VK_SHADER_STAGE_FRAGMENT_BIT,
+              rainbow_frag))
+          .with_vertex_input(
+              VkInit::vertex_input_state_create_info(&vertex_input))
+          .build(this->device, this->render_pass);
+
+  vkDestroyShaderModule(device, mono_frag, nullptr);
+  vkDestroyShaderModule(device, mono_vert, nullptr);
+  vkDestroyShaderModule(device, rainbow_frag, nullptr);
+  vkDestroyShaderModule(device, rainbow_vert, nullptr);
+  vkDestroyShaderModule(device, mesh_vert, nullptr);
+}
+
+void Render::VulkanEngine::init_allocator() {
+  VmaAllocatorCreateInfo allocator_info = {};
+  allocator_info.physicalDevice = this->gpu;
+  allocator_info.device = this->device;
+  allocator_info.instance = this->instance;
+  vmaCreateAllocator(&allocator_info, &this->allocator);
+}
+
+void Render::VulkanEngine::init_meshes() {
+  this->triangle_mesh.vertices.resize(3);
+
+  this->triangle_mesh.vertices[0].position = {1.0f, 1.0f, 0.0f};
+  this->triangle_mesh.vertices[1].position = {-1.0f, 1.0f, 0.0f};
+  this->triangle_mesh.vertices[2].position = {0.0f, -1.0f, 0.0f};
+
+  this->triangle_mesh.vertices[0].color = {0.0f, 1.0f, 0.0f};
+  this->triangle_mesh.vertices[1].color = {0.0f, 1.0f, 0.0f};
+  this->triangle_mesh.vertices[2].color = {0.0f, 1.0f, 0.0f};
+
+  this->upload_mesh(this->triangle_mesh);
+}
+
+void Render::VulkanEngine::init_imgui() {
+  // IMGUI_CHECKVERSION();
+  // ImGui::CreateContext();
+  // ImGuiIO &io = ImGui::GetIO();
+  // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+  // io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+  //
+  // ImGui::StyleColorsDark();
+  //
+  // ImGui_ImplGlfw_InitForVulkan(this->window.raw_window_handle(), true);
+  // ImGui_ImplVulkan_InitInfo init_info = {};
+  // init_info.Instance = this->instance;
+  // init_info.PhysicalDevice = this->gpu;
+  // init_info.Device = this->device;
+  // init_info.QueueFamily = this->graphics_queue_family;
+  // init_info.Queue = this->graphics_queue;
+  // init_info.PipelineCache = g_PipelineCache;
+  // init_info.DescriptorPool = g_DescriptorPool;
+  // init_info.RenderPass = wd->RenderPass;
+  // init_info.Subpass = 0;
+  // init_info.MinImageCount = g_MinImageCount;
+  // init_info.ImageCount = wd->ImageCount;
+  // init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+  // init_info.Allocator = g_Allocator;
+  // init_info.CheckVkResultFn = check_vk_result;
+  // ImGui_ImplVulkan_Init(&init_info);
+}
+
+void Render::VulkanEngine::upload_mesh(Mesh &mesh) {
+  VkBufferCreateInfo buffer_info = {};
+  buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  buffer_info.pNext = nullptr;
+  buffer_info.size = mesh.vertices.size() * sizeof(Vertex);
+  buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+  VmaAllocationCreateInfo alloc_info = {};
+  alloc_info.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+
+  VK_ASSERT(vmaCreateBuffer(
+      this->allocator,
+      &buffer_info,
+      &alloc_info,
+      &mesh.vertex_buffer.buffer,
+      &mesh.vertex_buffer.allocation,
+      nullptr));
+
+  void *data;
+  vmaMapMemory(this->allocator, mesh.vertex_buffer.allocation, &data);
+
+  memcpy(data, mesh.vertices.data(), mesh.size());
+
+  vmaUnmapMemory(allocator, mesh.vertex_buffer.allocation);
 }

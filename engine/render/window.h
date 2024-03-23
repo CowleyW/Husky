@@ -25,7 +25,7 @@ public:
 
   InputMap get_inputs();
 
-  void *raw_window_handle();
+  GLFWwindow *raw_window_handle();
 
   VkSurfaceKHR create_surface(VkInstance instance);
 

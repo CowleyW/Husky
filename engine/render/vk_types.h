@@ -21,4 +21,9 @@ struct Dimensions {
   uint32_t height;
 };
 
+struct AllocatedBuffer {
+  VkBuffer buffer;
+  VmaAllocation allocation;
+};
+
 enum class ShaderType { Vertex = 0, Fragment };

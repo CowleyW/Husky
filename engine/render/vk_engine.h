@@ -2,6 +2,7 @@
 
 #include "callback_handler.h"
 #include "io/input_map.h"
+#include "mesh.h"
 #include "util/err.h"
 #include "vk_types.h"
 #include "window.h"
@@ -22,6 +23,7 @@ public:
   void resize(Dimensions dimensions);
 
   void poll_events();
+
   InputMap get_inputs();
 
 private:
@@ -32,11 +34,18 @@ private:
   void init_framebuffers();
   void init_sync_structs();
   void init_pipelines();
+  void init_allocator();
+  void init_meshes();
+  void init_imgui();
+
+  void upload_mesh(Mesh &mesh);
 
 private:
   Window window{};
   Dimensions dimensions;
   uint32_t frame_number;
+
+  Mesh triangle_mesh;
 
   // Vulkan Structs
   VkInstance instance;
@@ -62,8 +71,12 @@ private:
   VkSemaphore render_semaphore;
   VkFence render_fence;
 
-  VkPipeline pipeline;
+  VkPipeline mono_pipeline;
+  VkPipeline rainbow_pipeline;
+  VkPipeline mesh_pipeline;
   VkPipelineLayout pipeline_layout;
+
+  VmaAllocator allocator;
 };
 
 } // namespace Render

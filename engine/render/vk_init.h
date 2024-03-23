@@ -1,5 +1,6 @@
 #pragma once
 
+#include "mesh.h"
 #include "vk_types.h"
 #include <vulkan/vulkan_core.h>
 
@@ -56,7 +57,8 @@ VkPipelineShaderStageCreateInfo pipeline_shader_stage_create_info(
     VkShaderStageFlagBits stage,
     VkShaderModule shader_module);
 
-VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info();
+VkPipelineVertexInputStateCreateInfo
+vertex_input_state_create_info(VertexInputDescription *vertex_input = nullptr);
 
 VkPipelineInputAssemblyStateCreateInfo
 input_assembly_state_create_info(VkPrimitiveTopology topology);

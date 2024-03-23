@@ -1,5 +1,7 @@
 #include "vk_init.h"
 
+#include "io/logging.h"
+#include "render/mesh.h"
 #include "vk_types.h"
 #include <vulkan/vulkan_core.h>
 
@@ -184,12 +186,21 @@ VkPipelineShaderStageCreateInfo VkInit::pipeline_shader_stage_create_info(
   return info;
 }
 
-VkPipelineVertexInputStateCreateInfo VkInit::vertex_input_state_create_info() {
+VkPipelineVertexInputStateCreateInfo
+VkInit::vertex_input_state_create_info(VertexInputDescription *vertex_input) {
   VkPipelineVertexInputStateCreateInfo info = {};
   info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
   info.pNext = nullptr;
-  info.vertexBindingDescriptionCount = 0;
-  info.vertexAttributeDescriptionCount = 0;
+
+  if (vertex_input != nullptr) {
+    info.vertexBindingDescriptionCount = vertex_input->bindings.size();
+    info.pVertexBindingDescriptions = vertex_input->bindings.data();
+    info.vertexAttributeDescriptionCount = vertex_input->attributes.size();
+    info.pVertexAttributeDescriptions = vertex_input->attributes.data();
+  } else {
+    info.vertexBindingDescriptionCount = 0;
+    info.vertexAttributeDescriptionCount = 0;
+  }
 
   return info;
 }

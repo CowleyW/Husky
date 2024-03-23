@@ -11,6 +11,8 @@ public:
 
   VkPipeline build(VkDevice device, VkRenderPass render_pass);
 
+  PipelineBuilder &clear_shader_stages();
+
   PipelineBuilder &
   add_shader_stage(VkPipelineShaderStageCreateInfo shader_stage);
 

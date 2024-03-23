@@ -74,6 +74,10 @@ InputMap Window::get_inputs() {
   return {jump, left, right};
 }
 
+GLFWwindow *Window::raw_window_handle() {
+  return this->handle;
+}
+
 VkSurfaceKHR Window::create_surface(VkInstance instance) {
   VkSurfaceKHR surface;
   VkResult err =
