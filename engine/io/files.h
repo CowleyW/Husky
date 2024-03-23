@@ -17,6 +17,8 @@ namespace files {
  */
 Result<std::vector<uint8_t>> load_file(const std::string &path);
 
+Result<std::vector<uint32_t>> load_spirv_file(const std::string &path);
+
 Result<std::string> load_text_file(const std::string &path);
 
 Err write_file(const std::string &path, std::vector<uint8_t> contents);

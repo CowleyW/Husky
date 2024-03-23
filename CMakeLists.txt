@@ -41,11 +41,13 @@ add_library(engine
   engine/net/types.h
 
   # Render
-  engine/render/window.h engine/render/window.cpp
   engine/render/callback_handler.h
+  engine/render/pipeline_builder.h engine/render/pipeline_builder.cpp
+  engine/render/shader.h engine/render/shader.cpp
   engine/render/vk_engine.h engine/render/vk_engine.cpp
   engine/render/vk_init.h engine/render/vk_init.cpp
   engine/render/vk_types.h
+  engine/render/window.h engine/render/window.cpp
 
   #Util
   engine/util/err.h engine/util/result.h

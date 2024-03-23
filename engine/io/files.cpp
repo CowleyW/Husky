@@ -3,6 +3,7 @@
 #include "util/result.h"
 
 #include <cstdio>
+#include <cstring>
 #include <stdio.h>
 #include <string>
 #include <string_view>
@@ -46,6 +47,25 @@ Result<std::vector<uint8_t>> files::load_file(const std::string &path) {
   std::fclose(file);
 
   return Result<std::vector<uint8_t>>::ok(data);
+}
+
+Result<std::vector<uint32_t>> files::load_spirv_file(const std::string &path) {
+  auto bytes_result = files::load_file(path);
+  if (bytes_result.is_error) {
+    return Result<std::vector<uint32_t>>::err(bytes_result.msg);
+  }
+
+  std::vector<uint8_t> bytes = bytes_result.value;
+  if (bytes.size() % sizeof(uint32_t) != 0) {
+    return Result<std::vector<uint32_t>>::err(
+        "Cannot convert to spir-v format.");
+  }
+
+  uint32_t buffer_size = bytes.size() / sizeof(uint32_t);
+  std::vector<uint32_t> buffer(buffer_size);
+  std::memcpy(buffer.data(), bytes.data(), bytes.size());
+
+  return Result<std::vector<uint32_t>>::ok(buffer);
 }
 
 Result<std::string> files::load_text_file(const std::string &path) {

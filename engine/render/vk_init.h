@@ -52,4 +52,22 @@ VkSemaphoreCreateInfo semaphore_create_info();
 
 VkFenceCreateInfo fence_create_info();
 
+VkPipelineShaderStageCreateInfo pipeline_shader_stage_create_info(
+    VkShaderStageFlagBits stage,
+    VkShaderModule shader_module);
+
+VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info();
+
+VkPipelineInputAssemblyStateCreateInfo
+input_assembly_state_create_info(VkPrimitiveTopology topology);
+
+VkPipelineRasterizationStateCreateInfo
+rasterization_state_create_info(VkPolygonMode polygon_mode);
+
+VkPipelineMultisampleStateCreateInfo multisample_state_create_info();
+
+VkPipelineColorBlendAttachmentState color_blend_attachment_state();
+
+VkPipelineLayoutCreateInfo pipeline_layout_create_info();
+
 } // namespace VkInit

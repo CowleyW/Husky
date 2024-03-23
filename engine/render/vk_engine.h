@@ -7,6 +7,7 @@
 #include "window.h"
 
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 namespace Render {
 
@@ -30,6 +31,7 @@ private:
   void init_default_renderpass();
   void init_framebuffers();
   void init_sync_structs();
+  void init_pipelines();
 
 private:
   Window window{};
@@ -59,6 +61,9 @@ private:
   VkSemaphore present_semaphore;
   VkSemaphore render_semaphore;
   VkFence render_fence;
+
+  VkPipeline pipeline;
+  VkPipelineLayout pipeline_layout;
 };
 
 } // namespace Render

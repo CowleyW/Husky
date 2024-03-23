@@ -1,6 +1,9 @@
 #include "vk_engine.h"
 
+#include "io/logging.h"
 #include "render/callback_handler.h"
+#include "render/pipeline_builder.h"
+#include "render/shader.h"
 #include "render/vk_init.h"
 #include "render/vk_types.h"
 
@@ -12,6 +15,9 @@
 Render::VulkanEngine::~VulkanEngine() {
   // Make sure the GPU is not doing anything before we do any cleanup
   vkDeviceWaitIdle(this->device);
+
+  vkDestroyPipeline(this->device, this->pipeline, nullptr);
+  vkDestroyPipelineLayout(this->device, this->pipeline_layout, nullptr);
 
   vkDestroyCommandPool(this->device, this->command_pool, nullptr);
   vkDestroySwapchainKHR(this->device, this->swapchain, nullptr);
@@ -47,6 +53,7 @@ Err Render::VulkanEngine::init(
   this->init_default_renderpass();
   this->init_framebuffers();
   this->init_sync_structs();
+  this->init_pipelines();
 
   return Err::ok();
 }
@@ -72,7 +79,7 @@ void Render::VulkanEngine::render() {
 
   VkClearValue clear_value = {};
   float b = std::abs(std::sin(this->frame_number / 120.0f));
-  clear_value.color = {{0.0f, 0.0f, b, 1.0f}};
+  clear_value.color = {{b, b, b, 1.0f}};
 
   VkRenderPassBeginInfo render_pass_info = VkInit::render_pass_begin_info(
       this->render_pass,
@@ -84,6 +91,12 @@ void Render::VulkanEngine::render() {
       this->main_command_buffer,
       &render_pass_info,
       VK_SUBPASS_CONTENTS_INLINE);
+
+  vkCmdBindPipeline(
+      this->main_command_buffer,
+      VK_PIPELINE_BIND_POINT_GRAPHICS,
+      this->pipeline);
+  vkCmdDraw(this->main_command_buffer, 3, 1, 0, 0);
 
   vkCmdEndRenderPass(this->main_command_buffer);
   VK_ASSERT(vkEndCommandBuffer(this->main_command_buffer));
@@ -253,4 +266,71 @@ void Render::VulkanEngine::init_sync_structs() {
       &semaphore_create_info,
       nullptr,
       &this->render_semaphore));
+}
+
+void Render::VulkanEngine::init_pipelines() {
+  VkShaderModule frag_shader;
+  VkShaderModule vert_shader;
+
+  Err err = Shader::load_shader_module(
+      "shaders/frag.spv",
+      this->device,
+      &frag_shader);
+  if (err.is_error) {
+    io::error(err.msg);
+  }
+
+  err = Shader::load_shader_module(
+      "shaders/vert.spv",
+      this->device,
+      &vert_shader);
+  if (err.is_error) {
+    io::error(err.msg);
+  }
+
+  VkViewport viewport = {};
+  viewport.x = 0.0;
+  viewport.y = 0.0;
+  viewport.width = (float)this->dimensions.width;
+  viewport.height = (float)this->dimensions.height;
+  viewport.minDepth = 0.0f;
+  viewport.maxDepth = 1.0f;
+
+  VkRect2D scissor = {};
+  scissor.offset = {0, 0};
+  scissor.extent.width = this->dimensions.width;
+  scissor.extent.height = this->dimensions.height;
+
+  VkPipelineLayoutCreateInfo pipeline_layout_info =
+      VkInit::pipeline_layout_create_info();
+  VK_ASSERT(vkCreatePipelineLayout(
+      this->device,
+      &pipeline_layout_info,
+      nullptr,
+      &this->pipeline_layout));
+
+  PipelineBuilder builder;
+
+  this->pipeline =
+      builder
+          .add_shader_stage(VkInit::pipeline_shader_stage_create_info(
+              VK_SHADER_STAGE_VERTEX_BIT,
+              vert_shader))
+          .add_shader_stage(VkInit::pipeline_shader_stage_create_info(
+              VK_SHADER_STAGE_FRAGMENT_BIT,
+              frag_shader))
+          .with_vertex_input(VkInit::vertex_input_state_create_info())
+          .with_input_assembly(VkInit::input_assembly_state_create_info(
+              VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST))
+          .with_viewport(viewport)
+          .with_scissor(scissor)
+          .with_rasterizer(
+              VkInit::rasterization_state_create_info(VK_POLYGON_MODE_FILL))
+          .with_color_blend_attachment(VkInit::color_blend_attachment_state())
+          .with_multisample(VkInit::multisample_state_create_info())
+          .with_pipeline_layout(this->pipeline_layout)
+          .build(this->device, this->render_pass);
+
+  vkDestroyShaderModule(device, frag_shader, nullptr);
+  vkDestroyShaderModule(device, vert_shader, nullptr);
 }
