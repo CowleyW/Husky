@@ -26,3 +26,6 @@ compile_commands.json
 
 # Python scripts cache
 */__pycache__/
+
+# Non-internal assets
+assets/objs/
