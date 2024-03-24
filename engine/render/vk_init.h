@@ -82,9 +82,26 @@ VkPipelineMultisampleStateCreateInfo multisample_state_create_info();
 VkPipelineColorBlendAttachmentState color_blend_attachment_state();
 
 VkPipelineLayoutCreateInfo pipeline_layout_create_info(
-    std::vector<VkPushConstantRange> *push_constants = nullptr);
+    std::vector<VkPushConstantRange> *push_constants = nullptr,
+    std::vector<VkDescriptorSetLayout> *descriptor_layouts = nullptr);
 
 VkPipelineDepthStencilStateCreateInfo
 depth_stencil_create_info(bool depth_test, bool depth_write, VkCompareOp op);
 
+AllocatedBuffer buffer(
+    VmaAllocator allocator,
+    uint32_t size,
+    VkBufferUsageFlags usage,
+    VmaMemoryUsage memory_usage);
+
+VkDescriptorSetLayoutBinding descriptor_set_layout_binding(
+    VkDescriptorType type,
+    VkShaderStageFlags stage,
+    uint32_t binding);
+
+VkWriteDescriptorSet write_descriptor_set(
+    VkDescriptorType type,
+    VkDescriptorSet dest,
+    VkDescriptorBufferInfo *info,
+    uint32_t binding);
 } // namespace VkInit

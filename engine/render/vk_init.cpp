@@ -329,7 +329,8 @@ VkPipelineColorBlendAttachmentState VkInit::color_blend_attachment_state() {
 }
 
 VkPipelineLayoutCreateInfo VkInit::pipeline_layout_create_info(
-    std::vector<VkPushConstantRange> *push_constants) {
+    std::vector<VkPushConstantRange> *push_constants,
+    std::vector<VkDescriptorSetLayout> *descriptor_layouts) {
   VkPipelineLayoutCreateInfo info = {};
   info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
   info.pNext = nullptr;
@@ -343,6 +344,14 @@ VkPipelineLayoutCreateInfo VkInit::pipeline_layout_create_info(
   } else {
     info.pushConstantRangeCount = 0;
     info.pPushConstantRanges = nullptr;
+  }
+
+  if (descriptor_layouts != nullptr) {
+    info.setLayoutCount = descriptor_layouts->size();
+    info.pSetLayouts = descriptor_layouts->data();
+  } else {
+    info.setLayoutCount = 0;
+    info.pSetLayouts = nullptr;
   }
 
   return info;
@@ -364,4 +373,61 @@ VkPipelineDepthStencilStateCreateInfo VkInit::depth_stencil_create_info(
   info.stencilTestEnable = VK_FALSE;
 
   return info;
+}
+
+AllocatedBuffer VkInit::buffer(
+    VmaAllocator allocator,
+    uint32_t size,
+    VkBufferUsageFlags usage,
+    VmaMemoryUsage memory_usage) {
+  AllocatedBuffer buffer = {};
+
+  VkBufferCreateInfo buffer_info = {};
+  buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  buffer_info.pNext = nullptr;
+  buffer_info.size = size;
+  buffer_info.usage = usage;
+
+  VmaAllocationCreateInfo alloc_info = {};
+  alloc_info.usage = memory_usage;
+
+  VK_ASSERT(vmaCreateBuffer(
+      allocator,
+      &buffer_info,
+      &alloc_info,
+      &buffer.buffer,
+      &buffer.allocation,
+      nullptr));
+
+  return buffer;
+}
+
+VkDescriptorSetLayoutBinding VkInit::descriptor_set_layout_binding(
+    VkDescriptorType type,
+    VkShaderStageFlags stage,
+    uint32_t binding) {
+  VkDescriptorSetLayoutBinding set_binding = {};
+  set_binding.binding = binding;
+  set_binding.descriptorCount = 1;
+  set_binding.descriptorType = type;
+  set_binding.stageFlags = stage;
+
+  return set_binding;
+}
+
+VkWriteDescriptorSet VkInit::write_descriptor_set(
+    VkDescriptorType type,
+    VkDescriptorSet dest,
+    VkDescriptorBufferInfo *info,
+    uint32_t binding) {
+  VkWriteDescriptorSet write_set = {};
+  write_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  write_set.pNext = nullptr;
+  write_set.dstBinding = binding;
+  write_set.dstSet = dest;
+  write_set.descriptorCount = 1;
+  write_set.descriptorType = type;
+  write_set.pBufferInfo = info;
+
+  return write_set;
 }

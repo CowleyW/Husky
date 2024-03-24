@@ -30,10 +30,10 @@ private:
   void init_vulkan();
   void init_allocator();
   void init_swapchain();
-  void init_commands();
   void init_default_renderpass();
+  void init_descriptors();
+  void init_frames();
   void init_framebuffers();
-  void init_sync_structs();
   void init_pipelines();
   void init_meshes();
   void init_imgui();
@@ -49,8 +49,10 @@ private:
   Dimensions dimensions;
   uint32_t frame_number;
 
-  Mesh triangle_mesh;
   Mesh obj_mesh;
+
+  SceneData scene_data;
+  AllocatedBuffer scene_data_buffer;
 
   // Vulkan Structs
   VkInstance instance;
@@ -58,6 +60,8 @@ private:
   VkPhysicalDevice gpu;
   VkDevice device;
   VkSurfaceKHR surface;
+
+  VkPhysicalDeviceProperties gpu_properties;
 
   VkSwapchainKHR swapchain;
   VkFormat swapchain_format;
@@ -70,12 +74,12 @@ private:
   VkRenderPass render_pass;
   std::vector<VkFramebuffer> frame_buffers;
 
+  VkDescriptorSetLayout global_descriptor_layout;
+  VkDescriptorPool descriptor_pool;
+
   FrameData frames[FRAMES_IN_FLIGHT];
 
-  VkPipeline mono_pipeline;
-  VkPipeline rainbow_pipeline;
   VkPipeline mesh_pipeline;
-  VkPipelineLayout pipeline_layout;
   VkPipelineLayout mesh_pipeline_layout;
 
   VkImageView depth_image_view;
