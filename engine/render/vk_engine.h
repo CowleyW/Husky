@@ -40,7 +40,11 @@ private:
 
   void upload_mesh(Mesh &mesh);
 
+  FrameData &next_frame();
+
 private:
+  static constexpr uint32_t FRAMES_IN_FLIGHT = 2;
+
   Window window{};
   Dimensions dimensions;
   uint32_t frame_number;
@@ -62,15 +66,11 @@ private:
 
   VkQueue graphics_queue;
   uint32_t graphics_queue_family;
-  VkCommandPool command_pool;
-  VkCommandBuffer main_command_buffer;
 
   VkRenderPass render_pass;
   std::vector<VkFramebuffer> frame_buffers;
 
-  VkSemaphore present_semaphore;
-  VkSemaphore render_semaphore;
-  VkFence render_fence;
+  FrameData frames[FRAMES_IN_FLIGHT];
 
   VkPipeline mono_pipeline;
   VkPipeline rainbow_pipeline;

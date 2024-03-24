@@ -35,4 +35,13 @@ struct AllocatedImage {
   VmaAllocation allocation;
 };
 
+struct FrameData {
+  VkSemaphore present_semaphore;
+  VkSemaphore render_semaphore;
+  VkFence render_fence;
+
+  VkCommandPool command_pool;
+  VkCommandBuffer main_command_buffer;
+};
+
 enum class ShaderType { Vertex = 0, Fragment };

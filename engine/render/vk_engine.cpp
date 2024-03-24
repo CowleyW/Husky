@@ -47,7 +47,6 @@ Render::VulkanEngine::~VulkanEngine() {
   vkDestroyPipelineLayout(this->device, this->pipeline_layout, nullptr);
   vkDestroyPipelineLayout(this->device, this->mesh_pipeline_layout, nullptr);
 
-  vkDestroyCommandPool(this->device, this->command_pool, nullptr);
   vkDestroySwapchainKHR(this->device, this->swapchain, nullptr);
 
   vkDestroyRenderPass(this->device, this->render_pass, nullptr);
@@ -58,9 +57,12 @@ Render::VulkanEngine::~VulkanEngine() {
   }
   vkDestroyImageView(this->device, this->depth_image_view, nullptr);
 
-  vkDestroySemaphore(this->device, this->present_semaphore, nullptr);
-  vkDestroySemaphore(this->device, this->render_semaphore, nullptr);
-  vkDestroyFence(this->device, this->render_fence, nullptr);
+  for (auto &frame : this->frames) {
+    vkDestroyCommandPool(this->device, frame.command_pool, nullptr);
+    vkDestroySemaphore(this->device, frame.present_semaphore, nullptr);
+    vkDestroySemaphore(this->device, frame.render_semaphore, nullptr);
+    vkDestroyFence(this->device, frame.render_fence, nullptr);
+  }
 
   vkDestroyDevice(this->device, nullptr);
   vkDestroySurfaceKHR(this->instance, this->surface, nullptr);
@@ -90,23 +92,24 @@ Err Render::VulkanEngine::init(
 }
 
 void Render::VulkanEngine::render() {
+  FrameData &frame = this->next_frame();
   VK_ASSERT(
-      vkWaitForFences(this->device, 1, &this->render_fence, true, 1000000000));
-  VK_ASSERT(vkResetFences(this->device, 1, &this->render_fence));
+      vkWaitForFences(this->device, 1, &frame.render_fence, true, 1000000000));
+  VK_ASSERT(vkResetFences(this->device, 1, &frame.render_fence));
 
   uint32_t next_image_index;
   VK_ASSERT(vkAcquireNextImageKHR(
       this->device,
       this->swapchain,
       1000000000,
-      this->present_semaphore,
+      frame.present_semaphore,
       nullptr,
       &next_image_index));
 
-  VK_ASSERT(vkResetCommandBuffer(this->main_command_buffer, 0));
+  VK_ASSERT(vkResetCommandBuffer(frame.main_command_buffer, 0));
 
   VkCommandBufferBeginInfo cmd_info = VkInit::command_buffer_begin_info();
-  VK_ASSERT(vkBeginCommandBuffer(this->main_command_buffer, &cmd_info));
+  VK_ASSERT(vkBeginCommandBuffer(frame.main_command_buffer, &cmd_info));
 
   std::vector<VkClearValue> clear_values;
   float b = std::abs(std::sin(this->frame_number / 120.0f));
@@ -125,12 +128,12 @@ void Render::VulkanEngine::render() {
       this->dimensions);
 
   vkCmdBeginRenderPass(
-      this->main_command_buffer,
+      frame.main_command_buffer,
       &render_pass_info,
       VK_SUBPASS_CONTENTS_INLINE);
 
   vkCmdBindPipeline(
-      this->main_command_buffer,
+      frame.main_command_buffer,
       VK_PIPELINE_BIND_POINT_GRAPHICS,
       this->mesh_pipeline);
 
@@ -147,7 +150,7 @@ void Render::VulkanEngine::render() {
   MeshPushConstant push_constant = {};
   push_constant.matrix = proj * view * model;
   vkCmdPushConstants(
-      this->main_command_buffer,
+      frame.main_command_buffer,
       this->mesh_pipeline_layout,
       VK_SHADER_STAGE_VERTEX_BIT,
       0,
@@ -156,31 +159,31 @@ void Render::VulkanEngine::render() {
 
   VkDeviceSize offset = 0;
   vkCmdBindVertexBuffers(
-      this->main_command_buffer,
+      frame.main_command_buffer,
       0,
       1,
       &this->obj_mesh.vertex_buffer.buffer,
       &offset);
 
-  vkCmdDraw(this->main_command_buffer, this->obj_mesh.vertices.size(), 1, 0, 0);
+  vkCmdDraw(frame.main_command_buffer, this->obj_mesh.vertices.size(), 1, 0, 0);
 
-  vkCmdEndRenderPass(this->main_command_buffer);
-  VK_ASSERT(vkEndCommandBuffer(this->main_command_buffer));
+  vkCmdEndRenderPass(frame.main_command_buffer);
+  VK_ASSERT(vkEndCommandBuffer(frame.main_command_buffer));
 
   VkPipelineStageFlags wait_stage =
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
   VkSubmitInfo submit_info = VkInit::submit_info(
-      &this->present_semaphore,
-      &this->render_semaphore,
-      &this->main_command_buffer,
+      &frame.present_semaphore,
+      &frame.render_semaphore,
+      &frame.main_command_buffer,
       &wait_stage);
   VK_ASSERT(
-      vkQueueSubmit(this->graphics_queue, 1, &submit_info, this->render_fence));
+      vkQueueSubmit(this->graphics_queue, 1, &submit_info, frame.render_fence));
 
   VkPresentInfoKHR present_info = VkInit::present_info(
       &this->swapchain,
-      &this->render_semaphore,
+      &frame.render_semaphore,
       &next_image_index);
   VK_ASSERT(vkQueuePresentKHR(this->graphics_queue, &present_info));
 
@@ -291,21 +294,24 @@ void Render::VulkanEngine::init_commands() {
       this->graphics_queue_family,
       VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
-  VK_ASSERT(vkCreateCommandPool(
-      this->device,
-      &command_pool_info,
-      nullptr,
-      &this->command_pool));
+  for (auto &frame : this->frames) {
+    VK_ASSERT(vkCreateCommandPool(
+        this->device,
+        &command_pool_info,
+        nullptr,
+        &frame.command_pool));
 
-  VkCommandBufferAllocateInfo alloc_info = VkInit::command_buffer_allocate_info(
-      this->command_pool,
-      1,
-      VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+    VkCommandBufferAllocateInfo alloc_info =
+        VkInit::command_buffer_allocate_info(
+            frame.command_pool,
+            1,
+            VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-  VK_ASSERT(vkAllocateCommandBuffers(
-      this->device,
-      &alloc_info,
-      &this->main_command_buffer));
+    VK_ASSERT(vkAllocateCommandBuffers(
+        this->device,
+        &alloc_info,
+        &frame.main_command_buffer));
+  }
 }
 
 void Render::VulkanEngine::init_default_renderpass() {
@@ -380,26 +386,27 @@ void Render::VulkanEngine::init_framebuffers() {
 
 void Render::VulkanEngine::init_sync_structs() {
   VkFenceCreateInfo fence_create_info = VkInit::fence_create_info();
-
-  VK_ASSERT(vkCreateFence(
-      this->device,
-      &fence_create_info,
-      nullptr,
-      &this->render_fence));
-
   VkSemaphoreCreateInfo semaphore_create_info = VkInit::semaphore_create_info();
 
-  VK_ASSERT(vkCreateSemaphore(
-      this->device,
-      &semaphore_create_info,
-      nullptr,
-      &this->present_semaphore));
+  for (auto &frame : this->frames) {
+    VK_ASSERT(vkCreateFence(
+        this->device,
+        &fence_create_info,
+        nullptr,
+        &frame.render_fence));
 
-  VK_ASSERT(vkCreateSemaphore(
-      this->device,
-      &semaphore_create_info,
-      nullptr,
-      &this->render_semaphore));
+    VK_ASSERT(vkCreateSemaphore(
+        this->device,
+        &semaphore_create_info,
+        nullptr,
+        &frame.present_semaphore));
+
+    VK_ASSERT(vkCreateSemaphore(
+        this->device,
+        &semaphore_create_info,
+        nullptr,
+        &frame.render_semaphore));
+  }
 }
 
 void Render::VulkanEngine::init_pipelines() {
@@ -623,4 +630,13 @@ void Render::VulkanEngine::upload_mesh(Mesh &mesh) {
   memcpy(data, mesh.vertices.data(), mesh.size());
 
   vmaUnmapMemory(allocator, mesh.vertex_buffer.allocation);
+}
+
+FrameData &Render::VulkanEngine::next_frame() {
+  static uint32_t frame_number = 0;
+
+  FrameData &next = this->frames[frame_number];
+
+  frame_number = (frame_number + 1) % Render::VulkanEngine::FRAMES_IN_FLIGHT;
+  return next;
 }
