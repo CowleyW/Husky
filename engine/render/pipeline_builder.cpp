@@ -6,18 +6,6 @@ PipelineBuilder::PipelineBuilder() : shader_stages() {
 }
 
 VkPipeline PipelineBuilder::build(VkDevice device, VkRenderPass render_pass) {
-  if (vertex_input_info.vertexAttributeDescriptionCount == 3) {
-    io::info(
-        "desc[0] format: {}",
-        (uint32_t)vertex_input_info.pVertexAttributeDescriptions[0].format);
-    io::info(
-        "desc[0] format: {}",
-        (uint32_t)vertex_input_info.pVertexAttributeDescriptions[1].format);
-    io::info(
-        "desc[0] format: {}",
-        (uint32_t)vertex_input_info.pVertexAttributeDescriptions[2].format);
-  }
-
   VkPipelineViewportStateCreateInfo viewport_state = {};
   viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   viewport_state.pNext = nullptr;
@@ -50,6 +38,7 @@ VkPipeline PipelineBuilder::build(VkDevice device, VkRenderPass render_pass) {
   pipeline_info.renderPass = render_pass;
   pipeline_info.subpass = 0;
   pipeline_info.basePipelineHandle = VK_NULL_HANDLE;
+  pipeline_info.pDepthStencilState = &this->depth_stencil;
 
   VkPipeline pipeline;
   if (vkCreateGraphicsPipelines(
@@ -129,6 +118,13 @@ PipelineBuilder &PipelineBuilder::with_multisample(
 PipelineBuilder &
 PipelineBuilder::with_pipeline_layout(VkPipelineLayout pipeline_layout) {
   this->pipeline_layout = pipeline_layout;
+
+  return *this;
+}
+
+PipelineBuilder &PipelineBuilder::with_depth_stencil(
+    VkPipelineDepthStencilStateCreateInfo depth_stencil) {
+  this->depth_stencil = depth_stencil;
 
   return *this;
 }

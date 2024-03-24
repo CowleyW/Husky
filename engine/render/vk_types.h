@@ -6,6 +6,10 @@
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan.h>
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include "glm/glm.hpp"
+#include "glm/gtx/transform.hpp"
+
 #include <cstdint>
 
 #define VK_ASSERT(x)                                                           \
@@ -23,6 +27,11 @@ struct Dimensions {
 
 struct AllocatedBuffer {
   VkBuffer buffer;
+  VmaAllocation allocation;
+};
+
+struct AllocatedImage {
+  VkImage image;
   VmaAllocation allocation;
 };
 

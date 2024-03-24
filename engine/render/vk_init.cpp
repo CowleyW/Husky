@@ -3,6 +3,7 @@
 #include "io/logging.h"
 #include "render/mesh.h"
 #include "vk_types.h"
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
 VkAttachmentDescription VkInit::color_attachment(VkFormat format) {
@@ -27,26 +28,56 @@ VkAttachmentReference VkInit::color_attachment_ref() {
   return color_attachment_ref;
 }
 
+VkAttachmentDescription VkInit::depth_attachment(VkFormat format) {
+  VkAttachmentDescription depth_attachment = {};
+  depth_attachment.flags = 0;
+  depth_attachment.format = format;
+  depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+  depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  depth_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  depth_attachment.finalLayout =
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+  return depth_attachment;
+}
+
+VkAttachmentReference VkInit::depth_attachment_ref() {
+  VkAttachmentReference depth_attachment_ref = {};
+  depth_attachment_ref.attachment = 1;
+  depth_attachment_ref.layout =
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+  return depth_attachment_ref;
+}
+
 VkSubpassDescription VkInit::subpass_description(
     VkPipelineBindPoint bind_point,
-    VkAttachmentReference *attachment_reference) {
+    VkAttachmentReference *color_attachment_ref,
+    VkAttachmentReference *depth_attachment_ref) {
   VkSubpassDescription subpass = {};
   subpass.pipelineBindPoint = bind_point;
   subpass.colorAttachmentCount = 1;
-  subpass.pColorAttachments = attachment_reference;
+  subpass.pColorAttachments = color_attachment_ref;
+  subpass.pDepthStencilAttachment = depth_attachment_ref;
 
   return subpass;
 }
 
 VkRenderPassCreateInfo VkInit::render_pass_create_info(
-    VkAttachmentDescription *attachment,
+    std::vector<VkAttachmentDescription> *attachments,
+    std::vector<VkSubpassDependency> *dependencies,
     VkSubpassDescription *subpass) {
   VkRenderPassCreateInfo info = {};
   info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-  info.attachmentCount = 1;
-  info.pAttachments = attachment;
+  info.attachmentCount = attachments->size();
+  info.pAttachments = attachments->data();
   info.subpassCount = 1;
   info.pSubpasses = subpass;
+  info.dependencyCount = dependencies->size();
+  info.pDependencies = dependencies->data();
 
   return info;
 }
@@ -104,7 +135,7 @@ VkCommandBufferBeginInfo VkInit::command_buffer_begin_info() {
 VkRenderPassBeginInfo VkInit::render_pass_begin_info(
     VkRenderPass render_pass,
     VkFramebuffer frame_buffer,
-    VkClearValue *clear_value,
+    std::vector<VkClearValue> *clear_values,
     Dimensions dimensions) {
   VkRenderPassBeginInfo info = {};
   info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -114,8 +145,8 @@ VkRenderPassBeginInfo VkInit::render_pass_begin_info(
   info.renderArea.offset.y = 0;
   info.renderArea.extent = {dimensions.width, dimensions.height};
   info.framebuffer = frame_buffer;
-  info.clearValueCount = 1;
-  info.pClearValues = clear_value;
+  info.clearValueCount = clear_values->size();
+  info.pClearValues = clear_values->data();
 
   return info;
 }
@@ -169,6 +200,44 @@ VkFenceCreateInfo VkInit::fence_create_info() {
   info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   info.pNext = nullptr;
   info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+  return info;
+}
+
+VkImageCreateInfo VkInit::image_create_info(
+    VkFormat format,
+    VkImageUsageFlags flags,
+    VkExtent3D extent) {
+  VkImageCreateInfo info = {};
+  info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  info.pNext = nullptr;
+  info.imageType = VK_IMAGE_TYPE_2D;
+  info.format = format;
+  info.extent = extent;
+  info.mipLevels = 1;
+  info.arrayLayers = 1;
+  info.samples = VK_SAMPLE_COUNT_1_BIT;
+  info.tiling = VK_IMAGE_TILING_OPTIMAL;
+  info.usage = flags;
+
+  return info;
+}
+
+VkImageViewCreateInfo VkInit::imageview_create_info(
+    VkFormat format,
+    VkImage image,
+    VkImageAspectFlags flags) {
+  VkImageViewCreateInfo info = {};
+  info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  info.pNext = nullptr;
+  info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  info.image = image;
+  info.format = format;
+  info.subresourceRange.baseMipLevel = 0;
+  info.subresourceRange.levelCount = 1;
+  info.subresourceRange.baseArrayLayer = 0;
+  info.subresourceRange.layerCount = 1;
+  info.subresourceRange.aspectMask = flags;
 
   return info;
 }
@@ -259,15 +328,40 @@ VkPipelineColorBlendAttachmentState VkInit::color_blend_attachment_state() {
   return color_blend_attachment;
 }
 
-VkPipelineLayoutCreateInfo VkInit::pipeline_layout_create_info() {
+VkPipelineLayoutCreateInfo VkInit::pipeline_layout_create_info(
+    std::vector<VkPushConstantRange> *push_constants) {
   VkPipelineLayoutCreateInfo info = {};
   info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
   info.pNext = nullptr;
   info.flags = 0;
   info.setLayoutCount = 0;
   info.pSetLayouts = nullptr;
-  info.pushConstantRangeCount = 0;
-  info.pPushConstantRanges = nullptr;
+
+  if (push_constants != nullptr) {
+    info.pushConstantRangeCount = push_constants->size();
+    info.pPushConstantRanges = push_constants->data();
+  } else {
+    info.pushConstantRangeCount = 0;
+    info.pPushConstantRanges = nullptr;
+  }
+
+  return info;
+}
+
+VkPipelineDepthStencilStateCreateInfo VkInit::depth_stencil_create_info(
+    bool depth_test,
+    bool depth_write,
+    VkCompareOp op) {
+  VkPipelineDepthStencilStateCreateInfo info = {};
+  info.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+  info.pNext = nullptr;
+  info.depthTestEnable = depth_test ? VK_TRUE : VK_FALSE;
+  info.depthWriteEnable = depth_write ? VK_TRUE : VK_FALSE;
+  info.depthCompareOp = depth_test ? op : VK_COMPARE_OP_ALWAYS;
+  info.depthBoundsTestEnable = VK_FALSE;
+  info.minDepthBounds = 0.0f;
+  info.maxDepthBounds = 1.0f;
+  info.stencilTestEnable = VK_FALSE;
 
   return info;
 }

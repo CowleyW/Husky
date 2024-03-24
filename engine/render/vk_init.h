@@ -2,26 +2,31 @@
 
 #include "mesh.h"
 #include "vk_types.h"
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
 namespace VkInit {
 
 VkAttachmentDescription color_attachment(VkFormat format);
-
 VkAttachmentReference color_attachment_ref();
+
+VkAttachmentDescription depth_attachment(VkFormat format);
+VkAttachmentReference depth_attachment_ref();
 
 VkSubpassDescription subpass_description(
     VkPipelineBindPoint bind_point,
-    VkAttachmentReference *attachment_reference);
+    VkAttachmentReference *color_attachment_ref,
+    VkAttachmentReference *depth_attachment_ref);
 
 VkRenderPassCreateInfo render_pass_create_info(
-    VkAttachmentDescription *attachment,
+    std::vector<VkAttachmentDescription> *attachments,
+    std::vector<VkSubpassDependency> *dependencies,
     VkSubpassDescription *subpass);
 
 VkRenderPassBeginInfo render_pass_begin_info(
     VkRenderPass render_pass,
     VkFramebuffer frame_buffer,
-    VkClearValue *clear_value,
+    std::vector<VkClearValue> *clear_values,
     Dimensions dimensions);
 
 VkFramebufferCreateInfo
@@ -53,6 +58,12 @@ VkSemaphoreCreateInfo semaphore_create_info();
 
 VkFenceCreateInfo fence_create_info();
 
+VkImageCreateInfo
+image_create_info(VkFormat format, VkImageUsageFlags flags, VkExtent3D extent);
+
+VkImageViewCreateInfo
+imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags flags);
+
 VkPipelineShaderStageCreateInfo pipeline_shader_stage_create_info(
     VkShaderStageFlagBits stage,
     VkShaderModule shader_module);
@@ -70,6 +81,10 @@ VkPipelineMultisampleStateCreateInfo multisample_state_create_info();
 
 VkPipelineColorBlendAttachmentState color_blend_attachment_state();
 
-VkPipelineLayoutCreateInfo pipeline_layout_create_info();
+VkPipelineLayoutCreateInfo pipeline_layout_create_info(
+    std::vector<VkPushConstantRange> *push_constants = nullptr);
+
+VkPipelineDepthStencilStateCreateInfo
+depth_stencil_create_info(bool depth_test, bool depth_write, VkCompareOp op);
 
 } // namespace VkInit

@@ -65,6 +65,7 @@ add_subdirectory(lib/glm)
 add_subdirectory(lib/fmt)
 add_subdirectory(lib/VulkanMemoryAllocator)
 add_subdirectory(lib/vk-bootstrap)
+add_subdirectory(lib/tinyobjloader)
 
 # imgui
 add_library(imgui STATIC 
@@ -91,6 +92,7 @@ target_link_libraries(engine PUBLIC
   ws2_32
   wsock32
   imgui
+  tinyobjloader
 )
 
 target_include_directories(engine PUBLIC 
@@ -102,7 +104,8 @@ target_include_directories(engine PUBLIC
   lib/VulkanMemoryAllocator/include/
   lib/Vulkan-Utility-Libraries/include/vulkan/
   lib/imgui
-  lib/imgui/backends)
+  lib/imgui/backends
+  lib/tinyobjloader)
 
 target_compile_definitions(engine PRIVATE _WIN32_WINNT=0x0A00)
 

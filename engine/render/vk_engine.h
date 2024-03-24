@@ -28,13 +28,13 @@ public:
 
 private:
   void init_vulkan();
+  void init_allocator();
   void init_swapchain();
   void init_commands();
   void init_default_renderpass();
   void init_framebuffers();
   void init_sync_structs();
   void init_pipelines();
-  void init_allocator();
   void init_meshes();
   void init_imgui();
 
@@ -46,6 +46,7 @@ private:
   uint32_t frame_number;
 
   Mesh triangle_mesh;
+  Mesh obj_mesh;
 
   // Vulkan Structs
   VkInstance instance;
@@ -75,6 +76,11 @@ private:
   VkPipeline rainbow_pipeline;
   VkPipeline mesh_pipeline;
   VkPipelineLayout pipeline_layout;
+  VkPipelineLayout mesh_pipeline_layout;
+
+  VkImageView depth_image_view;
+  AllocatedImage depth_image;
+  VkFormat depth_format;
 
   VmaAllocator allocator;
 };

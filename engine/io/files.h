@@ -9,6 +9,8 @@
 
 namespace files {
 
+std::string full_asset_path(const std::string &path);
+
 /**
  * Returns a result containing the byte contents of the specified asset file or
  * an error message.

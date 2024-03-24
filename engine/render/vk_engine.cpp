@@ -1,5 +1,7 @@
 #include "vk_engine.h"
 
+#include "glm/ext/matrix_clip_space.hpp"
+#include "glm/fwd.hpp"
 #include "io/logging.h"
 #include "render/callback_handler.h"
 #include "render/mesh.h"
@@ -12,6 +14,7 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+#include <cassert>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -28,12 +31,21 @@ Render::VulkanEngine::~VulkanEngine() {
       this->allocator,
       this->triangle_mesh.vertex_buffer.buffer,
       this->triangle_mesh.vertex_buffer.allocation);
+  vmaDestroyBuffer(
+      this->allocator,
+      this->obj_mesh.vertex_buffer.buffer,
+      this->obj_mesh.vertex_buffer.allocation);
+  vmaDestroyImage(
+      this->allocator,
+      this->depth_image.image,
+      this->depth_image.allocation);
   vmaDestroyAllocator(this->allocator);
 
   vkDestroyPipeline(this->device, this->mono_pipeline, nullptr);
   vkDestroyPipeline(this->device, this->rainbow_pipeline, nullptr);
   vkDestroyPipeline(this->device, this->mesh_pipeline, nullptr);
   vkDestroyPipelineLayout(this->device, this->pipeline_layout, nullptr);
+  vkDestroyPipelineLayout(this->device, this->mesh_pipeline_layout, nullptr);
 
   vkDestroyCommandPool(this->device, this->command_pool, nullptr);
   vkDestroySwapchainKHR(this->device, this->swapchain, nullptr);
@@ -44,6 +56,7 @@ Render::VulkanEngine::~VulkanEngine() {
     vkDestroyFramebuffer(this->device, this->frame_buffers[i], nullptr);
     vkDestroyImageView(this->device, this->swapchain_image_views[i], nullptr);
   }
+  vkDestroyImageView(this->device, this->depth_image_view, nullptr);
 
   vkDestroySemaphore(this->device, this->present_semaphore, nullptr);
   vkDestroySemaphore(this->device, this->render_semaphore, nullptr);
@@ -64,13 +77,13 @@ Err Render::VulkanEngine::init(
   this->window.register_callbacks(handler);
 
   this->init_vulkan();
+  this->init_allocator();
   this->init_swapchain();
   this->init_commands();
   this->init_default_renderpass();
   this->init_framebuffers();
   this->init_sync_structs();
   this->init_pipelines();
-  this->init_allocator();
   this->init_meshes();
 
   return Err::ok();
@@ -95,14 +108,20 @@ void Render::VulkanEngine::render() {
   VkCommandBufferBeginInfo cmd_info = VkInit::command_buffer_begin_info();
   VK_ASSERT(vkBeginCommandBuffer(this->main_command_buffer, &cmd_info));
 
-  VkClearValue clear_value = {};
+  std::vector<VkClearValue> clear_values;
   float b = std::abs(std::sin(this->frame_number / 120.0f));
+  VkClearValue clear_value = {};
   clear_value.color = {{b, b, b, 1.0f}};
+  VkClearValue depth_value = {};
+  depth_value.depthStencil = {1.0f, 0};
+
+  clear_values.push_back(clear_value);
+  clear_values.push_back(depth_value);
 
   VkRenderPassBeginInfo render_pass_info = VkInit::render_pass_begin_info(
       this->render_pass,
       this->frame_buffers[next_image_index],
-      &clear_value,
+      &clear_values,
       this->dimensions);
 
   vkCmdBeginRenderPass(
@@ -115,19 +134,35 @@ void Render::VulkanEngine::render() {
       VK_PIPELINE_BIND_POINT_GRAPHICS,
       this->mesh_pipeline);
 
+  glm::vec3 camera_pos = {0.0f, -1.0f, -2.0f};
+  glm::mat4 view = glm::translate(glm::mat4(1.0f), camera_pos);
+  glm::mat4 proj =
+      glm::perspective(glm::radians(70.0f), 1280 / 720.0f, 0.1f, 200.0f);
+  proj[1][1] *= -1;
+  glm::mat4 model = glm::rotate(
+      glm::mat4(1.0f),
+      glm::radians(this->frame_number * 0.4f),
+      glm::vec3(0, 1, 0));
+
+  MeshPushConstant push_constant = {};
+  push_constant.matrix = proj * view * model;
+  vkCmdPushConstants(
+      this->main_command_buffer,
+      this->mesh_pipeline_layout,
+      VK_SHADER_STAGE_VERTEX_BIT,
+      0,
+      sizeof(MeshPushConstant),
+      &push_constant);
+
   VkDeviceSize offset = 0;
   vkCmdBindVertexBuffers(
       this->main_command_buffer,
       0,
       1,
-      &this->triangle_mesh.vertex_buffer.buffer,
+      &this->obj_mesh.vertex_buffer.buffer,
       &offset);
-  vkCmdDraw(
-      this->main_command_buffer,
-      this->triangle_mesh.vertices.size(),
-      1,
-      0,
-      0);
+
+  vkCmdDraw(this->main_command_buffer, this->obj_mesh.vertices.size(), 1, 0, 0);
 
   vkCmdEndRenderPass(this->main_command_buffer);
   VK_ASSERT(vkEndCommandBuffer(this->main_command_buffer));
@@ -213,6 +248,42 @@ void Render::VulkanEngine::init_swapchain() {
   this->swapchain_images = vkb_swapchain.get_images().value();
   this->swapchain_image_views = vkb_swapchain.get_image_views().value();
   this->swapchain_format = vkb_swapchain.image_format;
+
+  VkExtent3D depth_extent = {
+      this->dimensions.width,
+      this->dimensions.height,
+      1};
+
+  this->depth_format = VK_FORMAT_D32_SFLOAT;
+
+  VkImageCreateInfo depth_create_info = VkInit::image_create_info(
+      this->depth_format,
+      VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+      depth_extent);
+
+  VmaAllocationCreateInfo depth_alloc_info = {};
+  depth_alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+  depth_alloc_info.requiredFlags =
+      VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+  vmaCreateImage(
+      this->allocator,
+      &depth_create_info,
+      &depth_alloc_info,
+      &this->depth_image.image,
+      &this->depth_image.allocation,
+      nullptr);
+
+  VkImageViewCreateInfo depth_view_info = VkInit::imageview_create_info(
+      this->depth_format,
+      this->depth_image.image,
+      VK_IMAGE_ASPECT_DEPTH_BIT);
+
+  VK_ASSERT(vkCreateImageView(
+      this->device,
+      &depth_view_info,
+      nullptr,
+      &this->depth_image_view));
 }
 
 void Render::VulkanEngine::init_commands() {
@@ -240,15 +311,43 @@ void Render::VulkanEngine::init_commands() {
 void Render::VulkanEngine::init_default_renderpass() {
   VkAttachmentDescription color_attachment =
       VkInit::color_attachment(this->swapchain_format);
-
   VkAttachmentReference color_attachment_ref = VkInit::color_attachment_ref();
+
+  VkAttachmentDescription depth_attachment =
+      VkInit::depth_attachment(this->depth_format);
+  VkAttachmentReference depth_attachment_ref = VkInit::depth_attachment_ref();
 
   VkSubpassDescription subpass = VkInit::subpass_description(
       VK_PIPELINE_BIND_POINT_GRAPHICS,
-      &color_attachment_ref);
+      &color_attachment_ref,
+      &depth_attachment_ref);
 
+  VkSubpassDependency dependency = {};
+  dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+  dependency.dstSubpass = 0;
+  dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  dependency.srcAccessMask = 0;
+  dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+  VkSubpassDependency depth_dependency = {};
+  depth_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+  depth_dependency.dstSubpass = 0;
+  depth_dependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                                  VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+  depth_dependency.srcAccessMask = 0;
+  depth_dependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                                  VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+  depth_dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+  std::vector<VkAttachmentDescription> attachments = {
+      color_attachment,
+      depth_attachment};
+  std::vector<VkSubpassDependency> dependencies = {
+      dependency,
+      depth_dependency};
   VkRenderPassCreateInfo render_pass_info =
-      VkInit::render_pass_create_info(&color_attachment, &subpass);
+      VkInit::render_pass_create_info(&attachments, &dependencies, &subpass);
 
   VK_ASSERT(vkCreateRenderPass(
       this->device,
@@ -265,7 +364,11 @@ void Render::VulkanEngine::init_framebuffers() {
   this->frame_buffers = std::vector<VkFramebuffer>(num_images);
 
   for (uint32_t i = 0; i < num_images; i += 1) {
-    frame_buffer_info.pAttachments = &this->swapchain_image_views[i];
+    VkImageView attachments[] = {
+        this->swapchain_image_views[i],
+        this->depth_image_view};
+    frame_buffer_info.attachmentCount = 2;
+    frame_buffer_info.pAttachments = attachments;
 
     VK_ASSERT(vkCreateFramebuffer(
         this->device,
@@ -387,6 +490,10 @@ void Render::VulkanEngine::init_pipelines() {
           .with_color_blend_attachment(VkInit::color_blend_attachment_state())
           .with_multisample(VkInit::multisample_state_create_info())
           .with_pipeline_layout(this->pipeline_layout)
+          .with_depth_stencil(VkInit::depth_stencil_create_info(
+              true,
+              true,
+              VK_COMPARE_OP_LESS_OR_EQUAL))
           .build(this->device, this->render_pass);
 
   this->rainbow_pipeline =
@@ -399,8 +506,20 @@ void Render::VulkanEngine::init_pipelines() {
               rainbow_frag))
           .build(this->device, this->render_pass);
 
+  std::vector<VkPushConstantRange> push_constant(1);
+  push_constant[0].offset = 0;
+  push_constant[0].size = sizeof(MeshPushConstant);
+  push_constant[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+  VkPipelineLayoutCreateInfo mesh_layout_info =
+      VkInit::pipeline_layout_create_info(&push_constant);
+  VK_ASSERT(vkCreatePipelineLayout(
+      this->device,
+      &mesh_layout_info,
+      nullptr,
+      &this->mesh_pipeline_layout));
+
   VertexInputDescription vertex_input = Vertex::get_description();
-  io::info("num_attributes: {}", vertex_input.attributes.size());
   this->mesh_pipeline =
       builder.clear_shader_stages()
           .add_shader_stage(VkInit::pipeline_shader_stage_create_info(
@@ -411,6 +530,7 @@ void Render::VulkanEngine::init_pipelines() {
               rainbow_frag))
           .with_vertex_input(
               VkInit::vertex_input_state_create_info(&vertex_input))
+          .with_pipeline_layout(this->mesh_pipeline_layout)
           .build(this->device, this->render_pass);
 
   vkDestroyShaderModule(device, mono_frag, nullptr);
@@ -439,7 +559,16 @@ void Render::VulkanEngine::init_meshes() {
   this->triangle_mesh.vertices[1].color = {0.0f, 1.0f, 0.0f};
   this->triangle_mesh.vertices[2].color = {0.0f, 1.0f, 0.0f};
 
+  auto res_mesh = Mesh::load_from_obj("objs/mech_golem.obj");
+  if (res_mesh.is_error) {
+    io::error(res_mesh.msg);
+  }
+
+  this->obj_mesh = res_mesh.value;
+
   this->upload_mesh(this->triangle_mesh);
+  this->upload_mesh(this->obj_mesh);
+  io::info("num vertices: {}", this->obj_mesh.vertices.size());
 }
 
 void Render::VulkanEngine::init_imgui() {

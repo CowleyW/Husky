@@ -9,9 +9,13 @@
 #include <string_view>
 #include <vector>
 
+std::string files::full_asset_path(const std::string &path) {
+  return std::string(ASSETS_PATH) + path;
+}
+
 Result<std::vector<uint8_t>> files::load_file(const std::string &path) {
   // 1. Open file specified by the path
-  std::string asset_path = std::string(ASSETS_PATH) + path;
+  std::string asset_path = files::full_asset_path(path);
   // fopen is 'deprecated' but fopen_s is less portable
   // and provides no meaningful advantages in safety
   std::FILE *file = std::fopen(asset_path.c_str(), "rb");

@@ -37,6 +37,9 @@ public:
 
   PipelineBuilder &with_pipeline_layout(VkPipelineLayout pipeline_layout);
 
+  PipelineBuilder &
+  with_depth_stencil(VkPipelineDepthStencilStateCreateInfo depth_stencil);
+
 private:
   std::vector<VkPipelineShaderStageCreateInfo> shader_stages;
   VkPipelineVertexInputStateCreateInfo vertex_input_info;
@@ -47,4 +50,5 @@ private:
   VkPipelineColorBlendAttachmentState color_blend_attachment;
   VkPipelineMultisampleStateCreateInfo multisampling;
   VkPipelineLayout pipeline_layout;
+  VkPipelineDepthStencilStateCreateInfo depth_stencil;
 };
