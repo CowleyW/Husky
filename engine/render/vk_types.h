@@ -72,8 +72,14 @@ struct FrameData {
   VkCommandBuffer main_command_buffer;
 
   AllocatedBuffer camera_buffer;
+  AllocatedBuffer object_buffer;
 
   VkDescriptorSet global_descriptor;
+  VkDescriptorSet object_descriptor;
+};
+
+struct ObjectData {
+  glm::mat4 model;
 };
 
 enum class ShaderType { Vertex = 0, Fragment };
