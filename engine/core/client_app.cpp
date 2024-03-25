@@ -9,7 +9,29 @@
 ClientApp::ClientApp(uint32_t server_port, uint32_t client_port)
     : client(std::make_shared<Net::Client>(server_port, client_port)),
       frame(0),
-      world_state() {
+      world_state(),
+      scene() {
+  this->mesh = TriMesh::load_from_obj("objs/mech_golem.obj").value;
+  Mesh mesh_comp = {&mesh, true};
+  Transform transform = {
+      {0.0f, 0.0f, 0.0f},
+      {0.0f, 0.0f, 0.0f},
+      {1.0f, 1.0f, 1.0f}};
+  uint64_t e1 = this->scene.new_entity();
+  this->scene.assign(e1, mesh_comp);
+  this->scene.assign(e1, transform);
+
+  transform.position.y = 1.0f;
+
+  uint64_t e2 = this->scene.new_entity();
+  this->scene.assign(e2, mesh_comp);
+  this->scene.assign(e2, transform);
+
+  transform.position.y = -1.0f;
+
+  uint64_t e3 = this->scene.new_entity();
+  this->scene.assign(e3, mesh_comp);
+  this->scene.assign(e3, transform);
 }
 
 Err ClientApp::init() {
@@ -31,7 +53,7 @@ void ClientApp::update() {
 }
 
 void ClientApp::render() {
-  this->render_engine.render();
+  this->render_engine.render(this->scene);
 }
 
 void ClientApp::fixed_update() {

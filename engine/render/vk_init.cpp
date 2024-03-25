@@ -1,7 +1,7 @@
 #include "vk_init.h"
 
 #include "io/logging.h"
-#include "render/mesh.h"
+#include "render/tri_mesh.h"
 #include "vk_types.h"
 #include <vector>
 #include <vulkan/vulkan_core.h>

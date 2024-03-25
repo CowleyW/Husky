@@ -1,8 +1,9 @@
 #pragma once
 
 #include "callback_handler.h"
+#include "ecs/scene.h"
 #include "io/input_map.h"
-#include "mesh.h"
+#include "tri_mesh.h"
 #include "util/err.h"
 #include "vk_types.h"
 #include "window.h"
@@ -18,7 +19,7 @@ public:
 
   Err init(Dimensions dimensions, CallbackHandler *handler);
 
-  void render();
+  void render(Scene &scene);
 
   void resize(Dimensions dimensions);
 
@@ -38,7 +39,7 @@ private:
   void init_meshes();
   void init_imgui();
 
-  void upload_mesh(Mesh &mesh);
+  void upload_mesh(TriMesh &mesh);
 
   FrameData &next_frame();
 
@@ -49,7 +50,7 @@ private:
   Dimensions dimensions;
   uint32_t frame_number;
 
-  Mesh obj_mesh;
+  TriMesh obj_mesh;
 
   SceneData scene_data;
   AllocatedBuffer scene_data_buffer;

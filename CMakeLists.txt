@@ -24,6 +24,12 @@ add_library(engine
   # Crypto
   engine/crypto/checksum.h engine/crypto/checksum.cpp
 
+  # ECS
+  engine/ecs/components.h engine/ecs/components.cpp
+  engine/ecs/ecs_types.h
+  engine/ecs/entity.h engine/ecs/entity.cpp
+  engine/ecs/scene.h engine/ecs/scene.cpp
+
   # I/O
   engine/io/files.h engine/io/files.cpp
   engine/io/input_map.h engine/io/input_map.cpp
@@ -42,7 +48,7 @@ add_library(engine
 
   # Render
   engine/render/callback_handler.h
-  engine/render/mesh.h engine/render/mesh.cpp
+  engine/render/tri_mesh.h engine/render/tri_mesh.cpp
   engine/render/pipeline_builder.h engine/render/pipeline_builder.cpp
   engine/render/shader.h engine/render/shader.cpp
   engine/render/vk_engine.h engine/render/vk_engine.cpp
@@ -124,7 +130,8 @@ add_subdirectory(lib/Catch2)
 add_executable(tests 
   test/io/files.cpp
   test/net/message.cpp
-  test/util/serialize.cpp)
+  test/util/serialize.cpp
+  test/ecs/scene.cpp)
 
 target_compile_features(tests PRIVATE cxx_std_17)
 

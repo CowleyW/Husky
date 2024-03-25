@@ -26,7 +26,7 @@ layout (push_constant) uniform PushConstant {
 } constants;
 
 void main() {
-  mat4 model = object_data.objects[gl_BaseInstance].model;
+  mat4 model = object_data.objects[gl_BaseInstance + gl_InstanceIndex].model;
   mat4 transform = camera_data.viewproj * model;
   gl_Position = transform * vec4(v_position, 1.0f);
   a_color = v_color;

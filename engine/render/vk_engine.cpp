@@ -4,9 +4,9 @@
 #include "glm/fwd.hpp"
 #include "io/logging.h"
 #include "render/callback_handler.h"
-#include "render/mesh.h"
 #include "render/pipeline_builder.h"
 #include "render/shader.h"
+#include "render/tri_mesh.h"
 #include "render/vk_init.h"
 #include "render/vk_types.h"
 
@@ -106,7 +106,7 @@ Err Render::VulkanEngine::init(
   return Err::ok();
 }
 
-void Render::VulkanEngine::render() {
+void Render::VulkanEngine::render(Scene &scene) {
   FrameData &frame = this->next_frame();
   VK_ASSERT(
       vkWaitForFences(this->device, 1, &frame.render_fence, true, 1000000000));
@@ -151,19 +151,6 @@ void Render::VulkanEngine::render() {
       frame.main_command_buffer,
       VK_PIPELINE_BIND_POINT_GRAPHICS,
       this->mesh_pipeline);
-
-  void *object_data;
-  vmaMapMemory(this->allocator, frame.object_buffer.allocation, &object_data);
-
-  glm::mat4 model = glm::rotate(
-      glm::mat4(1.0f),
-      glm::radians(this->frame_number * 0.4f),
-      glm::vec3(0, 1, 0));
-
-  ObjectData *object_ssbo = (ObjectData *)object_data;
-  object_ssbo[0].model = model;
-
-  vmaUnmapMemory(this->allocator, frame.object_buffer.allocation);
 
   this->scene_data.ambient_color = {b, b, b, 1};
 
@@ -219,6 +206,48 @@ void Render::VulkanEngine::render() {
       0,
       nullptr);
 
+  VkDeviceSize offset = 0;
+  vkCmdBindVertexBuffers(
+      frame.main_command_buffer,
+      0,
+      1,
+      &this->obj_mesh.vertex_buffer.buffer,
+      &offset);
+
+  void *object_data;
+  vmaMapMemory(this->allocator, frame.object_buffer.allocation, &object_data);
+
+  uint32_t current_index = 0;
+  ObjectData *object_ssbo = (ObjectData *)object_data;
+  TriMesh *current_mesh = nullptr;
+  for (uint32_t id : scene.view<Mesh, Transform>()) {
+    Transform *transform = scene.get<Transform>(id);
+    Mesh *mesh = scene.get<Mesh>(id);
+
+    if (current_mesh == nullptr) {
+      current_mesh = mesh->mesh;
+    }
+
+    if (mesh->mesh == current_mesh && mesh->visible) {
+      glm::mat4 model = transform->get_matrix();
+      object_ssbo[current_index].model = model;
+      current_index += 1;
+    }
+  }
+  // glm::mat4 model2 = glm::rotate(
+  //     glm::mat4(1.0f),
+  //     glm::radians(this->frame_number * -0.4f),
+  //     glm::vec3(0, 1, 0));
+  //
+  // object_ssbo[0].model = model;
+  // object_ssbo[1].model = model2;
+
+  vmaUnmapMemory(this->allocator, frame.object_buffer.allocation);
+
+  glm::mat4 model = glm::rotate(
+      glm::mat4(1.0f),
+      glm::radians(this->frame_number * 0.4f),
+      glm::vec3(0, 1, 0));
   MeshPushConstant push_constant = {};
   push_constant.matrix = model;
   vkCmdPushConstants(
@@ -229,16 +258,13 @@ void Render::VulkanEngine::render() {
       sizeof(MeshPushConstant),
       &push_constant);
 
-  VkDeviceSize offset = 0;
-  vkCmdBindVertexBuffers(
-      frame.main_command_buffer,
-      0,
-      1,
-      &this->obj_mesh.vertex_buffer.buffer,
-      &offset);
-
   // Change last parameter when abstracting to rendering more objects
-  vkCmdDraw(frame.main_command_buffer, this->obj_mesh.vertices.size(), 1, 0, 0);
+  vkCmdDraw(
+      frame.main_command_buffer,
+      this->obj_mesh.vertices.size(),
+      current_index,
+      0,
+      0);
 
   vkCmdEndRenderPass(frame.main_command_buffer);
   VK_ASSERT(vkEndCommandBuffer(frame.main_command_buffer));
@@ -544,7 +570,8 @@ void Render::VulkanEngine::init_frames() {
         VMA_MEMORY_USAGE_CPU_TO_GPU);
     frame.object_buffer = VkInit::buffer(
         this->allocator,
-        sizeof(ObjectData),
+        // SSBO SIZE
+        3 * sizeof(ObjectData),
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
 
@@ -585,7 +612,8 @@ void Render::VulkanEngine::init_frames() {
     VkDescriptorBufferInfo object_info = {};
     object_info.buffer = frame.object_buffer.buffer;
     object_info.offset = 0;
-    object_info.range = sizeof(ObjectData);
+    // SSBO SIZE
+    object_info.range = 3 * sizeof(ObjectData);
 
     VkWriteDescriptorSet camera_set = VkInit::write_descriptor_set(
         VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -724,7 +752,7 @@ void Render::VulkanEngine::init_allocator() {
 }
 
 void Render::VulkanEngine::init_meshes() {
-  auto res_mesh = Mesh::load_from_obj("objs/mech_golem.obj");
+  auto res_mesh = TriMesh::load_from_obj("objs/mech_golem.obj");
   if (res_mesh.is_error) {
     io::error(res_mesh.msg);
   }
@@ -763,7 +791,7 @@ void Render::VulkanEngine::init_imgui() {
   // ImGui_ImplVulkan_Init(&init_info);
 }
 
-void Render::VulkanEngine::upload_mesh(Mesh &mesh) {
+void Render::VulkanEngine::upload_mesh(TriMesh &mesh) {
   mesh.vertex_buffer = VkInit::buffer(
       this->allocator,
       mesh.vertices.size() * sizeof(Vertex),

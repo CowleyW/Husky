@@ -1,4 +1,4 @@
-#include "mesh.h"
+#include "tri_mesh.h"
 #include "io/files.h"
 
 #include "io/logging.h"
@@ -43,7 +43,7 @@ VertexInputDescription Vertex::get_description() {
   return description;
 }
 
-Result<Mesh> Mesh::load_from_obj(const std::string &obj_path) {
+Result<TriMesh> TriMesh::load_from_obj(const std::string &obj_path) {
   std::string full_obj_path = files::full_asset_path(obj_path);
 
   tinyobj::attrib_t attrib;
@@ -66,10 +66,10 @@ Result<Mesh> Mesh::load_from_obj(const std::string &obj_path) {
   }
 
   if (!err.empty()) {
-    return Result<Mesh>::err(err);
+    return Result<TriMesh>::err(err);
   }
 
-  Mesh mesh = {};
+  TriMesh mesh = {};
 
   // Our approach to loading .obj files
   // -> For each shape
@@ -102,5 +102,5 @@ Result<Mesh> Mesh::load_from_obj(const std::string &obj_path) {
     }
   }
 
-  return Result<Mesh>::ok(mesh);
+  return Result<TriMesh>::ok(mesh);
 }

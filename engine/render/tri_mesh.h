@@ -28,7 +28,7 @@ struct MeshPushConstant {
   glm::mat4 matrix;
 };
 
-struct Mesh {
+struct TriMesh {
   std::vector<Vertex> vertices;
 
   AllocatedBuffer vertex_buffer;
@@ -37,5 +37,5 @@ struct Mesh {
     return this->vertices.size() * sizeof(Vertex);
   }
 
-  static Result<Mesh> load_from_obj(const std::string &obj_path);
+  static Result<TriMesh> load_from_obj(const std::string &obj_path);
 };

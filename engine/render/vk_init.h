@@ -1,6 +1,6 @@
 #pragma once
 
-#include "mesh.h"
+#include "tri_mesh.h"
 #include "vk_types.h"
 #include <vector>
 #include <vulkan/vulkan_core.h>

@@ -38,6 +38,8 @@ private:
 
 private:
   Render::VulkanEngine render_engine{};
+  Scene scene;
+  TriMesh mesh;
 
   std::shared_ptr<Net::Client> client;
 
