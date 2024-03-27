@@ -1,6 +1,7 @@
 #include "vk_engine.h"
 
 #include "glm/ext/matrix_clip_space.hpp"
+#include "glm/ext/matrix_transform.hpp"
 #include "glm/fwd.hpp"
 #include "io/logging.h"
 #include "render/callback_handler.h"
@@ -171,21 +172,6 @@ void Render::VulkanEngine::render(Scene &scene) {
 
   vmaUnmapMemory(this->allocator, scene_data_buffer.allocation);
 
-  glm::vec3 camera_pos = {0.0f, -1.0f, -2.0f};
-  glm::mat4 view = glm::translate(glm::mat4(1.0f), camera_pos);
-  glm::mat4 proj =
-      glm::perspective(glm::radians(70.0f), 1280 / 720.0f, 0.1f, 200.0f);
-  proj[1][1] *= -1;
-
-  CameraData camera_data = {proj, view, proj * view};
-
-  void *data;
-  vmaMapMemory(this->allocator, frame.camera_buffer.allocation, &data);
-
-  std::memcpy(data, &camera_data, sizeof(CameraData));
-
-  vmaUnmapMemory(this->allocator, frame.camera_buffer.allocation);
-
   vkCmdBindDescriptorSets(
       frame.main_command_buffer,
       VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -214,6 +200,23 @@ void Render::VulkanEngine::render(Scene &scene) {
       &this->obj_mesh.vertex_buffer.buffer,
       &offset);
 
+  uint32_t cam_id;
+  for (uint32_t id : scene.view<Camera, Transform>()) {
+    cam_id = id;
+  }
+  Camera *camera = scene.get<Camera>(cam_id);
+  Transform *t = scene.get<Transform>(cam_id);
+  glm::mat4 viewproj = camera->calc_viewproj(t->position);
+
+  CameraData camera_data = {viewproj};
+
+  void *data;
+  vmaMapMemory(this->allocator, frame.camera_buffer.allocation, &data);
+
+  std::memcpy(data, &camera_data, sizeof(CameraData));
+
+  vmaUnmapMemory(this->allocator, frame.camera_buffer.allocation);
+
   void *object_data;
   vmaMapMemory(this->allocator, frame.object_buffer.allocation, &object_data);
 
@@ -234,13 +237,6 @@ void Render::VulkanEngine::render(Scene &scene) {
       current_index += 1;
     }
   }
-  // glm::mat4 model2 = glm::rotate(
-  //     glm::mat4(1.0f),
-  //     glm::radians(this->frame_number * -0.4f),
-  //     glm::vec3(0, 1, 0));
-  //
-  // object_ssbo[0].model = model;
-  // object_ssbo[1].model = model2;
 
   vmaUnmapMemory(this->allocator, frame.object_buffer.allocation);
 

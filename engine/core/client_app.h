@@ -2,6 +2,7 @@
 
 #include "application.h"
 
+#include "io/raw_inputs.h"
 #include "net/client.h"
 #include "render/callback_handler.h"
 #include "render/vk_engine.h"
@@ -25,6 +26,9 @@ public:
   // Methods inherited from CallbackHandler
   void on_window_resize(Dimensions dimensions) override;
   void on_window_close() override;
+  void on_mouse_move(double x, double y) override;
+  void on_key_event(int32_t key, int32_t action) override;
+  void on_mouse_button(int32_t key, int32_t action) override;
 
 private:
   void on_connection_accepted(const Net::Message &message);
@@ -38,6 +42,7 @@ private:
 
 private:
   Render::VulkanEngine render_engine{};
+  RawInputs inputs;
   Scene scene;
   TriMesh mesh;
 

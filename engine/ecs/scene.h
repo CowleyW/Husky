@@ -13,10 +13,10 @@ public:
   struct Iterator : std::iterator_traits<uint64_t> {
     Iterator(
         const std::vector<Entity> &entities,
-        std::bitset<MAX_COMPONENTS> component_mask,
+        std::bitset<MAX_COMPONENTS> mask,
         uint32_t index)
         : entities(entities),
-          component_mask(component_mask),
+          mask(mask),
           index(index) {
     }
 
@@ -35,31 +35,35 @@ public:
     Iterator &operator++() {
       do {
         this->index += 1;
-      } while (this->index < this->entities.size() && !this->valid());
+      } while (this->maybe_next() && !this->valid(this->index));
 
       return *this;
     }
 
     const Iterator begin() const {
-      return Scene::Iterator(this->entities, this->component_mask, 0);
+      uint64_t begin_idx = 0;
+      while (begin_idx < this->entities.size() && !this->valid(begin_idx)) {
+        begin_idx += 1;
+      }
+      return Scene::Iterator(this->entities, this->mask, begin_idx);
     }
 
     const Iterator end() const {
-      return Iterator(
-          this->entities,
-          this->component_mask,
-          this->entities.size());
+      return Iterator(this->entities, this->mask, this->entities.size());
     }
 
   private:
-    bool valid() {
-      return (this->component_mask & this->entities[index].mask) ==
-             this->component_mask;
+    bool valid(uint64_t idx) const {
+      return (this->mask & this->entities[idx].mask) == this->mask;
+    }
+
+    bool maybe_next() const {
+      return this->index < this->entities.size();
     }
 
   private:
     const std::vector<Entity> &entities;
-    const std::bitset<MAX_COMPONENTS> component_mask;
+    const std::bitset<MAX_COMPONENTS> mask;
     uint32_t index;
   };
 

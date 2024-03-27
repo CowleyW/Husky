@@ -56,6 +56,39 @@ void Window::register_callbacks(CallbackHandler *callback) {
 
     callback->on_window_close();
   });
+
+  glfwSetKeyCallback(
+      this->handle,
+      [](GLFWwindow *window,
+         int32_t key,
+         int32_t scancode,
+         int32_t action,
+         int32_t mods) {
+        CallbackHandler *callback =
+            static_cast<CallbackHandler *>(glfwGetWindowUserPointer(window));
+
+        if (key != GLFW_KEY_UNKNOWN) {
+          callback->on_key_event(key, action);
+        }
+      });
+
+  glfwSetCursorPosCallback(
+      this->handle,
+      [](GLFWwindow *window, double x, double y) {
+        CallbackHandler *callback =
+            static_cast<CallbackHandler *>(glfwGetWindowUserPointer(window));
+
+        callback->on_mouse_move(x, y);
+      });
+
+  glfwSetMouseButtonCallback(
+      this->handle,
+      [](GLFWwindow *window, int32_t button, int32_t action, int32_t mods) {
+        CallbackHandler *callback =
+            static_cast<CallbackHandler *>(glfwGetWindowUserPointer(window));
+
+        callback->on_mouse_button(button, action);
+      });
 }
 
 void Window::swap_buffers() {

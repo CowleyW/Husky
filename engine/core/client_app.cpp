@@ -1,16 +1,24 @@
 #include "client_app.h"
 
+#include "GLFW/glfw3.h"
+#include "ecs/components.h"
+#include "glm/fwd.hpp"
 #include "io/input_map.h"
 #include "io/logging.h"
+#include "io/raw_inputs.h"
 #include "util/err.h"
 #include "util/serialize.h"
 #include "world_state.h"
+#include <algorithm>
+#include <cmath>
 
 ClientApp::ClientApp(uint32_t server_port, uint32_t client_port)
     : client(std::make_shared<Net::Client>(server_port, client_port)),
       frame(0),
       world_state(),
-      scene() {
+      scene(),
+      inputs() {
+
   this->mesh = TriMesh::load_from_obj("objs/mech_golem.obj").value;
   Mesh mesh_comp = {&mesh, true};
   Transform transform = {
@@ -32,6 +40,12 @@ ClientApp::ClientApp(uint32_t server_port, uint32_t client_port)
   uint64_t e3 = this->scene.new_entity();
   this->scene.assign(e3, mesh_comp);
   this->scene.assign(e3, transform);
+
+  transform.position = {0.0f, 0.0f, 4.0f};
+  uint64_t cam = this->scene.new_entity();
+  this->scene.assign(cam, transform);
+  Camera camera = {{0.0f, 0.0f, -1.0f}, 70.0f, 0.1f, 200.0f, 0.0f, 0.0f};
+  this->scene.assign(cam, camera);
 }
 
 Err ClientApp::init() {
@@ -48,6 +62,11 @@ void ClientApp::begin() {
 }
 
 void ClientApp::update() {
+  // Clear the deltas so that if the mouse moved callback doesn't get triggered
+  // we don't retain the old values
+  this->inputs.mouse_dx = 0.0f;
+  this->inputs.mouse_dy = 0.0f;
+
   this->render_engine.poll_events();
   this->poll_network();
 }
@@ -59,7 +78,50 @@ void ClientApp::render() {
 void ClientApp::fixed_update() {
   this->frame += 1;
 
-  InputMap inputs = this->render_engine.get_inputs();
+  for (uint64_t id : this->scene.view<Camera, Transform>()) {
+    Transform *transform = this->scene.get<Transform>(id);
+    Camera *camera = this->scene.get<Camera>(id);
+
+    if (this->inputs.is_key_down(GLFW_KEY_W)) {
+      transform->position += camera->forward * 0.016f;
+    }
+    if (this->inputs.is_key_down(GLFW_KEY_A)) {
+      transform->position -= camera->calc_right() * 0.016f;
+    }
+    if (this->inputs.is_key_down(GLFW_KEY_S)) {
+      transform->position -= camera->forward * 0.016f;
+    }
+    if (this->inputs.is_key_down(GLFW_KEY_D)) {
+      transform->position += camera->calc_right() * 0.016f;
+    }
+    if (this->inputs.is_key_down(GLFW_KEY_LEFT_SHIFT)) {
+      transform->position -= glm::vec3(0.0f, 1.0f, 0.0f) * 0.016f;
+    }
+    if (this->inputs.is_key_down(GLFW_KEY_SPACE)) {
+      transform->position += glm::vec3(0.0f, 1.0f, 0.0f) * 0.016f;
+    }
+
+    if (this->inputs.is_mouse_button_down(GLFW_MOUSE_BUTTON_LEFT)) {
+      camera->yaw += (float)this->inputs.mouse_dx * 0.16f;
+      camera->pitch += (float)this->inputs.mouse_dy * 0.16f;
+      camera->pitch = std::clamp(camera->pitch, -89.0f, 89.0f);
+
+      float yaw = (float)this->inputs.mouse_dx * 0.16f;
+      float pitch = (float)this->inputs.mouse_dy * 0.16f;
+
+      glm::mat4 yawRotation =
+          glm::rotate(glm::mat4(1.0f), glm::radians(-yaw), {0.0f, 1.0f, 0.0f});
+      glm::mat4 pitchRotation = glm::rotate(
+          glm::mat4(1.0f),
+          glm::radians(-pitch),
+          camera->calc_right());
+
+      glm::mat4 combinedRotation = yawRotation * pitchRotation;
+
+      camera->forward = glm::normalize(
+          glm::vec3(combinedRotation * glm::vec4(camera->forward, 0.0f)));
+    }
+  }
 
   if (this->client_index.has_value()) {
     auto pos = this->world_state.player_position(this->client_index.value());
@@ -71,6 +133,7 @@ void ClientApp::fixed_update() {
     }
   }
 
+  InputMap inputs = this->render_engine.get_inputs();
   if (this->frame % 6 == 0) {
     this->network_update(inputs);
     this->frame = 0;
@@ -89,6 +152,32 @@ void ClientApp::on_window_resize(Dimensions dimensions) {
 void ClientApp::on_window_close() {
   io::debug("Closing window");
   this->stop();
+}
+
+void ClientApp::on_mouse_move(double x, double y) {
+  double dx = x - this->inputs.mouse_x;
+  double dy = y - this->inputs.mouse_y;
+
+  this->inputs.mouse_x = x;
+  this->inputs.mouse_y = y;
+  this->inputs.mouse_dx = dx;
+  this->inputs.mouse_dy = dy;
+}
+
+void ClientApp::on_key_event(KeyCode key, int32_t action) {
+  if (action == GLFW_PRESS) {
+    this->inputs.keys.set(key);
+  } else if (action == GLFW_RELEASE) {
+    this->inputs.keys.reset(key);
+  }
+}
+
+void ClientApp::on_mouse_button(MouseButton button, int32_t action) {
+  if (action == GLFW_PRESS) {
+    this->inputs.mouse_buttons.set(button);
+  } else if (action == GLFW_RELEASE) {
+    this->inputs.mouse_buttons.reset(button);
+  }
 }
 
 void ClientApp::on_connection_accepted(const Net::Message &message) {

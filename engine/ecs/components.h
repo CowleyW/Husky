@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ecs/ecs_types.h"
+#include "glm/ext/vector_float3.hpp"
 #include "render/tri_mesh.h"
 
 #include "glm/gtc/matrix_transform.hpp"
@@ -49,4 +50,31 @@ struct Mesh {
   TriMesh *mesh;
   // Material *material;
   bool visible;
+};
+
+struct Camera {
+  COMPONENT_DECLARATION(2);
+
+  glm::vec3 forward;
+  float fov;
+  float z_near;
+  float z_far;
+  float yaw, pitch;
+
+  glm::mat4 calc_viewproj(const glm::vec3 &world_pos) {
+    glm::mat4 view =
+        glm::lookAt(world_pos, world_pos + this->forward, {0.0f, 1.0f, 0.0f});
+    glm::mat4 proj = glm::perspective(
+        glm::radians(this->fov),
+        1280 / 720.0f,
+        this->z_near,
+        this->z_far);
+    proj[1][1] *= -1;
+
+    return proj * view;
+  }
+
+  glm::vec3 calc_right() {
+    return glm::normalize(glm::cross(this->forward, {0.0f, 1.0f, 0.0f}));
+  }
 };

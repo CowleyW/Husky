@@ -34,6 +34,7 @@ add_library(engine
   engine/io/files.h engine/io/files.cpp
   engine/io/input_map.h engine/io/input_map.cpp
   engine/io/logging.h
+  engine/io/raw_inputs.h engine/io/raw_inputs.cpp
   
   #Net
   engine/net/client.h engine/net/client.cpp
