@@ -112,7 +112,8 @@ target_include_directories(engine PUBLIC
   lib/Vulkan-Utility-Libraries/include/vulkan/
   lib/imgui
   lib/imgui/backends
-  lib/tinyobjloader)
+  lib/tinyobjloader
+  lib/stb)
 
 target_compile_definitions(engine PRIVATE _WIN32_WINNT=0x0A00)
 

@@ -3,6 +3,7 @@
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/fwd.hpp"
+#include "io/files.h"
 #include "io/logging.h"
 #include "render/callback_handler.h"
 #include "render/pipeline_builder.h"
@@ -23,13 +24,17 @@
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 Render::VulkanEngine::~VulkanEngine() {
   // Make sure the GPU is not doing anything before we do any cleanup
   vkDeviceWaitIdle(this->device);
 
-  // ImGui_ImplVulkan_Shutdown();
-  // ImGui_ImplGlfw_Shutdown();
-  // ImGui::DestroyContext();
+  ImGui_ImplVulkan_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
+  ImGui::DestroyContext();
+  vkDestroyDescriptorPool(this->device, this->imgui_descriptor_pool, nullptr);
 
   vmaDestroyBuffer(
       this->allocator,
@@ -113,22 +118,23 @@ Err Render::VulkanEngine::init(
   this->init_framebuffers();
   this->init_pipelines();
   this->init_meshes();
+  this->init_imgui();
 
   return Err::ok();
 }
 
 void Render::VulkanEngine::render(Scene &scene) {
-  // static bool show_demo_window = true;
-  // ImGui_ImplVulkan_NewFrame();
-  // ImGui_ImplGlfw_NewFrame();
-  // ImGui::NewFrame();
-  //
-  // if (show_demo_window) {
-  //   ImGui::ShowDemoWindow(&show_demo_window);
-  // }
-  //
-  // ImGui::Render();
-  // ImDrawData *main_draw_data = ImGui::GetDrawData();
+  static bool show_demo_window = true;
+  ImGui_ImplVulkan_NewFrame();
+  ImGui_ImplGlfw_NewFrame();
+  ImGui::NewFrame();
+
+  if (show_demo_window) {
+    ImGui::ShowDemoWindow(&show_demo_window);
+  }
+
+  ImGui::Render();
+  ImDrawData *main_draw_data = ImGui::GetDrawData();
 
   FrameData &frame = this->next_frame();
   VK_ASSERT(
@@ -281,8 +287,9 @@ void Render::VulkanEngine::render(Scene &scene) {
         0);
   }
 
-  // ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
-  // frame.main_command_buffer);
+  ImGui_ImplVulkan_RenderDrawData(
+      ImGui::GetDrawData(),
+      frame.main_command_buffer);
 
   vkCmdEndRenderPass(frame.main_command_buffer);
   VK_ASSERT(vkEndCommandBuffer(frame.main_command_buffer));
@@ -782,56 +789,58 @@ void Render::VulkanEngine::init_meshes() {
 }
 
 void Render::VulkanEngine::init_imgui() {
-  // VkDescriptorPoolSize pool_sizes[] = {
-  //     {VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
-  //     {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-  //     {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
-  //     {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
-  //     {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
-  //     {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
-  //     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
-  //     {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
-  //     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-  //     {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-  //     {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}};
-  //
-  // VkDescriptorPoolCreateInfo pool_info = {};
-  // pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  // pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-  // pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
-  // pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
-  // pool_info.pPoolSizes = pool_sizes;
-  //
-  // VK_ASSERT(vkCreateDescriptorPool(
-  //     this->device,
-  //     &pool_info,
-  //     nullptr,
-  //     &this->imgui_descriptor_pool));
-  //
-  // IMGUI_CHECKVERSION();
-  // ImGui::CreateContext();
-  // ImGuiIO &io = ImGui::GetIO();
-  // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-  // io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-  //
-  // ImGui::StyleColorsDark();
-  //
-  // ImGui_ImplGlfw_InitForVulkan(this->window.raw_window_handle(), true);
-  // ImGui_ImplVulkan_InitInfo init_info = {};
-  // init_info.Instance = this->instance;
-  // init_info.PhysicalDevice = this->gpu;
-  // init_info.Device = this->device;
-  // init_info.QueueFamily = this->graphics_queue_family;
-  // init_info.Queue = this->graphics_queue;
-  // init_info.DescriptorPool = this->imgui_descriptor_pool;
-  // init_info.RenderPass = this->render_pass;
-  // init_info.Subpass = 0;
-  // init_info.MinImageCount = VulkanEngine::FRAMES_IN_FLIGHT;
-  // init_info.ImageCount = VulkanEngine::FRAMES_IN_FLIGHT;
-  // init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-  // init_info.Allocator = nullptr;
-  // init_info.CheckVkResultFn = [](VkResult res) { VK_ASSERT(res); };
-  // ImGui_ImplVulkan_Init(&init_info);
+  VkDescriptorPoolSize pool_sizes[] = {
+      {VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
+      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+      {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
+      {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
+      {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
+      {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+      {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}};
+
+  VkDescriptorPoolCreateInfo pool_info = {};
+  pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+  pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
+  pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
+  pool_info.pPoolSizes = pool_sizes;
+
+  VK_ASSERT(vkCreateDescriptorPool(
+      this->device,
+      &pool_info,
+      nullptr,
+      &this->imgui_descriptor_pool));
+
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGuiIO &io = ImGui::GetIO();
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+
+  ImGui::StyleColorsDark();
+
+  ImGui_ImplGlfw_InitForVulkan(this->window.raw_window_handle(), true);
+  ImGui_ImplVulkan_InitInfo init_info = {};
+  init_info.Instance = this->instance;
+  init_info.PhysicalDevice = this->gpu;
+  init_info.Device = this->device;
+  init_info.QueueFamily = this->graphics_queue_family;
+  init_info.Queue = this->graphics_queue;
+  init_info.DescriptorPool = this->imgui_descriptor_pool;
+  init_info.RenderPass = this->render_pass;
+  init_info.Subpass = 0;
+  init_info.MinImageCount = VulkanEngine::FRAMES_IN_FLIGHT;
+  init_info.ImageCount = VulkanEngine::FRAMES_IN_FLIGHT;
+  init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+  init_info.Allocator = nullptr;
+  init_info.CheckVkResultFn = [](VkResult res) { VK_ASSERT(res); };
+  ImGui_ImplVulkan_Init(&init_info);
+
+  ImGui_ImplVulkan_CreateFontsTexture();
 }
 
 void Render::VulkanEngine::upload_mesh(TriMesh &mesh) {
@@ -934,6 +943,134 @@ void Render::VulkanEngine::submit_command(
       1000000000);
   vkResetFences(this->device, 1, &this->upload_context.upload_fence);
   vkResetCommandPool(this->device, this->upload_context.command_pool, 0);
+}
+
+Result<AllocatedImage>
+Render::VulkanEngine::load_image_file(const std::string &path) {
+  int32_t width, height, channels;
+  void *pixels = stbi_load(
+      files::full_asset_path(path).c_str(),
+      &width,
+      &height,
+      &channels,
+      STBI_rgb_alpha);
+
+  if (!pixels) {
+    return Result<AllocatedImage>::err("Failed to load image file");
+  }
+
+  int32_t image_size = width * height * 4;
+  VkFormat image_format = VK_FORMAT_R8G8B8A8_SRGB;
+
+  AllocatedBuffer staging_buffer = VkInit::buffer(
+      this->allocator,
+      image_size,
+      VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+      VMA_MEMORY_USAGE_CPU_ONLY);
+
+  void *data;
+  vmaMapMemory(this->allocator, staging_buffer.allocation, &data);
+
+  std::memcpy(data, pixels, static_cast<uint32_t>(image_size));
+
+  vmaUnmapMemory(this->allocator, staging_buffer.allocation);
+  stbi_image_free(pixels);
+
+  VkExtent3D extent = {};
+  extent.width = static_cast<uint32_t>(width);
+  extent.height = static_cast<uint32_t>(height);
+  extent.depth = 1;
+
+  VkImageCreateInfo image_info = VkInit::image_create_info(
+      image_format,
+      VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+      extent);
+
+  AllocatedImage image = {};
+
+  VmaAllocationCreateInfo alloc_info = {};
+  alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+  vmaCreateImage(
+      this->allocator,
+      &image_info,
+      &alloc_info,
+      &image.image,
+      &image.allocation,
+      nullptr);
+
+  this->submit_command([=](VkCommandBuffer cmd) {
+    VkImageSubresourceRange range = {};
+    range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    range.baseMipLevel = 0;
+    range.levelCount = 1;
+    range.baseArrayLayer = 0;
+    range.layerCount = 1;
+
+    VkImageMemoryBarrier barrier = {};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.image = image.image;
+    barrier.subresourceRange = range;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    vkCmdPipelineBarrier(
+        cmd,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        0,
+        nullptr,
+        0,
+        nullptr,
+        1,
+        &barrier);
+
+    VkBufferImageCopy copy = {};
+    copy.bufferOffset = 0;
+    copy.bufferRowLength = 0;
+    copy.bufferImageHeight = 0;
+    copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy.imageSubresource.mipLevel = 0;
+    copy.imageSubresource.baseArrayLayer = 0;
+    copy.imageSubresource.layerCount = 1;
+    copy.imageExtent = extent;
+
+    vkCmdCopyBufferToImage(
+        cmd,
+        staging_buffer.buffer,
+        image.image,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &copy);
+
+    VkImageMemoryBarrier readable = barrier;
+    readable.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    readable.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    readable.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    readable.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(
+        cmd,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0,
+        0,
+        nullptr,
+        0,
+        nullptr,
+        0,
+        &readable);
+  });
+
+  vmaDestroyBuffer(
+      this->allocator,
+      staging_buffer.buffer,
+      staging_buffer.allocation);
+
+  return Result<AllocatedImage>::ok(image);
 }
 
 FrameData &Render::VulkanEngine::next_frame() {

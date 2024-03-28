@@ -1,5 +1,6 @@
 #include "files.h"
 
+#include "render/vk_types.h"
 #include "util/result.h"
 
 #include <cstdio>
@@ -8,6 +9,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 std::string files::full_asset_path(const std::string &path) {
   return std::string(ASSETS_PATH) + path;

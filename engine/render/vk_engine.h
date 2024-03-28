@@ -43,6 +43,8 @@ private:
   void upload_mesh(TriMesh &mesh);
   void submit_command(std::function<void(VkCommandBuffer)> &&function);
 
+  Result<AllocatedImage> load_image_file(const std::string &path);
+
   FrameData &next_frame();
 
 private:
