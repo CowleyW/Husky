@@ -2,6 +2,8 @@
 
 Another attempt at a game engine, seeking to apply what I have learned about software development in my first two years at Northeastern University.
 
+![Renderer stress-test containing over 1.7 million vertices in the scene](images/stress_test.png)
+
 ### Write Games, Not Engines
 
 > Write Games, Not Engines

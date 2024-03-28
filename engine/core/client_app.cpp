@@ -42,7 +42,7 @@ ClientApp::ClientApp(uint32_t server_port, uint32_t client_port)
 }
 
 Err ClientApp::init() {
-  Err err = this->render_engine.init({1280, 720}, this);
+  Err err = this->render_engine.init({1920, 1080}, this);
   if (err.is_error) {
     return err;
   }
