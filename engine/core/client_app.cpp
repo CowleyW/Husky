@@ -10,7 +10,6 @@
 #include "util/serialize.h"
 #include "world_state.h"
 #include <algorithm>
-#include <cmath>
 
 ClientApp::ClientApp(uint32_t server_port, uint32_t client_port)
     : client(std::make_shared<Net::Client>(server_port, client_port)),
@@ -22,30 +21,24 @@ ClientApp::ClientApp(uint32_t server_port, uint32_t client_port)
   this->mesh = TriMesh::load_from_obj("objs/mech_golem.obj").value;
   Mesh mesh_comp = {&mesh, true};
   Transform transform = {
-      {0.0f, 0.0f, 0.0f},
+      {0.0f, 0.0f, 4.0f},
       {0.0f, 0.0f, 0.0f},
       {1.0f, 1.0f, 1.0f}};
-  uint64_t e1 = this->scene.new_entity();
-  this->scene.assign(e1, mesh_comp);
-  this->scene.assign(e1, transform);
-
-  transform.position.y = 1.0f;
-
-  uint64_t e2 = this->scene.new_entity();
-  this->scene.assign(e2, mesh_comp);
-  this->scene.assign(e2, transform);
-
-  transform.position.y = -1.0f;
-
-  uint64_t e3 = this->scene.new_entity();
-  this->scene.assign(e3, mesh_comp);
-  this->scene.assign(e3, transform);
-
-  transform.position = {0.0f, 0.0f, 4.0f};
   uint64_t cam = this->scene.new_entity();
   this->scene.assign(cam, transform);
   Camera camera = {{0.0f, 0.0f, -1.0f}, 70.0f, 0.1f, 200.0f, 0.0f, 0.0f};
   this->scene.assign(cam, camera);
+
+  for (uint32_t x = 0; x < 10; x += 1) {
+    for (uint32_t z = 0; z < 10; z += 1) {
+      for (uint32_t y = 0; y < 10; y += 1) {
+        transform.position = {x * 2.0f, y * 2.0f, z * 2.0f};
+        uint64_t e = this->scene.new_entity();
+        this->scene.assign(e, mesh_comp);
+        this->scene.assign(e, transform);
+      }
+    }
+  }
 }
 
 Err ClientApp::init() {
@@ -62,11 +55,6 @@ void ClientApp::begin() {
 }
 
 void ClientApp::update() {
-  // Clear the deltas so that if the mouse moved callback doesn't get triggered
-  // we don't retain the old values
-  this->inputs.mouse_dx = 0.0f;
-  this->inputs.mouse_dy = 0.0f;
-
   this->render_engine.poll_events();
   this->poll_network();
 }
@@ -138,6 +126,11 @@ void ClientApp::fixed_update() {
     this->network_update(inputs);
     this->frame = 0;
   }
+
+  // Clear the deltas so that if the mouse moved callback doesn't get triggered
+  // we don't retain the old values
+  this->inputs.mouse_dx = 0.0f;
+  this->inputs.mouse_dy = 0.0f;
 }
 
 void ClientApp::shutdown() {
@@ -160,8 +153,8 @@ void ClientApp::on_mouse_move(double x, double y) {
 
   this->inputs.mouse_x = x;
   this->inputs.mouse_y = y;
-  this->inputs.mouse_dx = dx;
-  this->inputs.mouse_dy = dy;
+  this->inputs.mouse_dx += dx;
+  this->inputs.mouse_dy += dy;
 }
 
 void ClientApp::on_key_event(KeyCode key, int32_t action) {

@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#define MAX_ENTITIES 1000
+#define MAX_ENTITIES 5000
 
 #define MAX_COMPONENTS 64
 

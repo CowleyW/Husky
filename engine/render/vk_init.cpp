@@ -123,11 +123,13 @@ VkCommandBufferAllocateInfo VkInit::command_buffer_allocate_info(
   return info;
 }
 
-VkCommandBufferBeginInfo VkInit::command_buffer_begin_info() {
+VkCommandBufferBeginInfo
+VkInit::command_buffer_begin_info(VkCommandBufferUsageFlags flags) {
   VkCommandBufferBeginInfo info = {};
   info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   info.pNext = nullptr;
   info.pInheritanceInfo = nullptr;
+  info.flags = flags;
 
   return info;
 }
@@ -160,10 +162,22 @@ VkSubmitInfo VkInit::submit_info(
   info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   info.pNext = nullptr;
   info.pWaitDstStageMask = flags;
-  info.waitSemaphoreCount = 1;
-  info.pWaitSemaphores = wait_semaphore;
-  info.signalSemaphoreCount = 1;
-  info.pSignalSemaphores = signal_semaphore;
+
+  if (wait_semaphore != nullptr) {
+    info.waitSemaphoreCount = 1;
+    info.pWaitSemaphores = wait_semaphore;
+  } else {
+    info.waitSemaphoreCount = 0;
+    info.pWaitSemaphores = nullptr;
+  }
+
+  if (signal_semaphore != nullptr) {
+    info.signalSemaphoreCount = 1;
+    info.pSignalSemaphores = signal_semaphore;
+  } else {
+    info.signalSemaphoreCount = 0;
+    info.pSignalSemaphores = nullptr;
+  }
   info.commandBufferCount = 1;
   info.pCommandBuffers = cmd;
 
@@ -294,8 +308,8 @@ VkInit::rasterization_state_create_info(VkPolygonMode polygon_mode) {
   info.rasterizerDiscardEnable = VK_FALSE;
   info.polygonMode = polygon_mode;
   info.lineWidth = 1.0f;
-  info.cullMode = VK_CULL_MODE_NONE;
-  info.frontFace = VK_FRONT_FACE_CLOCKWISE;
+  info.cullMode = VK_CULL_MODE_BACK_BIT;
+  info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   info.depthBiasEnable = VK_FALSE;
   info.depthBiasConstantFactor = 0.0f;
   info.depthBiasClamp = 0.0f;

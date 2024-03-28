@@ -18,11 +18,6 @@ layout(std140, set = 1, binding = 0) readonly buffer ObjectBuffer {
   ObjectData objects[];
 } object_data;
 
-layout (push_constant) uniform PushConstant {
-  vec4 data;
-  mat4 matrix;
-} constants;
-
 void main() {
   mat4 model = object_data.objects[gl_BaseInstance + gl_InstanceIndex].model;
   mat4 transform = camera_data.viewproj * model;

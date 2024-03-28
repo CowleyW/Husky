@@ -27,6 +27,10 @@ Render::VulkanEngine::~VulkanEngine() {
   // Make sure the GPU is not doing anything before we do any cleanup
   vkDeviceWaitIdle(this->device);
 
+  // ImGui_ImplVulkan_Shutdown();
+  // ImGui_ImplGlfw_Shutdown();
+  // ImGui::DestroyContext();
+
   vmaDestroyBuffer(
       this->allocator,
       this->obj_mesh.vertex_buffer.buffer,
@@ -39,6 +43,12 @@ Render::VulkanEngine::~VulkanEngine() {
       this->allocator,
       this->depth_image.image,
       this->depth_image.allocation);
+
+  vkDestroyCommandPool(
+      this->device,
+      this->upload_context.command_pool,
+      nullptr);
+  vkDestroyFence(this->device, this->upload_context.upload_fence, nullptr);
 
   vkDestroyDescriptorSetLayout(
       this->device,
@@ -108,6 +118,18 @@ Err Render::VulkanEngine::init(
 }
 
 void Render::VulkanEngine::render(Scene &scene) {
+  // static bool show_demo_window = true;
+  // ImGui_ImplVulkan_NewFrame();
+  // ImGui_ImplGlfw_NewFrame();
+  // ImGui::NewFrame();
+  //
+  // if (show_demo_window) {
+  //   ImGui::ShowDemoWindow(&show_demo_window);
+  // }
+  //
+  // ImGui::Render();
+  // ImDrawData *main_draw_data = ImGui::GetDrawData();
+
   FrameData &frame = this->next_frame();
   VK_ASSERT(
       vkWaitForFences(this->device, 1, &frame.render_fence, true, 1000000000));
@@ -128,9 +150,8 @@ void Render::VulkanEngine::render(Scene &scene) {
   VK_ASSERT(vkBeginCommandBuffer(frame.main_command_buffer, &cmd_info));
 
   std::vector<VkClearValue> clear_values;
-  float b = std::abs(std::sin(this->frame_number / 120.0f));
   VkClearValue clear_value = {};
-  clear_value.color = {{b, b, b, 1.0f}};
+  clear_value.color = {{1.0f, 1.0f, 1.0f, 1.0f}};
   VkClearValue depth_value = {};
   depth_value.depthStencil = {1.0f, 0};
 
@@ -153,7 +174,7 @@ void Render::VulkanEngine::render(Scene &scene) {
       VK_PIPELINE_BIND_POINT_GRAPHICS,
       this->mesh_pipeline);
 
-  this->scene_data.ambient_color = {b, b, b, 1};
+  this->scene_data.ambient_color = {1.0f, 1.0f, 1.0f, 1.0f};
 
   void *scene_data;
   vmaMapMemory(
@@ -224,6 +245,17 @@ void Render::VulkanEngine::render(Scene &scene) {
   ObjectData *object_ssbo = (ObjectData *)object_data;
   TriMesh *current_mesh = nullptr;
   for (uint32_t id : scene.view<Mesh, Transform>()) {
+    if (current_index == VulkanEngine::MAX_INSTANCES) {
+      io::debug("here!");
+      vkCmdDraw(
+          frame.main_command_buffer,
+          this->obj_mesh.vertices.size(),
+          current_index,
+          0,
+          0);
+
+      current_index = 0;
+    }
     Transform *transform = scene.get<Transform>(id);
     Mesh *mesh = scene.get<Mesh>(id);
 
@@ -240,27 +272,17 @@ void Render::VulkanEngine::render(Scene &scene) {
 
   vmaUnmapMemory(this->allocator, frame.object_buffer.allocation);
 
-  glm::mat4 model = glm::rotate(
-      glm::mat4(1.0f),
-      glm::radians(this->frame_number * 0.4f),
-      glm::vec3(0, 1, 0));
-  MeshPushConstant push_constant = {};
-  push_constant.matrix = model;
-  vkCmdPushConstants(
-      frame.main_command_buffer,
-      this->mesh_pipeline_layout,
-      VK_SHADER_STAGE_VERTEX_BIT,
-      0,
-      sizeof(MeshPushConstant),
-      &push_constant);
+  if (current_index != 0) {
+    vkCmdDraw(
+        frame.main_command_buffer,
+        this->obj_mesh.vertices.size(),
+        current_index,
+        0,
+        0);
+  }
 
-  // Change last parameter when abstracting to rendering more objects
-  vkCmdDraw(
-      frame.main_command_buffer,
-      this->obj_mesh.vertices.size(),
-      current_index,
-      0,
-      0);
+  // ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
+  // frame.main_command_buffer);
 
   vkCmdEndRenderPass(frame.main_command_buffer);
   VK_ASSERT(vkEndCommandBuffer(frame.main_command_buffer));
@@ -567,7 +589,7 @@ void Render::VulkanEngine::init_frames() {
     frame.object_buffer = VkInit::buffer(
         this->allocator,
         // SSBO SIZE
-        3 * sizeof(ObjectData),
+        sizeof(ObjectData) * VulkanEngine::MAX_INSTANCES,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
 
@@ -609,7 +631,7 @@ void Render::VulkanEngine::init_frames() {
     object_info.buffer = frame.object_buffer.buffer;
     object_info.offset = 0;
     // SSBO SIZE
-    object_info.range = 3 * sizeof(ObjectData);
+    object_info.range = sizeof(ObjectData) * VulkanEngine::MAX_INSTANCES;
 
     VkWriteDescriptorSet camera_set = VkInit::write_descriptor_set(
         VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -760,6 +782,32 @@ void Render::VulkanEngine::init_meshes() {
 }
 
 void Render::VulkanEngine::init_imgui() {
+  // VkDescriptorPoolSize pool_sizes[] = {
+  //     {VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
+  //     {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+  //     {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
+  //     {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
+  //     {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
+  //     {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
+  //     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
+  //     {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
+  //     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+  //     {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+  //     {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}};
+  //
+  // VkDescriptorPoolCreateInfo pool_info = {};
+  // pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  // pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+  // pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
+  // pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
+  // pool_info.pPoolSizes = pool_sizes;
+  //
+  // VK_ASSERT(vkCreateDescriptorPool(
+  //     this->device,
+  //     &pool_info,
+  //     nullptr,
+  //     &this->imgui_descriptor_pool));
+  //
   // IMGUI_CHECKVERSION();
   // ImGui::CreateContext();
   // ImGuiIO &io = ImGui::GetIO();
@@ -775,31 +823,117 @@ void Render::VulkanEngine::init_imgui() {
   // init_info.Device = this->device;
   // init_info.QueueFamily = this->graphics_queue_family;
   // init_info.Queue = this->graphics_queue;
-  // init_info.PipelineCache = g_PipelineCache;
-  // init_info.DescriptorPool = g_DescriptorPool;
-  // init_info.RenderPass = wd->RenderPass;
+  // init_info.DescriptorPool = this->imgui_descriptor_pool;
+  // init_info.RenderPass = this->render_pass;
   // init_info.Subpass = 0;
-  // init_info.MinImageCount = g_MinImageCount;
-  // init_info.ImageCount = wd->ImageCount;
+  // init_info.MinImageCount = VulkanEngine::FRAMES_IN_FLIGHT;
+  // init_info.ImageCount = VulkanEngine::FRAMES_IN_FLIGHT;
   // init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-  // init_info.Allocator = g_Allocator;
-  // init_info.CheckVkResultFn = check_vk_result;
+  // init_info.Allocator = nullptr;
+  // init_info.CheckVkResultFn = [](VkResult res) { VK_ASSERT(res); };
   // ImGui_ImplVulkan_Init(&init_info);
 }
 
 void Render::VulkanEngine::upload_mesh(TriMesh &mesh) {
-  mesh.vertex_buffer = VkInit::buffer(
+  uint32_t buffer_size = mesh.vertices.size() * sizeof(Vertex);
+  AllocatedBuffer staging_buffer = VkInit::buffer(
       this->allocator,
-      mesh.vertices.size() * sizeof(Vertex),
-      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-      VMA_MEMORY_USAGE_CPU_TO_GPU);
+      buffer_size,
+      VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+      VMA_MEMORY_USAGE_CPU_ONLY);
 
   void *data;
-  vmaMapMemory(this->allocator, mesh.vertex_buffer.allocation, &data);
+  vmaMapMemory(this->allocator, staging_buffer.allocation, &data);
 
   memcpy(data, mesh.vertices.data(), mesh.size());
 
-  vmaUnmapMemory(allocator, mesh.vertex_buffer.allocation);
+  vmaUnmapMemory(allocator, staging_buffer.allocation);
+
+  mesh.vertex_buffer = VkInit::buffer(
+      this->allocator,
+      mesh.vertices.size() * sizeof(Vertex),
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VMA_MEMORY_USAGE_GPU_ONLY);
+
+  this->submit_command([=](VkCommandBuffer cmd) {
+    VkBufferCopy copy = {};
+    copy.size = buffer_size;
+    copy.srcOffset = 0;
+    copy.dstOffset = 0;
+    vkCmdCopyBuffer(
+        cmd,
+        staging_buffer.buffer,
+        mesh.vertex_buffer.buffer,
+        1,
+        &copy);
+  });
+
+  vmaDestroyBuffer(
+      this->allocator,
+      staging_buffer.buffer,
+      staging_buffer.allocation);
+}
+
+void Render::VulkanEngine::submit_command(
+    std::function<void(VkCommandBuffer)> &&function) {
+  static bool init = false;
+  if (!init) {
+    VkFenceCreateInfo fence_info = VkInit::fence_create_info();
+    VK_ASSERT(vkCreateFence(
+        this->device,
+        &fence_info,
+        nullptr,
+        &this->upload_context.upload_fence));
+
+    VkCommandPoolCreateInfo pool_info = VkInit::command_pool_create_info(
+        this->graphics_queue_family,
+        VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+    VK_ASSERT(vkCreateCommandPool(
+        this->device,
+        &pool_info,
+        nullptr,
+        &this->upload_context.command_pool));
+
+    VkCommandBufferAllocateInfo alloc_info =
+        VkInit::command_buffer_allocate_info(
+            this->upload_context.command_pool,
+            1,
+            VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+    VK_ASSERT(vkAllocateCommandBuffers(
+        this->device,
+        &alloc_info,
+        &this->upload_context.command_buffer));
+    init = true;
+  }
+
+  VkCommandBufferBeginInfo cmd_info = VkInit::command_buffer_begin_info(
+      VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+  VK_ASSERT(
+      vkBeginCommandBuffer(this->upload_context.command_buffer, &cmd_info));
+
+  function(this->upload_context.command_buffer);
+
+  VK_ASSERT(vkEndCommandBuffer(this->upload_context.command_buffer));
+
+  VkSubmitInfo submit_info = VkInit::submit_info(
+      nullptr,
+      nullptr,
+      &this->upload_context.command_buffer,
+      nullptr);
+  VK_ASSERT(vkQueueSubmit(
+      this->graphics_queue,
+      1,
+      &submit_info,
+      this->upload_context.upload_fence));
+
+  vkWaitForFences(
+      this->device,
+      1,
+      &this->upload_context.upload_fence,
+      true,
+      1000000000);
+  vkResetFences(this->device, 1, &this->upload_context.upload_fence);
+  vkResetCommandPool(this->device, this->upload_context.command_pool, 0);
 }
 
 FrameData &Render::VulkanEngine::next_frame() {

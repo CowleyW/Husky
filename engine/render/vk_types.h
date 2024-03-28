@@ -80,4 +80,10 @@ struct ObjectData {
   glm::mat4 model;
 };
 
+struct UploadContext {
+  VkFence upload_fence;
+  VkCommandPool command_pool;
+  VkCommandBuffer command_buffer;
+};
+
 enum class ShaderType { Vertex = 0, Fragment };

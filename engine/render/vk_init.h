@@ -41,7 +41,8 @@ VkCommandBufferAllocateInfo command_buffer_allocate_info(
     uint32_t count,
     VkCommandBufferLevel level);
 
-VkCommandBufferBeginInfo command_buffer_begin_info();
+VkCommandBufferBeginInfo
+command_buffer_begin_info(VkCommandBufferUsageFlags flags = 0);
 
 VkSubmitInfo submit_info(
     VkSemaphore *wait_semaphore,

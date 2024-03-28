@@ -8,6 +8,7 @@
 #include "vk_types.h"
 #include "window.h"
 
+#include <functional>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -40,11 +41,13 @@ private:
   void init_imgui();
 
   void upload_mesh(TriMesh &mesh);
+  void submit_command(std::function<void(VkCommandBuffer)> &&function);
 
   FrameData &next_frame();
 
 private:
   static constexpr uint32_t FRAMES_IN_FLIGHT = 2;
+  static constexpr uint32_t MAX_INSTANCES = 1000;
 
   Window window{};
   Dimensions dimensions;
@@ -54,6 +57,8 @@ private:
 
   SceneData scene_data;
   AllocatedBuffer scene_data_buffer;
+
+  UploadContext upload_context;
 
   // Vulkan Structs
   VkInstance instance;
@@ -89,6 +94,9 @@ private:
   VkFormat depth_format;
 
   VmaAllocator allocator;
+
+  // ImGUI Resources
+  VkDescriptorPool imgui_descriptor_pool;
 };
 
 } // namespace Render
