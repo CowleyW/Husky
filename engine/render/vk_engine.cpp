@@ -44,10 +44,6 @@ Render::VulkanEngine::~VulkanEngine() {
       this->allocator,
       this->scene_data_buffer.buffer,
       this->scene_data_buffer.allocation);
-  vmaDestroyImage(
-      this->allocator,
-      this->depth_image.image,
-      this->depth_image.allocation);
 
   vkDestroyCommandPool(
       this->device,
@@ -80,20 +76,14 @@ Render::VulkanEngine::~VulkanEngine() {
         frame.object_buffer.allocation);
   }
 
-  vmaDestroyAllocator(this->allocator);
-
   vkDestroyPipeline(this->device, this->mesh_pipeline, nullptr);
   vkDestroyPipelineLayout(this->device, this->mesh_pipeline_layout, nullptr);
 
-  vkDestroySwapchainKHR(this->device, this->swapchain, nullptr);
-
   vkDestroyRenderPass(this->device, this->render_pass, nullptr);
 
-  for (uint32_t i = 0; i < this->swapchain_image_views.size(); i += 1) {
-    vkDestroyFramebuffer(this->device, this->frame_buffers[i], nullptr);
-    vkDestroyImageView(this->device, this->swapchain_image_views[i], nullptr);
-  }
-  vkDestroyImageView(this->device, this->depth_image_view, nullptr);
+  this->destroy_swapchain();
+
+  vmaDestroyAllocator(this->allocator);
 
   vkDestroyDevice(this->device, nullptr);
   vkDestroySurfaceKHR(this->instance, this->surface, nullptr);
@@ -121,6 +111,20 @@ Err Render::VulkanEngine::init(
   this->init_imgui();
 
   return Err::ok();
+}
+
+void Render::VulkanEngine::destroy_swapchain() {
+  vkDestroySwapchainKHR(this->device, this->swapchain, nullptr);
+  for (uint32_t i = 0; i < this->swapchain_image_views.size(); i += 1) {
+    vkDestroyFramebuffer(this->device, this->frame_buffers[i], nullptr);
+    vkDestroyImageView(this->device, this->swapchain_image_views[i], nullptr);
+  }
+  vkDestroyImageView(this->device, this->depth_image_view, nullptr);
+
+  vmaDestroyImage(
+      this->allocator,
+      this->depth_image.image,
+      this->depth_image.allocation);
 }
 
 void Render::VulkanEngine::render(Scene &scene) {
@@ -180,6 +184,21 @@ void Render::VulkanEngine::render(Scene &scene) {
       VK_PIPELINE_BIND_POINT_GRAPHICS,
       this->mesh_pipeline);
 
+  VkViewport viewport = {};
+  viewport.x = 0.0;
+  viewport.y = 0.0;
+  viewport.width = (float)this->dimensions.width;
+  viewport.height = (float)this->dimensions.height;
+  viewport.minDepth = 0.0f;
+  viewport.maxDepth = 1.0f;
+  vkCmdSetViewport(frame.main_command_buffer, 0, 1, &viewport);
+
+  VkRect2D scissor = {};
+  scissor.offset = {0, 0};
+  scissor.extent.width = this->dimensions.width;
+  scissor.extent.height = this->dimensions.height;
+  vkCmdSetScissor(frame.main_command_buffer, 0, 1, &scissor);
+
   this->scene_data.ambient_color = {1.0f, 1.0f, 1.0f, 1.0f};
 
   void *scene_data;
@@ -233,7 +252,8 @@ void Render::VulkanEngine::render(Scene &scene) {
   }
   Camera *camera = scene.get<Camera>(cam_id);
   Transform *t = scene.get<Transform>(cam_id);
-  glm::mat4 viewproj = camera->calc_viewproj(t->position);
+
+  glm::mat4 viewproj = camera->calc_viewproj(t->position, this->dimensions);
 
   CameraData camera_data = {viewproj};
 
@@ -251,17 +271,6 @@ void Render::VulkanEngine::render(Scene &scene) {
   ObjectData *object_ssbo = (ObjectData *)object_data;
   TriMesh *current_mesh = nullptr;
   for (uint32_t id : scene.view<Mesh, Transform>()) {
-    if (current_index == VulkanEngine::MAX_INSTANCES) {
-      io::debug("here!");
-      vkCmdDraw(
-          frame.main_command_buffer,
-          this->obj_mesh.vertices.size(),
-          current_index,
-          0,
-          0);
-
-      current_index = 0;
-    }
     Transform *transform = scene.get<Transform>(id);
     Mesh *mesh = scene.get<Mesh>(id);
 
@@ -315,6 +324,14 @@ void Render::VulkanEngine::render(Scene &scene) {
 }
 
 void Render::VulkanEngine::resize(Dimensions dimensions) {
+  vkDeviceWaitIdle(this->device);
+
+  this->destroy_swapchain();
+
+  this->dimensions = dimensions;
+
+  this->init_swapchain();
+  this->init_framebuffers();
 }
 
 void Render::VulkanEngine::poll_events() {
@@ -379,6 +396,7 @@ void Render::VulkanEngine::init_swapchain() {
 
   this->swapchain = vkb_swapchain.swapchain;
   this->swapchain_images = vkb_swapchain.get_images().value();
+  this->swapchain_extent = vkb_swapchain.extent;
   this->swapchain_image_views = vkb_swapchain.get_image_views().value();
   this->swapchain_format = vkb_swapchain.image_format;
 
@@ -706,18 +724,9 @@ void Render::VulkanEngine::init_pipelines() {
     io::error(err.msg);
   }
 
-  VkViewport viewport = {};
-  viewport.x = 0.0;
-  viewport.y = 0.0;
-  viewport.width = (float)this->dimensions.width;
-  viewport.height = (float)this->dimensions.height;
-  viewport.minDepth = 0.0f;
-  viewport.maxDepth = 1.0f;
-
-  VkRect2D scissor = {};
-  scissor.offset = {0, 0};
-  scissor.extent.width = this->dimensions.width;
-  scissor.extent.height = this->dimensions.height;
+  VkDynamicState dynamic_state[2] = {
+      VK_DYNAMIC_STATE_SCISSOR,
+      VK_DYNAMIC_STATE_VIEWPORT};
 
   PipelineBuilder builder;
 
@@ -752,8 +761,7 @@ void Render::VulkanEngine::init_pipelines() {
           .with_pipeline_layout(this->mesh_pipeline_layout)
           .with_input_assembly(VkInit::input_assembly_state_create_info(
               VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST))
-          .with_viewport(viewport)
-          .with_scissor(scissor)
+          .with_dynamic_state(dynamic_state, 2)
           .with_rasterizer(
               VkInit::rasterization_state_create_info(VK_POLYGON_MODE_FILL))
           .with_color_blend_attachment(VkInit::color_blend_attachment_state())
@@ -887,7 +895,7 @@ void Render::VulkanEngine::submit_command(
     std::function<void(VkCommandBuffer)> &&function) {
   static bool init = false;
   if (!init) {
-    VkFenceCreateInfo fence_info = VkInit::fence_create_info();
+    VkFenceCreateInfo fence_info = VkInit::fence_create_info(false);
     VK_ASSERT(vkCreateFence(
         this->device,
         &fence_info,
@@ -929,11 +937,13 @@ void Render::VulkanEngine::submit_command(
       nullptr,
       &this->upload_context.command_buffer,
       nullptr);
+  io::debug("here");
   VK_ASSERT(vkQueueSubmit(
       this->graphics_queue,
       1,
       &submit_info,
       this->upload_context.upload_fence));
+  io::debug("here");
 
   vkWaitForFences(
       this->device,

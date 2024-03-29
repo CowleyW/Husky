@@ -57,7 +57,7 @@ VkPresentInfoKHR present_info(
 
 VkSemaphoreCreateInfo semaphore_create_info();
 
-VkFenceCreateInfo fence_create_info();
+VkFenceCreateInfo fence_create_info(bool create_signaled = true);
 
 VkImageCreateInfo
 image_create_info(VkFormat format, VkImageUsageFlags flags, VkExtent3D extent);

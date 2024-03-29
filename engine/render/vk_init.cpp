@@ -209,11 +209,13 @@ VkSemaphoreCreateInfo VkInit::semaphore_create_info() {
   return info;
 }
 
-VkFenceCreateInfo VkInit::fence_create_info() {
+VkFenceCreateInfo VkInit::fence_create_info(bool create_signaled) {
   VkFenceCreateInfo info = {};
   info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   info.pNext = nullptr;
-  info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+  if (create_signaled) {
+    info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+  }
 
   return info;
 }

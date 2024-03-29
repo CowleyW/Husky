@@ -61,12 +61,12 @@ struct Camera {
   float z_far;
   float yaw, pitch;
 
-  glm::mat4 calc_viewproj(const glm::vec3 &world_pos) {
+  glm::mat4 calc_viewproj(const glm::vec3 &world_pos, Dimensions dimensions) {
     glm::mat4 view =
         glm::lookAt(world_pos, world_pos + this->forward, {0.0f, 1.0f, 0.0f});
     glm::mat4 proj = glm::perspective(
         glm::radians(this->fov),
-        1280 / 720.0f,
+        dimensions.width / (float)dimensions.height,
         this->z_near,
         this->z_far);
     proj[1][1] *= -1;

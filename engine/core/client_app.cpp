@@ -138,7 +138,6 @@ void ClientApp::shutdown() {
 }
 
 void ClientApp::on_window_resize(Dimensions dimensions) {
-  io::debug("Resizing window");
   this->render_engine.resize(dimensions);
 }
 

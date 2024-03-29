@@ -29,6 +29,8 @@ public:
   InputMap get_inputs();
 
 private:
+  void destroy_swapchain();
+
   void init_vulkan();
   void init_allocator();
   void init_swapchain();
@@ -49,7 +51,7 @@ private:
 
 private:
   static constexpr uint32_t FRAMES_IN_FLIGHT = 2;
-  static constexpr uint32_t MAX_INSTANCES = 1000;
+  static constexpr uint32_t MAX_INSTANCES = 10000;
 
   Window window{};
   Dimensions dimensions;
@@ -73,6 +75,7 @@ private:
 
   VkSwapchainKHR swapchain;
   VkFormat swapchain_format;
+  VkExtent2D swapchain_extent;
   std::vector<VkImage> swapchain_images;
   std::vector<VkImageView> swapchain_image_views;
 

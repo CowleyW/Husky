@@ -22,9 +22,7 @@ public:
   PipelineBuilder &
   with_input_assembly(VkPipelineInputAssemblyStateCreateInfo input_assembly);
 
-  PipelineBuilder &with_viewport(VkViewport viewport);
-
-  PipelineBuilder &with_scissor(VkRect2D scissor);
+  PipelineBuilder &with_dynamic_state(VkDynamicState *states, uint32_t count);
 
   PipelineBuilder &
   with_rasterizer(VkPipelineRasterizationStateCreateInfo rasterizer);
@@ -44,8 +42,7 @@ private:
   std::vector<VkPipelineShaderStageCreateInfo> shader_stages;
   VkPipelineVertexInputStateCreateInfo vertex_input_info;
   VkPipelineInputAssemblyStateCreateInfo input_assembly;
-  VkViewport viewport;
-  VkRect2D scissor;
+  VkPipelineDynamicStateCreateInfo dynamic_state;
   VkPipelineRasterizationStateCreateInfo rasterizer;
   VkPipelineColorBlendAttachmentState color_blend_attachment;
   VkPipelineMultisampleStateCreateInfo multisampling;

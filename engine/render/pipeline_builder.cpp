@@ -10,9 +10,7 @@ VkPipeline PipelineBuilder::build(VkDevice device, VkRenderPass render_pass) {
   viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   viewport_state.pNext = nullptr;
   viewport_state.viewportCount = 1;
-  viewport_state.pViewports = &this->viewport;
   viewport_state.scissorCount = 1;
-  viewport_state.pScissors = &this->scissor;
 
   VkPipelineColorBlendStateCreateInfo color_blending = {};
   color_blending.sType =
@@ -31,6 +29,7 @@ VkPipeline PipelineBuilder::build(VkDevice device, VkRenderPass render_pass) {
   pipeline_info.pVertexInputState = &this->vertex_input_info;
   pipeline_info.pInputAssemblyState = &this->input_assembly;
   pipeline_info.pViewportState = &viewport_state;
+  pipeline_info.pDynamicState = &this->dynamic_state;
   pipeline_info.pRasterizationState = &this->rasterizer;
   pipeline_info.pMultisampleState = &this->multisampling;
   pipeline_info.pColorBlendState = &color_blending;
@@ -82,14 +81,16 @@ PipelineBuilder &PipelineBuilder::with_input_assembly(
   return *this;
 }
 
-PipelineBuilder &PipelineBuilder::with_viewport(VkViewport viewport) {
-  this->viewport = viewport;
+PipelineBuilder &
+PipelineBuilder::with_dynamic_state(VkDynamicState *states, uint32_t count) {
+  VkPipelineDynamicStateCreateInfo dynamic_state = {};
+  dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+  dynamic_state.pNext = nullptr;
+  dynamic_state.flags = 0;
+  dynamic_state.dynamicStateCount = count;
+  dynamic_state.pDynamicStates = states;
 
-  return *this;
-}
-
-PipelineBuilder &PipelineBuilder::with_scissor(VkRect2D scissor) {
-  this->scissor = scissor;
+  this->dynamic_state = dynamic_state;
 
   return *this;
 }
