@@ -38,8 +38,8 @@ Render::VulkanEngine::~VulkanEngine() {
 
   vmaDestroyBuffer(
       this->allocator,
-      this->obj_mesh.vertex_buffer.buffer,
-      this->obj_mesh.vertex_buffer.allocation);
+      this->obj_mesh->vertex_buffer.buffer,
+      this->obj_mesh->vertex_buffer.allocation);
   vmaDestroyBuffer(
       this->allocator,
       this->scene_data_buffer.buffer,
@@ -243,7 +243,7 @@ void Render::VulkanEngine::render(Scene &scene) {
       frame.main_command_buffer,
       0,
       1,
-      &this->obj_mesh.vertex_buffer.buffer,
+      &this->obj_mesh->vertex_buffer.buffer,
       &offset);
 
   uint32_t cam_id;
@@ -290,7 +290,7 @@ void Render::VulkanEngine::render(Scene &scene) {
   if (current_index != 0) {
     vkCmdDraw(
         frame.main_command_buffer,
-        this->obj_mesh.vertices.size(),
+        this->obj_mesh->vertices.size(),
         current_index,
         0,
         0);
@@ -785,7 +785,7 @@ void Render::VulkanEngine::init_allocator() {
 }
 
 void Render::VulkanEngine::init_meshes() {
-  auto res_mesh = TriMesh::load_from_obj("objs/mech_golem.obj");
+  auto res_mesh = TriMesh::get("objs/dwarf.obj");
   if (res_mesh.is_error) {
     io::error(res_mesh.msg);
   }
@@ -793,7 +793,7 @@ void Render::VulkanEngine::init_meshes() {
   this->obj_mesh = res_mesh.value;
 
   this->upload_mesh(this->obj_mesh);
-  io::info("num vertices: {}", this->obj_mesh.vertices.size());
+  io::info("num vertices: {}", this->obj_mesh->vertices.size());
 }
 
 void Render::VulkanEngine::init_imgui() {
@@ -851,8 +851,8 @@ void Render::VulkanEngine::init_imgui() {
   ImGui_ImplVulkan_CreateFontsTexture();
 }
 
-void Render::VulkanEngine::upload_mesh(TriMesh &mesh) {
-  uint32_t buffer_size = mesh.vertices.size() * sizeof(Vertex);
+void Render::VulkanEngine::upload_mesh(TriMesh *mesh) {
+  uint32_t buffer_size = mesh->vertices.size() * sizeof(Vertex);
   AllocatedBuffer staging_buffer = VkInit::buffer(
       this->allocator,
       buffer_size,
@@ -862,13 +862,13 @@ void Render::VulkanEngine::upload_mesh(TriMesh &mesh) {
   void *data;
   vmaMapMemory(this->allocator, staging_buffer.allocation, &data);
 
-  memcpy(data, mesh.vertices.data(), mesh.size());
+  memcpy(data, mesh->vertices.data(), mesh->size());
 
   vmaUnmapMemory(allocator, staging_buffer.allocation);
 
-  mesh.vertex_buffer = VkInit::buffer(
+  mesh->vertex_buffer = VkInit::buffer(
       this->allocator,
-      mesh.vertices.size() * sizeof(Vertex),
+      mesh->vertices.size() * sizeof(Vertex),
       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_GPU_ONLY);
 
@@ -880,7 +880,7 @@ void Render::VulkanEngine::upload_mesh(TriMesh &mesh) {
     vkCmdCopyBuffer(
         cmd,
         staging_buffer.buffer,
-        mesh.vertex_buffer.buffer,
+        mesh->vertex_buffer.buffer,
         1,
         &copy);
   });
@@ -937,13 +937,11 @@ void Render::VulkanEngine::submit_command(
       nullptr,
       &this->upload_context.command_buffer,
       nullptr);
-  io::debug("here");
   VK_ASSERT(vkQueueSubmit(
       this->graphics_queue,
       1,
       &submit_info,
       this->upload_context.upload_fence));
-  io::debug("here");
 
   vkWaitForFences(
       this->device,

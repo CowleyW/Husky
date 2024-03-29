@@ -1,9 +1,8 @@
 #pragma once
 
+#include "glm/fwd.hpp"
 #include "util/result.h"
 #include "vk_types.h"
-
-#include "glm/glm.hpp"
 
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -15,10 +14,16 @@ struct VertexInputDescription {
   VkPipelineVertexInputStateCreateFlags flags = 0;
 };
 
+struct TextureCoordinate {
+  float u;
+  float v;
+};
+
 struct Vertex {
   glm::vec3 position;
   glm::vec3 normal;
   glm::vec3 color;
+  TextureCoordinate tex;
 
   static VertexInputDescription get_description();
 };
@@ -30,12 +35,19 @@ struct MeshPushConstant {
 
 struct TriMesh {
   std::vector<Vertex> vertices;
+  std::string name;
 
   AllocatedBuffer vertex_buffer;
 
-  uint32_t size() {
+  uint32_t size() const {
     return this->vertices.size() * sizeof(Vertex);
   }
 
-  static Result<TriMesh> load_from_obj(const std::string &obj_path);
+  static Result<TriMesh *> get(const std::string &path);
+
+private:
+  static Result<TriMesh *> load_from_obj(const std::string &obj_path);
+
+private:
+  static std::vector<TriMesh> meshes;
 };

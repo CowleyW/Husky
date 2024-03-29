@@ -31,6 +31,7 @@ add_library(engine
   engine/ecs/scene.h engine/ecs/scene.cpp
 
   # I/O
+  # engine/io/asset_registry.h engine/io/asset_registry.cpp
   engine/io/files.h engine/io/files.cpp
   engine/io/input_map.h engine/io/input_map.cpp
   engine/io/logging.h
@@ -48,6 +49,7 @@ add_library(engine
   engine/net/types.h
 
   # Render
+  engine/render/buffer.h engine/render/buffer.cpp
   engine/render/callback_handler.h
   engine/render/tri_mesh.h engine/render/tri_mesh.cpp
   engine/render/pipeline_builder.h engine/render/pipeline_builder.cpp

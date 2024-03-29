@@ -28,6 +28,8 @@ public:
 
   InputMap get_inputs();
 
+  void upload_mesh(TriMesh *mesh);
+
 private:
   void destroy_swapchain();
 
@@ -42,7 +44,6 @@ private:
   void init_meshes();
   void init_imgui();
 
-  void upload_mesh(TriMesh &mesh);
   void submit_command(std::function<void(VkCommandBuffer)> &&function);
 
   Result<AllocatedImage> load_image_file(const std::string &path);
@@ -57,7 +58,7 @@ private:
   Dimensions dimensions;
   uint32_t frame_number;
 
-  TriMesh obj_mesh;
+  TriMesh *obj_mesh;
 
   SceneData scene_data;
   AllocatedBuffer scene_data_buffer;

@@ -17,9 +17,16 @@ ClientApp::ClientApp(uint32_t server_port, uint32_t client_port)
       world_state(),
       scene(),
       inputs() {
+}
 
-  this->mesh = TriMesh::load_from_obj("objs/mech_golem.obj").value;
-  Mesh mesh_comp = {&mesh, true};
+Err ClientApp::init() {
+  Err err = this->render_engine.init({1920, 1080}, this);
+  if (err.is_error) {
+    return err;
+  }
+
+  this->mesh = TriMesh::get("objs/dwarf.obj").value;
+  Mesh mesh_comp = {mesh, true};
   Transform transform = {
       {0.0f, 0.0f, 4.0f},
       {0.0f, 0.0f, 0.0f},
@@ -38,13 +45,6 @@ ClientApp::ClientApp(uint32_t server_port, uint32_t client_port)
         this->scene.assign(e, transform);
       }
     }
-  }
-}
-
-Err ClientApp::init() {
-  Err err = this->render_engine.init({1920, 1080}, this);
-  if (err.is_error) {
-    return err;
   }
 
   return Err::ok();
