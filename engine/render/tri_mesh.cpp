@@ -5,10 +5,12 @@
 #include "tiny_obj_loader.h"
 
 #include <cstddef>
+#include <utility>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-std::vector<TriMesh> TriMesh::meshes = std::vector<TriMesh>();
+std::vector<std::pair<TriMeshHandle, TriMesh>> TriMesh::meshes =
+    std::vector<std::pair<TriMeshHandle, TriMesh>>();
 
 VertexInputDescription Vertex::get_description() {
   VertexInputDescription description;
@@ -45,18 +47,31 @@ VertexInputDescription Vertex::get_description() {
   return description;
 }
 
-Result<TriMesh *> TriMesh::get(const std::string &path) {
-  for (auto &mesh : TriMesh::meshes) {
+Result<TriMeshHandle> TriMesh::get(const std::string &path) {
+  for (auto &pair : TriMesh::meshes) {
+    auto handle = pair.first;
+    auto &mesh = pair.second;
     if (mesh.name == path) {
-      return Result<TriMesh *>::ok(&mesh);
+      return Result<TriMeshHandle>::ok(handle);
     }
   }
 
-  auto res_mesh = TriMesh::load_from_obj(path);
-  return res_mesh;
+  auto res_handle = TriMesh::load_from_obj(path);
+  return res_handle;
 }
 
-Result<TriMesh *> TriMesh::load_from_obj(const std::string &obj_path) {
+Result<TriMesh *> TriMesh::get(TriMeshHandle handle) {
+  for (auto &pair : TriMesh::meshes) {
+    if (pair.first == handle) {
+      TriMesh &mesh = pair.second;
+      return Result<TriMesh *>::ok(&pair.second);
+    }
+  }
+
+  return Result<TriMesh *>::err("Could not find Mesh with the given handle");
+}
+
+Result<TriMeshHandle> TriMesh::load_from_obj(const std::string &obj_path) {
   std::string full_obj_path = files::full_asset_path(obj_path);
 
   tinyobj::ObjReaderConfig reader_config = {};
@@ -64,7 +79,7 @@ Result<TriMesh *> TriMesh::load_from_obj(const std::string &obj_path) {
 
   tinyobj::ObjReader reader;
   if (!reader.ParseFromFile(full_obj_path, reader_config)) {
-    return Result<TriMesh *>::err("Error Loading Obj: {}", reader.Error());
+    return Result<TriMeshHandle>::err("Error Loading Obj: {}", reader.Error());
   }
 
   if (!reader.Warning().empty()) {
@@ -81,9 +96,13 @@ Result<TriMesh *> TriMesh::load_from_obj(const std::string &obj_path) {
     io::info("Diffuse Texture: {}", mat.diffuse_texname);
   }
 
-  TriMesh::meshes.push_back({});
-  TriMesh *mesh = &TriMesh::meshes.back();
-  mesh->name = obj_path;
+  TriMesh::meshes.push_back({TriMesh::fresh_handle(), {}});
+  auto &pair = TriMesh::meshes.back();
+
+  TriMeshHandle handle = pair.first;
+  TriMesh &mesh = pair.second;
+
+  mesh.name = obj_path;
 
   // Our approach to loading .obj files
   // -> For each shape
@@ -117,11 +136,20 @@ Result<TriMesh *> TriMesh::load_from_obj(const std::string &obj_path) {
 
         vert.color = vert.normal;
 
-        mesh->vertices.push_back(vert);
+        mesh.vertices.push_back(vert);
       }
       offset += 3;
     }
   }
 
-  return Result<TriMesh *>::ok(mesh);
+  return Result<TriMeshHandle>::ok(handle);
+}
+
+TriMeshHandle TriMesh::fresh_handle() {
+  static TriMeshHandle handle = 0;
+
+  TriMeshHandle ret = handle;
+  handle += 1;
+
+  return ret;
 }

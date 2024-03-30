@@ -4,6 +4,8 @@
 #include "util/result.h"
 #include "vk_types.h"
 
+#include <memory>
+#include <utility>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -33,21 +35,26 @@ struct MeshPushConstant {
   glm::mat4 matrix;
 };
 
+typedef uint32_t TriMeshHandle;
+
 struct TriMesh {
   std::vector<Vertex> vertices;
   std::string name;
 
-  AllocatedBuffer vertex_buffer;
+  uint32_t offset;
 
   uint32_t size() const {
     return this->vertices.size() * sizeof(Vertex);
   }
 
-  static Result<TriMesh *> get(const std::string &path);
+  static Result<TriMeshHandle> get(const std::string &path);
+  static Result<TriMesh *> get(TriMeshHandle handle);
 
 private:
-  static Result<TriMesh *> load_from_obj(const std::string &obj_path);
+  static Result<TriMeshHandle> load_from_obj(const std::string &obj_path);
+
+  static TriMeshHandle fresh_handle();
 
 private:
-  static std::vector<TriMesh> meshes;
+  static std::vector<std::pair<TriMeshHandle, TriMesh>> meshes;
 };

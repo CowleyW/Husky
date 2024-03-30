@@ -44,7 +44,6 @@ private:
   Render::VulkanEngine render_engine{};
   RawInputs inputs;
   Scene scene;
-  TriMesh *mesh;
 
   std::shared_ptr<Net::Client> client;
 

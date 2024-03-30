@@ -25,8 +25,12 @@ Err ClientApp::init() {
     return err;
   }
 
-  this->mesh = TriMesh::get("objs/dwarf.obj").value;
-  Mesh mesh_comp = {mesh, true};
+  TriMeshHandle golem = TriMesh::get("objs/mech_golem.obj").value;
+  TriMeshHandle dwarf = TriMesh::get("objs/dwarf.obj").value;
+  this->render_engine.upload_mesh(TriMesh::get(golem).value);
+  this->render_engine.upload_mesh(TriMesh::get(dwarf).value);
+  Mesh dwarf_mesh = {dwarf, true};
+  Mesh golem_mesh = {golem, true};
   Transform transform = {
       {0.0f, 0.0f, 4.0f},
       {0.0f, 0.0f, 0.0f},
@@ -36,13 +40,29 @@ Err ClientApp::init() {
   Camera camera = {{0.0f, 0.0f, -1.0f}, 70.0f, 0.1f, 200.0f, 0.0f, 0.0f};
   this->scene.assign(cam, camera);
 
+  Transform golem_transform = {
+      {0.0f, 0.0f, 0.0f},
+      {0.0f, 0.0f, 0.0f},
+      {1.0f, 1.0f, 1.0f}};
+
+  Transform dwarf_transform = {
+      {0.0f, 0.0f, 0.0f},
+      {0.0f, 0.0f, 0.0f},
+      {0.5f, 0.5f, 0.5f}};
+
   for (uint32_t x = 0; x < 10; x += 1) {
     for (uint32_t z = 0; z < 10; z += 1) {
       for (uint32_t y = 0; y < 10; y += 1) {
-        transform.position = {x * 2.0f, y * 2.0f, z * 2.0f};
         uint64_t e = this->scene.new_entity();
-        this->scene.assign(e, mesh_comp);
-        this->scene.assign(e, transform);
+        if ((x + y + z) % 2 == 0) {
+          dwarf_transform.position = {x * 2.0f, y * 2.0f, z * 2.0f};
+          this->scene.assign(e, dwarf_mesh);
+          this->scene.assign(e, dwarf_transform);
+        } else {
+          golem_transform.position = {x * 2.0f, y * 2.0f, z * 2.0f};
+          this->scene.assign(e, golem_mesh);
+          this->scene.assign(e, golem_transform);
+        }
       }
     }
   }

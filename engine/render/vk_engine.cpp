@@ -16,9 +16,12 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <queue>
 #include <vulkan/vulkan_core.h>
 
 #define VMA_IMPLEMENTATION
@@ -38,8 +41,8 @@ Render::VulkanEngine::~VulkanEngine() {
 
   vmaDestroyBuffer(
       this->allocator,
-      this->obj_mesh->vertex_buffer.buffer,
-      this->obj_mesh->vertex_buffer.allocation);
+      this->master_buffer.buffer,
+      this->master_buffer.allocation);
   vmaDestroyBuffer(
       this->allocator,
       this->scene_data_buffer.buffer,
@@ -101,6 +104,7 @@ Err Render::VulkanEngine::init(
 
   this->init_vulkan();
   this->init_allocator();
+  this->init_buffer();
   this->init_descriptors();
   this->init_frames();
   this->init_swapchain();
@@ -238,14 +242,6 @@ void Render::VulkanEngine::render(Scene &scene) {
       0,
       nullptr);
 
-  VkDeviceSize offset = 0;
-  vkCmdBindVertexBuffers(
-      frame.main_command_buffer,
-      0,
-      1,
-      &this->obj_mesh->vertex_buffer.buffer,
-      &offset);
-
   uint32_t cam_id;
   for (uint32_t id : scene.view<Camera, Transform>()) {
     cam_id = id;
@@ -269,32 +265,45 @@ void Render::VulkanEngine::render(Scene &scene) {
 
   uint32_t current_index = 0;
   ObjectData *object_ssbo = (ObjectData *)object_data;
-  TriMesh *current_mesh = nullptr;
+  std::vector<TriMeshHandle> meshes = {};
   for (uint32_t id : scene.view<Mesh, Transform>()) {
-    Transform *transform = scene.get<Transform>(id);
     Mesh *mesh = scene.get<Mesh>(id);
 
-    if (current_mesh == nullptr) {
-      current_mesh = mesh->mesh;
-    }
-
-    if (mesh->mesh == current_mesh && mesh->visible) {
-      glm::mat4 model = transform->get_matrix();
-      object_ssbo[current_index].model = model;
-      current_index += 1;
+    if (std::find(meshes.begin(), meshes.end(), mesh->mesh) == meshes.end()) {
+      meshes.push_back(mesh->mesh);
     }
   }
+  for (TriMeshHandle handle : meshes) {
+    for (uint32_t id : scene.view<Mesh, Transform>()) {
+      Transform *transform = scene.get<Transform>(id);
+      Mesh *mesh = scene.get<Mesh>(id);
 
-  vmaUnmapMemory(this->allocator, frame.object_buffer.allocation);
+      if (mesh->mesh == handle && mesh->visible) {
+        glm::mat4 model = transform->get_matrix();
+        object_ssbo[current_index].model = model;
+        current_index += 1;
+      }
+    }
 
-  if (current_index != 0) {
+    TriMesh *mesh = TriMesh::get(handle).value;
+
+    VkDeviceSize offset = mesh->offset;
+    vkCmdBindVertexBuffers(
+        frame.main_command_buffer,
+        0,
+        1,
+        &this->master_buffer.buffer,
+        &offset);
+
     vkCmdDraw(
         frame.main_command_buffer,
-        this->obj_mesh->vertices.size(),
+        mesh->vertices.size(),
         current_index,
         0,
         0);
   }
+
+  vmaUnmapMemory(this->allocator, frame.object_buffer.allocation);
 
   ImGui_ImplVulkan_RenderDrawData(
       ImGui::GetDrawData(),
@@ -784,16 +793,24 @@ void Render::VulkanEngine::init_allocator() {
   vmaCreateAllocator(&allocator_info, &this->allocator);
 }
 
+void Render::VulkanEngine::init_buffer() {
+  this->master_buffer = VkInit::buffer(
+      this->allocator,
+      1024 * 1024 * 50,
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VMA_MEMORY_USAGE_GPU_ONLY);
+}
+
 void Render::VulkanEngine::init_meshes() {
-  auto res_mesh = TriMesh::get("objs/dwarf.obj");
-  if (res_mesh.is_error) {
-    io::error(res_mesh.msg);
-  }
-
-  this->obj_mesh = res_mesh.value;
-
-  this->upload_mesh(this->obj_mesh);
-  io::info("num vertices: {}", this->obj_mesh->vertices.size());
+  // auto res_mesh = TriMesh::get("objs/dwarf.obj");
+  // if (res_mesh.is_error) {
+  //   io::error(res_mesh.msg);
+  // }
+  //
+  // this->obj_mesh = res_mesh.value;
+  //
+  // this->upload_mesh(this->obj_mesh);
+  // io::info("num vertices: {}", this->obj_mesh->vertices.size());
 }
 
 void Render::VulkanEngine::init_imgui() {
@@ -852,7 +869,8 @@ void Render::VulkanEngine::init_imgui() {
 }
 
 void Render::VulkanEngine::upload_mesh(TriMesh *mesh) {
-  uint32_t buffer_size = mesh->vertices.size() * sizeof(Vertex);
+  uint32_t buffer_size = mesh->size();
+  mesh->offset = this->master_buffer_offset;
   AllocatedBuffer staging_buffer = VkInit::buffer(
       this->allocator,
       buffer_size,
@@ -866,21 +884,16 @@ void Render::VulkanEngine::upload_mesh(TriMesh *mesh) {
 
   vmaUnmapMemory(allocator, staging_buffer.allocation);
 
-  mesh->vertex_buffer = VkInit::buffer(
-      this->allocator,
-      mesh->vertices.size() * sizeof(Vertex),
-      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-      VMA_MEMORY_USAGE_GPU_ONLY);
-
   this->submit_command([=](VkCommandBuffer cmd) {
     VkBufferCopy copy = {};
     copy.size = buffer_size;
     copy.srcOffset = 0;
-    copy.dstOffset = 0;
+    copy.dstOffset = this->master_buffer_offset;
+    this->master_buffer_offset += buffer_size;
     vkCmdCopyBuffer(
         cmd,
         staging_buffer.buffer,
-        mesh->vertex_buffer.buffer,
+        this->master_buffer.buffer,
         1,
         &copy);
   });

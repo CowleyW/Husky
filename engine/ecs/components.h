@@ -47,7 +47,7 @@ struct Transform {
 struct Mesh {
   COMPONENT_DECLARATION(1);
 
-  TriMesh *mesh;
+  TriMeshHandle mesh;
   // Material *material;
   bool visible;
 };

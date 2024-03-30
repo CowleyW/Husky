@@ -2,6 +2,8 @@
 
 #include "io/logging.h"
 
+#include "buffer.h"
+
 #include <vk_mem_alloc.h>
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan.h>
@@ -36,24 +38,6 @@ struct SceneData {
   glm::vec4 ambient_color;
   glm::vec4 sunlight_direction;
   glm::vec4 sunlight_color;
-};
-
-struct AllocatedBuffer {
-  VkBuffer buffer;
-  VmaAllocation allocation;
-
-  static uint32_t padding_size(
-      uint32_t original_size,
-      const VkPhysicalDeviceProperties &properties) {
-    // Efficient function to calculate padding size from:
-    // https://github.com/SaschaWillems/Vulkan/tree/master/examples/dynamicuniformbuffer
-    uint32_t min_alignment = properties.limits.minUniformBufferOffsetAlignment;
-    if (min_alignment > 0) {
-      return (original_size + min_alignment - 1) & ~(min_alignment - 1);
-    } else {
-      return original_size;
-    }
-  }
 };
 
 struct AllocatedImage {

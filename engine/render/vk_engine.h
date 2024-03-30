@@ -35,6 +35,7 @@ private:
 
   void init_vulkan();
   void init_allocator();
+  void init_buffer();
   void init_swapchain();
   void init_default_renderpass();
   void init_descriptors();
@@ -52,13 +53,17 @@ private:
 
 private:
   static constexpr uint32_t FRAMES_IN_FLIGHT = 2;
-  static constexpr uint32_t MAX_INSTANCES = 10000;
+  static constexpr uint32_t MAX_INSTANCES = 50000;
+  // We allocate 50mb to the master buffer. This buffer will contain both vertex
+  // buffers and index buffers
+  static constexpr uint32_t MASTER_BUFFER_SIZE = 50 * 1024 * 1024;
 
   Window window{};
   Dimensions dimensions;
   uint32_t frame_number;
 
-  TriMesh *obj_mesh;
+  AllocatedBuffer master_buffer;
+  uint32_t master_buffer_offset;
 
   SceneData scene_data;
   AllocatedBuffer scene_data_buffer;
