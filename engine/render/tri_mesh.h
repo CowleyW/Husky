@@ -16,16 +16,11 @@ struct VertexInputDescription {
   VkPipelineVertexInputStateCreateFlags flags = 0;
 };
 
-struct TextureCoordinate {
-  float u;
-  float v;
-};
-
 struct Vertex {
   glm::vec3 position;
   glm::vec3 normal;
   glm::vec3 color;
-  TextureCoordinate tex;
+  glm::vec2 uvs;
 
   static VertexInputDescription get_description();
 };

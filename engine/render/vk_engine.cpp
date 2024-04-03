@@ -966,6 +966,28 @@ void Render::VulkanEngine::submit_command(
   vkResetCommandPool(this->device, this->upload_context.command_pool, 0);
 }
 
+void Render::VulkanEngine::load_images() {
+  auto res_image = this->load_image_file("objs/FantasyRivals_Texture_03_A.png");
+  if (res_image.is_error) {
+    io::error(res_image.msg);
+  }
+
+  Texture texture = {};
+  texture.image = res_image.value;
+
+  VkImageViewCreateInfo image_view_info = VkInit::imageview_create_info(
+      VK_FORMAT_R8G8B8A8_SRGB,
+      texture.image.image,
+      VK_IMAGE_ASPECT_COLOR_BIT);
+  VK_ASSERT(vkCreateImageView(
+      this->device,
+      &image_view_info,
+      nullptr,
+      &texture.image_view));
+
+  this->textures["rivals_03A"] = texture;
+}
+
 Result<AllocatedImage>
 Render::VulkanEngine::load_image_file(const std::string &path) {
   int32_t width, height, channels;

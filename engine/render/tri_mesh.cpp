@@ -40,9 +40,16 @@ VertexInputDescription Vertex::get_description() {
   color_attrib.format = VK_FORMAT_R32G32B32_SFLOAT;
   color_attrib.offset = offsetof(Vertex, color);
 
+  VkVertexInputAttributeDescription texture_attrib = {};
+  texture_attrib.binding = 0;
+  texture_attrib.location = 3;
+  texture_attrib.format = VK_FORMAT_R32G32_SFLOAT;
+  texture_attrib.offset = offsetof(Vertex, uvs);
+
   description.attributes.push_back(position_attrib);
   description.attributes.push_back(normal_attrib);
   description.attributes.push_back(color_attrib);
+  description.attributes.push_back(texture_attrib);
 
   return description;
 }
@@ -130,8 +137,8 @@ Result<TriMeshHandle> TriMesh::load_from_obj(const std::string &obj_path) {
         }
 
         if (index.texcoord_index >= 0) {
-          vert.tex.u = attrib.texcoords[2 * index.texcoord_index + 0];
-          vert.tex.v = attrib.texcoords[2 * index.texcoord_index + 1];
+          vert.uvs.x = attrib.texcoords[2 * index.texcoord_index + 0];
+          vert.uvs.y = 1 - attrib.texcoords[2 * index.texcoord_index + 1];
         }
 
         vert.color = vert.normal;

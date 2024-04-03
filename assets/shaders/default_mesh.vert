@@ -3,8 +3,10 @@
 layout (location = 0) in vec3 v_position;
 layout (location = 1) in vec3 v_normal;
 layout (location = 2) in vec3 v_color;
+layout (location = 3) in vec2 v_tex_coords;
 
 layout (location = 0) out vec3 a_color;
+layout (location = 1) out vec2 a_tex_coords;
 
 struct ObjectData {
   mat4 model;
@@ -23,4 +25,5 @@ void main() {
   mat4 transform = camera_data.viewproj * model;
   gl_Position = transform * vec4(v_position, 1.0f);
   a_color = v_color;
+  a_tex_coords = v_tex_coords;
 }

@@ -9,6 +9,8 @@
 #include "window.h"
 
 #include <functional>
+#include <string>
+#include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -39,6 +41,7 @@ private:
   void init_swapchain();
   void init_default_renderpass();
   void init_descriptors();
+  void load_images();
   void init_frames();
   void init_framebuffers();
   void init_pipelines();
@@ -61,6 +64,8 @@ private:
   Window window{};
   Dimensions dimensions;
   uint32_t frame_number;
+
+  std::unordered_map<std::string, Texture> textures;
 
   AllocatedBuffer master_buffer;
   uint32_t master_buffer_offset;

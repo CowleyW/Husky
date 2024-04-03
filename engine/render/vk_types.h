@@ -70,4 +70,9 @@ struct UploadContext {
   VkCommandBuffer command_buffer;
 };
 
+struct Texture {
+  AllocatedImage image;
+  VkImageView image_view;
+};
+
 enum class ShaderType { Vertex = 0, Fragment };
