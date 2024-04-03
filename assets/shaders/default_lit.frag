@@ -5,6 +5,8 @@ layout (location = 1) in vec2 v_tex_coords;
 
 layout (location = 0) out vec4 FragColor;
 
+layout (set = 2, binding = 0) uniform sampler2D texture_sampler;
+
 layout(set = 0, binding = 1) uniform SceneData {
   vec4 fog_color;
   vec4 fog_distances;
@@ -14,5 +16,6 @@ layout(set = 0, binding = 1) uniform SceneData {
 } scene_data;
 
 void main() {
-  FragColor = vec4(v_tex_coords, 0.5f, 1.0f);
+  vec3 tex_color = texture(texture_sampler, v_tex_coords).xyz;
+  FragColor = vec4(tex_color, 1.0f);
 }

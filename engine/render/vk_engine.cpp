@@ -48,6 +48,11 @@ Render::VulkanEngine::~VulkanEngine() {
       this->scene_data_buffer.buffer,
       this->scene_data_buffer.allocation);
 
+  for (auto &[key, value] : this->textures) {
+    vmaDestroyImage(this->allocator, value.image.image, value.image.allocation);
+    vkDestroyImageView(this->device, value.image_view, nullptr);
+  }
+
   vkDestroyCommandPool(
       this->device,
       this->upload_context.command_pool,
@@ -62,7 +67,13 @@ Render::VulkanEngine::~VulkanEngine() {
       this->device,
       this->object_descriptor_layout,
       nullptr);
+  vkDestroyDescriptorSetLayout(
+      this->device,
+      this->single_texture_descriptor_layout,
+      nullptr);
   vkDestroyDescriptorPool(this->device, this->descriptor_pool, nullptr);
+
+  vkDestroySampler(this->device, this->sampler, nullptr);
 
   for (auto &frame : this->frames) {
     vkDestroyCommandPool(this->device, frame.command_pool, nullptr);
@@ -106,6 +117,7 @@ Err Render::VulkanEngine::init(
   this->init_allocator();
   this->init_buffer();
   this->init_descriptors();
+  this->load_images();
   this->init_frames();
   this->init_swapchain();
   this->init_default_renderpass();
@@ -239,6 +251,16 @@ void Render::VulkanEngine::render(Scene &scene) {
       1,
       1,
       &frame.object_descriptor,
+      0,
+      nullptr);
+
+  vkCmdBindDescriptorSets(
+      frame.main_command_buffer,
+      VK_PIPELINE_BIND_POINT_GRAPHICS,
+      this->mesh_pipeline_layout,
+      2,
+      1,
+      &this->material.texture_descriptor,
       0,
       nullptr);
 
@@ -498,7 +520,8 @@ void Render::VulkanEngine::init_descriptors() {
   std::vector<VkDescriptorPoolSize> sizes = {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10},
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10},
-      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10}};
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10},
+      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10}};
 
   VkDescriptorPoolCreateInfo pool_info = {};
   pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -569,6 +592,25 @@ void Render::VulkanEngine::init_descriptors() {
       scene_data_size,
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
       VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+  VkDescriptorSetLayoutBinding texture_binding =
+      VkInit::descriptor_set_layout_binding(
+          VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+          VK_SHADER_STAGE_FRAGMENT_BIT,
+          0);
+
+  VkDescriptorSetLayoutCreateInfo texture_info = {};
+  texture_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  texture_info.pNext = nullptr;
+  texture_info.flags = 0;
+  texture_info.bindingCount = 1;
+  texture_info.pBindings = &texture_binding;
+
+  vkCreateDescriptorSetLayout(
+      this->device,
+      &texture_info,
+      nullptr,
+      &this->single_texture_descriptor_layout);
 }
 
 void Render::VulkanEngine::init_frames() {
@@ -747,6 +789,7 @@ void Render::VulkanEngine::init_pipelines() {
   std::vector<VkDescriptorSetLayout> descriptor_layouts;
   descriptor_layouts.push_back(this->global_descriptor_layout);
   descriptor_layouts.push_back(this->object_descriptor_layout);
+  descriptor_layouts.push_back(this->single_texture_descriptor_layout);
 
   VkPipelineLayoutCreateInfo mesh_layout_info =
       VkInit::pipeline_layout_create_info(&push_constant, &descriptor_layouts);
@@ -986,6 +1029,37 @@ void Render::VulkanEngine::load_images() {
       &texture.image_view));
 
   this->textures["rivals_03A"] = texture;
+
+  VkSamplerCreateInfo sampler_info =
+      VkInit::sampler_create_info(VK_FILTER_NEAREST);
+
+  VK_ASSERT(
+      vkCreateSampler(this->device, &sampler_info, nullptr, &this->sampler));
+
+  VkDescriptorSetAllocateInfo alloc_info = {};
+  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  alloc_info.pNext = nullptr;
+  alloc_info.descriptorPool = this->descriptor_pool;
+  alloc_info.descriptorSetCount = 1;
+  alloc_info.pSetLayouts = &this->single_texture_descriptor_layout;
+
+  vkAllocateDescriptorSets(
+      this->device,
+      &alloc_info,
+      &this->material.texture_descriptor);
+
+  VkDescriptorImageInfo image_info = {};
+  image_info.sampler = sampler;
+  image_info.imageView = this->textures["rivals_03A"].image_view;
+  image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+  VkWriteDescriptorSet texture_write = VkInit::write_descriptor_image(
+      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+      this->material.texture_descriptor,
+      &image_info,
+      0);
+
+  vkUpdateDescriptorSets(this->device, 1, &texture_write, 0, nullptr);
 }
 
 Result<AllocatedImage>
@@ -1104,7 +1178,7 @@ Render::VulkanEngine::load_image_file(const std::string &path) {
         nullptr,
         0,
         nullptr,
-        0,
+        1,
         &readable);
   });
 

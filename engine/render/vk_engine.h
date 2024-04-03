@@ -3,6 +3,7 @@
 #include "callback_handler.h"
 #include "ecs/scene.h"
 #include "io/input_map.h"
+#include "material.h"
 #include "tri_mesh.h"
 #include "util/err.h"
 #include "vk_types.h"
@@ -66,6 +67,7 @@ private:
   uint32_t frame_number;
 
   std::unordered_map<std::string, Texture> textures;
+  Material material;
 
   AllocatedBuffer master_buffer;
   uint32_t master_buffer_offset;
@@ -98,12 +100,14 @@ private:
 
   VkDescriptorSetLayout global_descriptor_layout;
   VkDescriptorSetLayout object_descriptor_layout;
+  VkDescriptorSetLayout single_texture_descriptor_layout;
   VkDescriptorPool descriptor_pool;
 
   FrameData frames[FRAMES_IN_FLIGHT];
 
   VkPipeline mesh_pipeline;
   VkPipelineLayout mesh_pipeline_layout;
+  VkSampler sampler;
 
   VkImageView depth_image_view;
   AllocatedImage depth_image;

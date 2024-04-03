@@ -105,4 +105,14 @@ VkWriteDescriptorSet write_descriptor_set(
     VkDescriptorSet dest,
     VkDescriptorBufferInfo *info,
     uint32_t binding);
+
+VkSamplerCreateInfo sampler_create_info(
+    VkFilter filters,
+    VkSamplerAddressMode address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT);
+
+VkWriteDescriptorSet write_descriptor_image(
+    VkDescriptorType type,
+    VkDescriptorSet dest,
+    VkDescriptorImageInfo *info,
+    uint32_t binding);
 } // namespace VkInit

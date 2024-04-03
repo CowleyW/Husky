@@ -447,3 +447,35 @@ VkWriteDescriptorSet VkInit::write_descriptor_set(
 
   return write_set;
 }
+
+VkSamplerCreateInfo VkInit::sampler_create_info(
+    VkFilter filters,
+    VkSamplerAddressMode address_mode) {
+  VkSamplerCreateInfo info = {};
+  info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  info.pNext = nullptr;
+  info.magFilter = filters;
+  info.minFilter = filters;
+  info.addressModeU = address_mode;
+  info.addressModeV = address_mode;
+  info.addressModeW = address_mode;
+
+  return info;
+}
+
+VkWriteDescriptorSet VkInit::write_descriptor_image(
+    VkDescriptorType type,
+    VkDescriptorSet dest,
+    VkDescriptorImageInfo *info,
+    uint32_t binding) {
+  VkWriteDescriptorSet write_set = {};
+  write_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  write_set.pNext = nullptr;
+  write_set.dstBinding = binding;
+  write_set.dstSet = dest;
+  write_set.descriptorCount = 1;
+  write_set.descriptorType = type;
+  write_set.pImageInfo = info;
+
+  return write_set;
+}

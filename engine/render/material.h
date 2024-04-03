@@ -11,7 +11,7 @@ typedef uint32_t MaterialHandle;
 struct Material {
   VkPipeline pipeline;
   VkPipelineLayout pipeline_layout;
-  VkDescriptorSet descriptor_set;
+  VkDescriptorSet texture_descriptor;
 
   static Result<Material *> get(MaterialHandle handle);
 
