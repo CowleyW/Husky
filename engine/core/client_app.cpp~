@@ -37,20 +37,20 @@ Err ClientApp::init() {
   Transform transform = {
       {35.0f, 2.0f, 0.0f},
       {0.0f, 0.0f, 0.0f},
-      {1.0f, 1.0f, 1.0f}};
+      {1.0f, -1.0f, 1.0f}};
   uint64_t cam = this->scene.new_entity();
   this->scene.assign(cam, transform);
-  Camera camera = {{0.0f, 0.0f, 1.0f}, 70.0f, 0.1f, 200.0f, 0.0f, 0.0f};
+  Camera camera = {{0.0f, 0.0f, -.0f}, 70.0f, 0.1f, 200.0f, 0.0f, 0.0f};
   this->scene.assign(cam, camera);
 
   Transform golem_transform = {
       {0.0f, 0.0f, 0.0f},
-      {0.0f, 3.1415f, 0.0f},
-      {1.0f, 1.0f, 1.0f}};
+      {0.0f, 0.0f, 0.0f},
+      {1.0f, -1.0f, 1.0f}};
 
   Transform dwarf_transform = {
       {0.0f, 0.0f, 0.0f},
-      {0.0f, 3.1415f, 0.0f},
+      {0.0f, 0.0f, 0.0f},
       {0.5f, 0.5f, 0.5f}};
 
   for (uint32_t x = 0; x < 70; x += 1) {
