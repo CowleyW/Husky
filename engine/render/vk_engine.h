@@ -10,6 +10,7 @@
 #include "window.h"
 
 #include <functional>
+#include <queue>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -32,6 +33,8 @@ public:
   InputMap get_inputs();
 
   void upload_mesh(TriMesh *mesh);
+
+  void imgui_enqueue(std::function<void(void)> &&imgui_fn);
 
 private:
   void destroy_swapchain();
@@ -65,6 +68,8 @@ private:
   Window window{};
   Dimensions dimensions;
   uint32_t frame_number;
+
+  std::vector<std::function<void(void)>> imgui_fns;
 
   std::unordered_map<std::string, Texture> textures;
   Material material;

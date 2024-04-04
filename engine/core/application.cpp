@@ -2,6 +2,7 @@
 
 #include "core/client_app.h"
 #include "core/server_app.h"
+#include "io/logging.h"
 
 #include <chrono>
 
@@ -36,14 +37,18 @@ void Application::run() {
   auto prev_time = std::chrono::steady_clock::now();
 
   while (this->running) {
-    // Perform any updates that should happen as regularly as possible
-    this->update();
-
     auto now = std::chrono::steady_clock::now();
     auto frame_time = now - prev_time;
+    float dt_ms =
+        std::chrono::duration_cast<std::chrono::microseconds>(frame_time)
+            .count() /
+        1000.0f;
     prev_time = now;
 
     accumulator += frame_time;
+
+    // Perform any updates that should happen as regularly as possible
+    this->update(dt_ms);
 
     // Perform fixed update as many times as needed
     while (accumulator >= dt) {

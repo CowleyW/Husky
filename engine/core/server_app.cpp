@@ -21,7 +21,7 @@ void ServerApp::begin() {
   this->server->begin();
 }
 
-void ServerApp::update() {
+void ServerApp::update(float dt) {
   this->poll_network();
 
   auto dc_client = this->server->next_disconnected_client();

@@ -1,14 +1,17 @@
 #include "client_app.h"
 
-#include "GLFW/glfw3.h"
 #include "ecs/components.h"
-#include "glm/fwd.hpp"
 #include "io/input_map.h"
 #include "io/logging.h"
 #include "io/raw_inputs.h"
 #include "util/err.h"
 #include "util/serialize.h"
 #include "world_state.h"
+
+#include "GLFW/glfw3.h"
+#include "glm/fwd.hpp"
+#include "imgui.h"
+
 #include <algorithm>
 
 ClientApp::ClientApp(uint32_t server_port, uint32_t client_port)
@@ -74,9 +77,20 @@ void ClientApp::begin() {
   this->client->begin();
 }
 
-void ClientApp::update() {
+void ClientApp::update(float dt) {
   this->render_engine.poll_events();
   this->poll_network();
+
+  this->render_engine.imgui_enqueue([=]() {
+    ImGui::Begin(
+        "Performance",
+        &this->perf_tab_active,
+        ImGuiWindowFlags_MenuBar);
+
+    ImGui::Text("Frame Time: %.1f", dt);
+
+    ImGui::End();
+  });
 }
 
 void ClientApp::render() {

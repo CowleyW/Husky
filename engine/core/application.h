@@ -1,6 +1,5 @@
 #pragma once
 
-#include "util/err.h"
 #include "util/result.h"
 
 class Application {
@@ -10,7 +9,7 @@ public:
 
   virtual void begin() {
   }
-  virtual void update() {
+  virtual void update(float dt) {
   }
   virtual void fixed_update() {
   }

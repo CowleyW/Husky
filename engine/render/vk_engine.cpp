@@ -17,9 +17,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <queue>
 #include <vulkan/vulkan_core.h>
@@ -148,13 +146,6 @@ void Render::VulkanEngine::render(Scene &scene) {
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
-
-  if (show_demo_window) {
-    ImGui::ShowDemoWindow(&show_demo_window);
-  }
-
-  ImGui::Render();
-  ImDrawData *main_draw_data = ImGui::GetDrawData();
 
   FrameData &frame = this->next_frame();
   VK_ASSERT(
@@ -326,6 +317,15 @@ void Render::VulkanEngine::render(Scene &scene) {
   }
 
   vmaUnmapMemory(this->allocator, frame.object_buffer.allocation);
+
+  for (auto fn : this->imgui_fns) {
+    fn();
+  }
+
+  this->imgui_fns.clear();
+
+  ImGui::Render();
+  ImDrawData *main_draw_data = ImGui::GetDrawData();
 
   ImGui_ImplVulkan_RenderDrawData(
       ImGui::GetDrawData(),
@@ -945,6 +945,10 @@ void Render::VulkanEngine::upload_mesh(TriMesh *mesh) {
       this->allocator,
       staging_buffer.buffer,
       staging_buffer.allocation);
+}
+
+void Render::VulkanEngine::imgui_enqueue(std::function<void(void)> &&imgui_fn) {
+  this->imgui_fns.push_back(imgui_fn);
 }
 
 void Render::VulkanEngine::submit_command(

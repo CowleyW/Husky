@@ -15,7 +15,7 @@ public:
   // Methods inherited from Application
   void begin() override;
 
-  void update() override;
+  void update(float dt) override;
 
   void fixed_update() override;
   void shutdown() override;

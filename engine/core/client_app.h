@@ -7,6 +7,7 @@
 #include "render/callback_handler.h"
 #include "render/vk_engine.h"
 #include "world_state.h"
+#include <functional>
 
 class ClientApp : public Application, CallbackHandler {
 public:
@@ -17,7 +18,7 @@ public:
 public:
   // Methods inherited from Application
   void begin() override;
-  void update() override;
+  void update(float dt) override;
   void fixed_update() override;
   void render() override;
   void shutdown() override;
@@ -52,4 +53,6 @@ private:
   bool running = false;
   uint32_t frame;
   WorldState world_state;
+
+  bool perf_tab_active = true;
 };
