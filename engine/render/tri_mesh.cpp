@@ -9,6 +9,11 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
+bool Vertex::operator==(const Vertex &other) const {
+  return this->position == other.position && this->color == other.color &&
+         this->normal == other.normal && this->uvs == other.uvs;
+}
+
 std::vector<std::pair<TriMeshHandle, TriMesh>> TriMesh::meshes =
     std::vector<std::pair<TriMeshHandle, TriMesh>>();
 
@@ -96,12 +101,6 @@ Result<TriMeshHandle> TriMesh::load_from_obj(const std::string &obj_path) {
   const tinyobj::attrib_t &attrib = reader.GetAttrib();
   const std::vector<tinyobj::shape_t> &shapes = reader.GetShapes();
   const std::vector<tinyobj::material_t> &materials = reader.GetMaterials();
-  io::info("Material Stats:");
-  io::info("  Size {}", materials.size());
-  for (auto &mat : materials) {
-    io::info("  --- Mat ---");
-    io::info("Diffuse Texture: {}", mat.diffuse_texname);
-  }
 
   TriMesh::meshes.push_back({TriMesh::fresh_handle(), {}});
   auto &pair = TriMesh::meshes.back();
@@ -110,12 +109,16 @@ Result<TriMeshHandle> TriMesh::load_from_obj(const std::string &obj_path) {
   TriMesh &mesh = pair.second;
 
   mesh.name = obj_path;
+  mesh.vertices = std::vector<Vertex>();
+  mesh.indices = std::vector<uint32_t>();
 
   // Our approach to loading .obj files
   // -> For each shape
   //    -> for each face
   //       -> add triangle positions
   //       -> add triangle normals
+
+  std::unordered_map<Vertex, uint32_t> vertices = {};
 
   // Loop over shapes
   for (uint32_t s = 0; s < shapes.size(); s += 1) {
@@ -143,11 +146,21 @@ Result<TriMeshHandle> TriMesh::load_from_obj(const std::string &obj_path) {
 
         vert.color = vert.normal;
 
-        mesh.vertices.push_back(vert);
+        if (vertices.count(vert) == 0) {
+          vertices[vert] = vertices.size();
+          mesh.vertices.push_back(vert);
+        }
+
+        mesh.indices.push_back(vertices[vert]);
       }
       offset += 3;
     }
   }
+
+  io::debug(
+      "Vertices: {}, Indices: {}",
+      mesh.vertices.size(),
+      mesh.indices.size());
 
   return Result<TriMeshHandle>::ok(handle);
 }

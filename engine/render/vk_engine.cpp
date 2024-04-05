@@ -300,18 +300,26 @@ void Render::VulkanEngine::render(Scene &scene) {
 
     TriMesh *mesh = TriMesh::get(handle).value;
 
-    VkDeviceSize offset = mesh->offset;
+    VkDeviceSize vertices_offset = mesh->vertices_offset;
+    VkDeviceSize indices_offset = mesh->indices_offset;
     vkCmdBindVertexBuffers(
         frame.main_command_buffer,
         0,
         1,
         &this->master_buffer.buffer,
-        &offset);
+        &vertices_offset);
 
-    vkCmdDraw(
+    vkCmdBindIndexBuffer(
         frame.main_command_buffer,
-        mesh->vertices.size(),
+        this->master_buffer.buffer,
+        indices_offset,
+        VK_INDEX_TYPE_UINT32);
+
+    vkCmdDrawIndexed(
+        frame.main_command_buffer,
+        mesh->indices.size(),
         current_index,
+        0,
         0,
         0);
   }
@@ -840,7 +848,8 @@ void Render::VulkanEngine::init_buffer() {
   this->master_buffer = VkInit::buffer(
       this->allocator,
       1024 * 1024 * 50,
-      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+          VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_GPU_ONLY);
 }
 
@@ -912,27 +921,52 @@ void Render::VulkanEngine::init_imgui() {
 }
 
 void Render::VulkanEngine::upload_mesh(TriMesh *mesh) {
-  uint32_t buffer_size = mesh->size();
-  mesh->offset = this->master_buffer_offset;
+  uint32_t vertex_buffer_size = mesh->vertices.size() * sizeof(Vertex);
+  uint32_t index_buffer_size = mesh->indices.size() * sizeof(uint32_t);
+  uint32_t buffer_size = std::max(vertex_buffer_size, index_buffer_size);
+  mesh->vertices_offset = this->master_buffer_offset;
+  mesh->indices_offset = this->master_buffer_offset + vertex_buffer_size;
   AllocatedBuffer staging_buffer = VkInit::buffer(
       this->allocator,
       buffer_size,
       VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
       VMA_MEMORY_USAGE_CPU_ONLY);
 
+  // Upload the vertex data
   void *data;
   vmaMapMemory(this->allocator, staging_buffer.allocation, &data);
 
-  memcpy(data, mesh->vertices.data(), mesh->size());
+  memcpy(data, mesh->vertices.data(), vertex_buffer_size);
 
   vmaUnmapMemory(allocator, staging_buffer.allocation);
 
   this->submit_command([=](VkCommandBuffer cmd) {
     VkBufferCopy copy = {};
-    copy.size = buffer_size;
+    copy.size = vertex_buffer_size;
     copy.srcOffset = 0;
     copy.dstOffset = this->master_buffer_offset;
-    this->master_buffer_offset += buffer_size;
+    this->master_buffer_offset += vertex_buffer_size;
+    vkCmdCopyBuffer(
+        cmd,
+        staging_buffer.buffer,
+        this->master_buffer.buffer,
+        1,
+        &copy);
+  });
+
+  // Upload the index data
+  vmaMapMemory(this->allocator, staging_buffer.allocation, &data);
+
+  memcpy(data, mesh->indices.data(), index_buffer_size);
+
+  vmaUnmapMemory(allocator, staging_buffer.allocation);
+
+  this->submit_command([=](VkCommandBuffer cmd) {
+    VkBufferCopy copy = {};
+    copy.size = index_buffer_size;
+    copy.srcOffset = 0;
+    copy.dstOffset = this->master_buffer_offset;
+    this->master_buffer_offset += index_buffer_size;
     vkCmdCopyBuffer(
         cmd,
         staging_buffer.buffer,
