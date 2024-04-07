@@ -28,8 +28,8 @@ Err ClientApp::init() {
     return err;
   }
 
-  TriMeshHandle golem = TriMesh::get("objs/mech_golem.obj").value;
-  TriMeshHandle dwarf = TriMesh::get("objs/dwarf.obj").value;
+  TriMeshHandle golem = TriMesh::get("models/mech_golem.asset").value;
+  TriMeshHandle dwarf = TriMesh::get("models/dwarf.asset").value;
   this->render_engine.upload_mesh(TriMesh::get(golem).value);
   this->render_engine.upload_mesh(TriMesh::get(dwarf).value);
   Mesh dwarf_mesh = {dwarf, true};

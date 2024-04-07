@@ -17,6 +17,7 @@ add_library(engine
   engine/core/client_app.h engine/core/client_app.cpp
   engine/core/server_app.h engine/core/server_app.cpp
   engine/core/def.h
+  engine/core/perf.h
   engine/core/position.h engine/core/position.cpp
   engine/core/random.h engine/core/random.cpp
   engine/core/world_state.h engine/core/world_state.cpp
@@ -31,6 +32,7 @@ add_library(engine
   engine/ecs/scene.h engine/ecs/scene.cpp
 
   # I/O
+  engine/io/assets.h engine/io/assets.cpp
   engine/io/files.h engine/io/files.cpp
   engine/io/input_map.h engine/io/input_map.cpp
   engine/io/logging.h
@@ -118,6 +120,21 @@ target_include_directories(engine PUBLIC
   lib/stb)
 
 target_compile_definitions(engine PRIVATE _WIN32_WINNT=0x0A00)
+
+# Build tools
+add_executable(converter
+  tools/converter.cpp)
+
+target_include_directories(converter PRIVATE 
+  engine/
+)
+
+target_link_libraries(converter PRIVATE 
+  fmt 
+  glm::glm
+  tinyobjloader
+  engine
+)
 
 # Main Configuration
 add_executable(runtime 

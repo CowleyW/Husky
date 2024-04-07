@@ -70,6 +70,7 @@ struct TriMesh {
 
 private:
   static Result<TriMeshHandle> load_from_obj(const std::string &obj_path);
+  static Result<TriMeshHandle> load_from_asset(const std::string &asset_path);
 
   static TriMeshHandle fresh_handle();
 

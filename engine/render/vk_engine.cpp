@@ -1,5 +1,6 @@
 #include "vk_engine.h"
 
+#include "core/perf.h"
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/fwd.hpp"
@@ -1048,7 +1049,10 @@ void Render::VulkanEngine::submit_command(
 }
 
 void Render::VulkanEngine::load_images() {
+  PERF_BEGIN(LoadImage);
   auto res_image = this->load_image_file("objs/FantasyRivals_Texture_03_A.png");
+  PERF_END(LoadImage);
+
   if (res_image.is_error) {
     io::error(res_image.msg);
   }

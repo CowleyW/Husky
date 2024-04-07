@@ -3,6 +3,7 @@
 #include "util/buf.h"
 
 #include <cstring>
+#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -56,6 +57,10 @@ uint64_t deserialize_u64(MutBuf<uint8_t> &buf);
 // Deserialize the first 4 bytes of the buffer into a float and update the
 // buffer
 float deserialize_float(MutBuf<uint8_t> &buf);
+
+std::string deserialize_string(MutBuf<uint8_t> &buf, uint32_t size);
+
+void deserialize_bytes_into(MutBuf<uint8_t> &buf, void *dst, uint32_t size);
 
 template <typename T>
 T deserialize_enum(MutBuf<uint8_t> &buf) {

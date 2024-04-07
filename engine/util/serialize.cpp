@@ -1,6 +1,7 @@
 #include "serialize.h"
 #include "io/logging.h"
 
+#include <cstring>
 #include <vector>
 
 uint32_t Serialize::serialize_u8(
@@ -119,4 +120,31 @@ float Serialize::deserialize_float(MutBuf<uint8_t> &buf) {
 
   io::debug("float: {} int: {}", u.val, u.f);
   return u.f;
+}
+
+std::string Serialize::deserialize_string(MutBuf<uint8_t> &buf, uint32_t size) {
+  std::string str;
+
+  if (size == 0) {
+    return "";
+  }
+
+  str.resize(size);
+  std::memcpy(str.data(), buf.data(), size);
+
+  buf.trim_left(size);
+  return str;
+}
+
+void Serialize::deserialize_bytes_into(
+    MutBuf<uint8_t> &buf,
+    void *dst,
+    uint32_t size) {
+  if (size == 0) {
+    return;
+  }
+
+  std::memcpy(dst, buf.data(), size);
+
+  buf.trim_left(size);
 }

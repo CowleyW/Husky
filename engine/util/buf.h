@@ -36,6 +36,10 @@ public:
       : inner_data(inner_data),
         count(size) {
   }
+  MutBuf(const std::vector<T> &buf)
+      : inner_data(buf.data()),
+        count(buf.size()) {
+  }
   MutBuf(const Buf<T> &buf) : inner_data(buf.data()), count(buf.size()) {
   }
 

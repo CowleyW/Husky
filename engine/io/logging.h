@@ -38,4 +38,9 @@ void fatal(std::string_view msg, Args &&...args) {
       args...);
 }
 
+template <typename... Args>
+void perf(std::string_view msg, Args &&...args) {
+  fmt::print(fg(fmt::color::cyan), fmt::format("[PERF]: {}\n", msg), args...);
+}
+
 } // namespace io
