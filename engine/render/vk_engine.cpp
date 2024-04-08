@@ -4,6 +4,7 @@
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/fwd.hpp"
+#include "io/assets.h"
 #include "io/files.h"
 #include "io/logging.h"
 #include "render/callback_handler.h"
@@ -12,6 +13,7 @@
 #include "render/tri_mesh.h"
 #include "render/vk_init.h"
 #include "render/vk_types.h"
+#include "util/serialize.h"
 
 #include "VkBootstrap.h"
 #include "imgui.h"
@@ -115,14 +117,13 @@ Err Render::VulkanEngine::init(
   this->init_vulkan();
   this->init_allocator();
   this->init_buffer();
+  this->init_sampler();
   this->init_descriptors();
-  this->load_images();
   this->init_frames();
   this->init_swapchain();
   this->init_default_renderpass();
   this->init_framebuffers();
   this->init_pipelines();
-  this->init_meshes();
   this->init_imgui();
 
   return Err::ok();
@@ -143,7 +144,6 @@ void Render::VulkanEngine::destroy_swapchain() {
 }
 
 void Render::VulkanEngine::render(Scene &scene) {
-  static bool show_demo_window = true;
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
@@ -246,16 +246,6 @@ void Render::VulkanEngine::render(Scene &scene) {
       0,
       nullptr);
 
-  vkCmdBindDescriptorSets(
-      frame.main_command_buffer,
-      VK_PIPELINE_BIND_POINT_GRAPHICS,
-      this->mesh_pipeline_layout,
-      2,
-      1,
-      &this->material.texture_descriptor,
-      0,
-      nullptr);
-
   uint32_t cam_id;
   for (uint32_t id : scene.view<Camera, Transform>()) {
     cam_id = id;
@@ -279,30 +269,47 @@ void Render::VulkanEngine::render(Scene &scene) {
 
   uint32_t current_index = 0;
   ObjectData *object_ssbo = (ObjectData *)object_data;
-  std::vector<TriMeshHandle> meshes = {};
+  std::vector<std::pair<TriMeshHandle, MaterialHandle>> renderables = {};
   for (uint32_t id : scene.view<Mesh, Transform>()) {
     Mesh *mesh = scene.get<Mesh>(id);
 
-    if (std::find(meshes.begin(), meshes.end(), mesh->mesh) == meshes.end()) {
-      meshes.push_back(mesh->mesh);
+    bool found_renderable = false;
+    for (auto &renderable : renderables) {
+      if (renderable.first == mesh->mesh &&
+          renderable.second == mesh->material) {
+        found_renderable = true;
+        break;
+      }
+    }
+
+    if (!found_renderable) {
+      renderables.push_back({mesh->mesh, mesh->material});
     }
   }
-  for (TriMeshHandle handle : meshes) {
+
+  for (auto renderable : renderables) {
+    uint32_t first_instance = current_index;
+    uint32_t count = 0;
+    TriMeshHandle mesh_handle = renderable.first;
+    MaterialHandle mat_handle = renderable.second;
     for (uint32_t id : scene.view<Mesh, Transform>()) {
       Transform *transform = scene.get<Transform>(id);
       Mesh *mesh = scene.get<Mesh>(id);
 
-      if (mesh->mesh == handle && mesh->visible) {
+      if (mesh_handle == mesh->mesh && mat_handle == mesh->material &&
+          mesh->visible) {
         glm::mat4 model = transform->get_matrix();
         object_ssbo[current_index].model = model;
         current_index += 1;
+        count += 1;
       }
     }
 
-    TriMesh *mesh = TriMesh::get(handle).value;
+    TriMesh *tri_mesh = TriMesh::get(mesh_handle).value;
+    Material *mat = Material::get(mat_handle).value;
 
-    VkDeviceSize vertices_offset = mesh->vertices_offset;
-    VkDeviceSize indices_offset = mesh->indices_offset;
+    VkDeviceSize vertices_offset = tri_mesh->vertices_offset;
+    VkDeviceSize indices_offset = tri_mesh->indices_offset;
     vkCmdBindVertexBuffers(
         frame.main_command_buffer,
         0,
@@ -316,9 +323,19 @@ void Render::VulkanEngine::render(Scene &scene) {
         indices_offset,
         VK_INDEX_TYPE_UINT32);
 
+    vkCmdBindDescriptorSets(
+        frame.main_command_buffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        this->mesh_pipeline_layout,
+        2,
+        1,
+        &mat->texture_descriptor,
+        0,
+        nullptr);
+
     vkCmdDrawIndexed(
         frame.main_command_buffer,
-        mesh->indices.size(),
+        tri_mesh->indices.size(),
         current_index,
         0,
         0,
@@ -854,16 +871,12 @@ void Render::VulkanEngine::init_buffer() {
       VMA_MEMORY_USAGE_GPU_ONLY);
 }
 
-void Render::VulkanEngine::init_meshes() {
-  // auto res_mesh = TriMesh::get("objs/dwarf.obj");
-  // if (res_mesh.is_error) {
-  //   io::error(res_mesh.msg);
-  // }
-  //
-  // this->obj_mesh = res_mesh.value;
-  //
-  // this->upload_mesh(this->obj_mesh);
-  // io::info("num vertices: {}", this->obj_mesh->vertices.size());
+void Render::VulkanEngine::init_sampler() {
+  VkSamplerCreateInfo sampler_info =
+      VkInit::sampler_create_info(VK_FILTER_NEAREST);
+
+  VK_ASSERT(
+      vkCreateSampler(this->device, &sampler_info, nullptr, &this->sampler));
 }
 
 void Render::VulkanEngine::init_imgui() {
@@ -982,6 +995,56 @@ void Render::VulkanEngine::upload_mesh(TriMesh *mesh) {
       staging_buffer.allocation);
 }
 
+void Render::VulkanEngine::upload_material(Material *material) {
+  PERF_BEGIN(LoadTexture);
+  auto res_image = this->load_texture_asset(material->material_name);
+  PERF_END(LoadTexture);
+
+  if (res_image.is_error) {
+    io::error(res_image.msg);
+  }
+
+  Texture texture = {};
+  texture.image = res_image.value;
+
+  VkImageViewCreateInfo image_view_info = VkInit::imageview_create_info(
+      VK_FORMAT_R8G8B8A8_SRGB,
+      texture.image.image,
+      VK_IMAGE_ASPECT_COLOR_BIT);
+  VK_ASSERT(vkCreateImageView(
+      this->device,
+      &image_view_info,
+      nullptr,
+      &texture.image_view));
+
+  this->textures[material->material_name] = texture;
+
+  VkDescriptorSetAllocateInfo alloc_info = {};
+  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  alloc_info.pNext = nullptr;
+  alloc_info.descriptorPool = this->descriptor_pool;
+  alloc_info.descriptorSetCount = 1;
+  alloc_info.pSetLayouts = &this->single_texture_descriptor_layout;
+
+  vkAllocateDescriptorSets(
+      this->device,
+      &alloc_info,
+      &material->texture_descriptor);
+
+  VkDescriptorImageInfo image_info = {};
+  image_info.sampler = sampler;
+  image_info.imageView = texture.image_view;
+  image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+  VkWriteDescriptorSet texture_write = VkInit::write_descriptor_image(
+      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+      material->texture_descriptor,
+      &image_info,
+      0);
+
+  vkUpdateDescriptorSets(this->device, 1, &texture_write, 0, nullptr);
+}
+
 void Render::VulkanEngine::imgui_enqueue(std::function<void(void)> &&imgui_fn) {
   this->imgui_fns.push_back(imgui_fn);
 }
@@ -1048,77 +1111,32 @@ void Render::VulkanEngine::submit_command(
   vkResetCommandPool(this->device, this->upload_context.command_pool, 0);
 }
 
-void Render::VulkanEngine::load_images() {
-  PERF_BEGIN(LoadImage);
-  auto res_image = this->load_image_file("objs/FantasyRivals_Texture_03_A.png");
-  PERF_END(LoadImage);
-
-  if (res_image.is_error) {
-    io::error(res_image.msg);
-  }
-
-  Texture texture = {};
-  texture.image = res_image.value;
-
-  VkImageViewCreateInfo image_view_info = VkInit::imageview_create_info(
-      VK_FORMAT_R8G8B8A8_SRGB,
-      texture.image.image,
-      VK_IMAGE_ASPECT_COLOR_BIT);
-  VK_ASSERT(vkCreateImageView(
-      this->device,
-      &image_view_info,
-      nullptr,
-      &texture.image_view));
-
-  this->textures["rivals_03A"] = texture;
-
-  VkSamplerCreateInfo sampler_info =
-      VkInit::sampler_create_info(VK_FILTER_NEAREST);
-
-  VK_ASSERT(
-      vkCreateSampler(this->device, &sampler_info, nullptr, &this->sampler));
-
-  VkDescriptorSetAllocateInfo alloc_info = {};
-  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-  alloc_info.pNext = nullptr;
-  alloc_info.descriptorPool = this->descriptor_pool;
-  alloc_info.descriptorSetCount = 1;
-  alloc_info.pSetLayouts = &this->single_texture_descriptor_layout;
-
-  vkAllocateDescriptorSets(
-      this->device,
-      &alloc_info,
-      &this->material.texture_descriptor);
-
-  VkDescriptorImageInfo image_info = {};
-  image_info.sampler = sampler;
-  image_info.imageView = this->textures["rivals_03A"].image_view;
-  image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-  VkWriteDescriptorSet texture_write = VkInit::write_descriptor_image(
-      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-      this->material.texture_descriptor,
-      &image_info,
-      0);
-
-  vkUpdateDescriptorSets(this->device, 1, &texture_write, 0, nullptr);
-}
-
 Result<AllocatedImage>
-Render::VulkanEngine::load_image_file(const std::string &path) {
-  int32_t width, height, channels;
-  void *pixels = stbi_load(
-      files::full_asset_path(path).c_str(),
-      &width,
-      &height,
-      &channels,
-      STBI_rgb_alpha);
+Render::VulkanEngine::load_texture_asset(const std::string &path) {
+  auto res_asset = files::load_file(path);
 
-  if (!pixels) {
-    return Result<AllocatedImage>::err("Failed to load image file");
+  if (res_asset.is_error) {
+    return Result<AllocatedImage>::err(res_asset.msg);
   }
 
-  int32_t image_size = width * height * 4;
+  MutBuf<uint8_t> mutbuf(res_asset.value);
+
+  if ((AssetType)Serialize::deserialize_u32(mutbuf) != AssetType::Texture) {
+    return Result<AllocatedImage>::err("Invalid texture type");
+  }
+
+  uint32_t width = Serialize::deserialize_u32(mutbuf);
+  uint32_t height = Serialize::deserialize_u32(mutbuf);
+  uint32_t size = Serialize::deserialize_u32(mutbuf);
+  if (size != width * height * 4) {
+    return Result<AllocatedImage>::err(
+        "{} * {} (w * h) != {}",
+        width,
+        height,
+        size);
+  }
+
+  uint32_t image_size = width * height * 4;
   VkFormat image_format = VK_FORMAT_R8G8B8A8_SRGB;
 
   AllocatedBuffer staging_buffer = VkInit::buffer(
@@ -1130,10 +1148,9 @@ Render::VulkanEngine::load_image_file(const std::string &path) {
   void *data;
   vmaMapMemory(this->allocator, staging_buffer.allocation, &data);
 
-  std::memcpy(data, pixels, static_cast<uint32_t>(image_size));
+  std::memcpy(data, mutbuf.data(), static_cast<uint32_t>(image_size));
 
   vmaUnmapMemory(this->allocator, staging_buffer.allocation);
-  stbi_image_free(pixels);
 
   VkExtent3D extent = {};
   extent.width = static_cast<uint32_t>(width);

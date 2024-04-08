@@ -53,6 +53,7 @@ struct TriMesh {
   std::vector<Vertex> vertices;
   std::vector<uint32_t> indices;
   std::string name;
+  std::string texture_name;
 
   uint32_t vertices_offset;
   uint32_t indices_offset;

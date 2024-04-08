@@ -1,6 +1,6 @@
 #include "material.h"
 
-std::vector<std::pair<MaterialHandle, Material>> materials = {};
+std::vector<std::pair<MaterialHandle, Material>> Material::materials = {};
 
 Result<Material *> Material::get(MaterialHandle handle) {
   for (auto &pair : Material::materials) {
@@ -12,6 +12,26 @@ Result<Material *> Material::get(MaterialHandle handle) {
 
   return Result<Material *>::err(
       "Could not find Material with the given handle");
+}
+
+Result<MaterialHandle> Material::get(const std::string &path) {
+  for (auto &pair : Material::materials) {
+    auto handle = pair.first;
+    auto *mat = &pair.second;
+
+    if (mat->material_name == path) {
+      return Result<MaterialHandle>::ok(handle);
+    }
+  }
+
+  Material::materials.push_back({Material::fresh_handle(), {}});
+  auto &pair = Material::materials.back();
+
+  MaterialHandle handle = pair.first;
+  Material &material = pair.second;
+  material.material_name = path;
+
+  return Result<MaterialHandle>::ok(handle);
 }
 
 MaterialHandle Material::fresh_handle() {

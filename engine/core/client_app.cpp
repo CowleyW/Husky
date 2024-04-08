@@ -4,6 +4,7 @@
 #include "io/input_map.h"
 #include "io/logging.h"
 #include "io/raw_inputs.h"
+#include "render/material.h"
 #include "util/err.h"
 #include "util/serialize.h"
 #include "world_state.h"
@@ -30,10 +31,16 @@ Err ClientApp::init() {
 
   TriMeshHandle golem = TriMesh::get("models/mech_golem.asset").value;
   TriMeshHandle dwarf = TriMesh::get("models/dwarf.asset").value;
+  MaterialHandle mat1 =
+      Material::get("models/FantasyRivals_Texture_01_A.asset").value;
+  MaterialHandle mat2 =
+      Material::get("models/FantasyRivals_Texture_03_A.asset").value;
   this->render_engine.upload_mesh(TriMesh::get(golem).value);
   this->render_engine.upload_mesh(TriMesh::get(dwarf).value);
-  Mesh dwarf_mesh = {dwarf, true};
-  Mesh golem_mesh = {golem, true};
+  this->render_engine.upload_material(Material::get(mat1).value);
+  this->render_engine.upload_material(Material::get(mat2).value);
+  Mesh dwarf_mesh = {dwarf, mat1, true};
+  Mesh golem_mesh = {golem, mat2, true};
   Transform transform = {
       {35.0f, 2.0f, 0.0f},
       {0.0f, 0.0f, 0.0f},

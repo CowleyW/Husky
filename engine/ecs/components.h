@@ -2,6 +2,7 @@
 
 #include "ecs/ecs_types.h"
 #include "glm/ext/vector_float3.hpp"
+#include "render/material.h"
 #include "render/tri_mesh.h"
 
 #include "glm/gtc/matrix_transform.hpp"
@@ -48,7 +49,8 @@ struct Mesh {
   COMPONENT_DECLARATION(1);
 
   TriMeshHandle mesh;
-  // Material *material;
+  MaterialHandle material;
+
   bool visible;
 };
 

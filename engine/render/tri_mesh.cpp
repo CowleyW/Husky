@@ -114,9 +114,7 @@ Result<TriMeshHandle> TriMesh::load_from_asset(const std::string &asset_path) {
   TriMesh &mesh = pair.second;
 
   uint32_t tex_name_size = Serialize::deserialize_u32(mutbuf);
-  std::string texture_name =
-      Serialize::deserialize_string(mutbuf, tex_name_size);
-  io::debug(texture_name);
+  mesh.texture_name = Serialize::deserialize_string(mutbuf, tex_name_size);
 
   uint32_t vertices_count = Serialize::deserialize_u32(mutbuf);
   mesh.vertices.resize(vertices_count);

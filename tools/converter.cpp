@@ -109,7 +109,8 @@ void save_texture(
     const std::string &dirpath,
     const std::string &name,
     uint8_t *data,
-    uint32_t size) {
+    uint32_t width,
+    uint32_t height) {
   std::string full_path =
       files::full_asset_path(dirpath + "/" + name + ".asset");
   std::ofstream file(full_path, std::ios::binary | std::ios::out);
@@ -118,15 +119,21 @@ void save_texture(
     return;
   }
 
-  // Asset type
-  file << (uint32_t)AssetType::Texture;
+  std::vector<uint8_t> buf(4);
+  uint32_t texture_size = width * height * 4;
 
-  // [size][name]
-  file << name.size() << name;
+  // Asset type
+  Serialize::serialize_u32((uint32_t)AssetType::Texture, buf, 0);
+  file.write((const char *)buf.data(), sizeof(uint32_t));
 
   // Write the texture data
-  file << size;
-  file.write((const char *)data, size);
+  Serialize::serialize_u32(width, buf, 0);
+  file.write((const char *)buf.data(), sizeof(uint32_t));
+  Serialize::serialize_u32(height, buf, 0);
+  file.write((const char *)buf.data(), sizeof(uint32_t));
+  Serialize::serialize_u32(texture_size, buf, 0);
+  file.write((const char *)buf.data(), sizeof(uint32_t));
+  file.write((const char *)data, texture_size);
 
   file.close();
 }
@@ -230,7 +237,8 @@ void convert_obj(const std::string &path) {
       dirpath,
       trim_ext(tex_mat_name),
       (uint8_t *)pixels,
-      texture_size);
+      width,
+      height);
 
   stbi_image_free(pixels);
 
@@ -239,7 +247,7 @@ void convert_obj(const std::string &path) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 2) {
+  if (argc < 2 || argc > 3) {
     io::error("Usage: converter.exe [asset_name]");
     return 1;
   }

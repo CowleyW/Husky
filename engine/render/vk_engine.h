@@ -33,6 +33,7 @@ public:
   InputMap get_inputs();
 
   void upload_mesh(TriMesh *mesh);
+  void upload_material(Material *material);
 
   void imgui_enqueue(std::function<void(void)> &&imgui_fn);
 
@@ -42,19 +43,18 @@ private:
   void init_vulkan();
   void init_allocator();
   void init_buffer();
+  void init_sampler();
   void init_swapchain();
   void init_default_renderpass();
   void init_descriptors();
-  void load_images();
   void init_frames();
   void init_framebuffers();
   void init_pipelines();
-  void init_meshes();
   void init_imgui();
 
   void submit_command(std::function<void(VkCommandBuffer)> &&function);
 
-  Result<AllocatedImage> load_image_file(const std::string &path);
+  Result<AllocatedImage> load_texture_asset(const std::string &path);
 
   FrameData &next_frame();
 

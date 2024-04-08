@@ -13,7 +13,10 @@ struct Material {
   VkPipelineLayout pipeline_layout;
   VkDescriptorSet texture_descriptor;
 
+  std::string material_name;
+
   static Result<Material *> get(MaterialHandle handle);
+  static Result<MaterialHandle> get(const std::string &path);
 
 private:
   static MaterialHandle fresh_handle();
