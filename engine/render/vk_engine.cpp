@@ -336,10 +336,10 @@ void Render::VulkanEngine::render(Scene &scene) {
     vkCmdDrawIndexed(
         frame.main_command_buffer,
         tri_mesh->indices.size(),
-        current_index,
+        count,
         0,
         0,
-        0);
+        first_instance);
   }
 
   vmaUnmapMemory(this->allocator, frame.object_buffer.allocation);

@@ -30,7 +30,7 @@ Err ClientApp::init() {
   }
 
   TriMeshHandle golem = TriMesh::get("models/mech_golem.asset").value;
-  TriMeshHandle dwarf = TriMesh::get("models/dwarf.asset").value;
+  TriMeshHandle dwarf = TriMesh::get("models/fort_golem.asset").value;
   MaterialHandle mat1 =
       Material::get("models/FantasyRivals_Texture_01_A.asset").value;
   MaterialHandle mat2 =
