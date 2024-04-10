@@ -4,6 +4,9 @@
 #include "core/server_app.h"
 #include "io/logging.h"
 
+#define WIN32_LEAN_AND_MEAN
+#include "tracy/Tracy.hpp"
+
 #include <chrono>
 
 Result<Application *> Application::create_server(uint32_t port) {
@@ -37,6 +40,7 @@ void Application::run() {
   auto prev_time = std::chrono::steady_clock::now();
 
   while (this->running) {
+    FrameMark;
     auto now = std::chrono::steady_clock::now();
     auto frame_time = now - prev_time;
     float dt_ms =

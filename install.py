@@ -39,4 +39,5 @@ if __name__ == "__main__":
     git_clone("git@github.com:ocornut/imgui.git", "imgui", args.clean)
     git_clone("git@github.com:nothings/stb.git", "stb", args.clean)
     git_clone("git@github.com:tinyobjloader/tinyobjloader.git", "tinyobjloader", args.clean)
+    git_clone("git@github.com:wolfpld/tracy.git", "tracy", args.clean)
 

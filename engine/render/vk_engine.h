@@ -1,7 +1,7 @@
 #pragma once
 
 #include "callback_handler.h"
-#include "ecs/scene.h"
+#include "entt/entity/fwd.hpp"
 #include "io/input_map.h"
 #include "material.h"
 #include "tri_mesh.h"
@@ -10,7 +10,6 @@
 #include "window.h"
 
 #include <functional>
-#include <queue>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -24,7 +23,7 @@ public:
 
   Err init(Dimensions dimensions, CallbackHandler *handler);
 
-  void render(Scene &scene);
+  void render(entt::registry &registry);
 
   void resize(Dimensions dimensions);
 

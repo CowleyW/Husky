@@ -27,9 +27,9 @@ add_library(engine
 
   # ECS
   engine/ecs/components.h engine/ecs/components.cpp
-  engine/ecs/ecs_types.h
-  engine/ecs/entity.h engine/ecs/entity.cpp
-  engine/ecs/scene.h engine/ecs/scene.cpp
+  # engine/ecs/ecs_types.h
+  # engine/ecs/entity.h engine/ecs/entity.cpp
+  # engine/ecs/scene.h engine/ecs/scene.cpp
 
   # I/O
   engine/io/assets.h engine/io/assets.cpp
@@ -77,6 +77,11 @@ add_subdirectory(lib/fmt)
 add_subdirectory(lib/VulkanMemoryAllocator)
 add_subdirectory(lib/vk-bootstrap)
 add_subdirectory(lib/tinyobjloader)
+add_subdirectory(lib/entt)
+
+option(TRACY_ENABLE "" ON)
+option(TRACY_ON_DEMAND "" ON)
+add_subdirectory(lib/tracy)
 
 # imgui
 add_library(imgui STATIC 
@@ -104,6 +109,8 @@ target_link_libraries(engine PUBLIC
   wsock32
   imgui
   tinyobjloader
+  Tracy::TracyClient
+  EnTT
 )
 
 target_include_directories(engine PUBLIC 
@@ -114,10 +121,12 @@ target_include_directories(engine PUBLIC
   lib/vk-bootstrap/src/
   lib/VulkanMemoryAllocator/include/
   lib/Vulkan-Utility-Libraries/include/vulkan/
-  lib/imgui
-  lib/imgui/backends
-  lib/tinyobjloader
-  lib/stb)
+  lib/imgui/
+  lib/imgui/backends/
+  lib/tinyobjloader/
+  lib/stb/
+  lib/tracy/
+  lib/entt/src/)
 
 target_compile_definitions(engine PRIVATE _WIN32_WINNT=0x0A00)
 
@@ -152,7 +161,8 @@ add_executable(tests
   test/io/files.cpp
   test/net/message.cpp
   test/util/serialize.cpp
-  test/ecs/scene.cpp)
+  # test/ecs/scene.cpp
+  )
 
 target_compile_features(tests PRIVATE cxx_std_17)
 

@@ -2,12 +2,13 @@
 
 #include "application.h"
 
+#include "entt/entity/fwd.hpp"
 #include "io/raw_inputs.h"
 #include "net/client.h"
 #include "render/callback_handler.h"
 #include "render/vk_engine.h"
 #include "world_state.h"
-#include <functional>
+#include <entt/entt.hpp>
 
 class ClientApp : public Application, CallbackHandler {
 public:
@@ -44,7 +45,7 @@ private:
 private:
   Render::VulkanEngine render_engine{};
   RawInputs inputs;
-  Scene scene;
+  entt::registry registry;
 
   std::shared_ptr<Net::Client> client;
 

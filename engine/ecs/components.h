@@ -32,8 +32,6 @@ private:
 };
 
 struct Transform {
-  COMPONENT_DECLARATION(0);
-
   glm::vec3 position;
   glm::vec3 rotation;
   glm::vec3 scale;
@@ -46,8 +44,6 @@ struct Transform {
 };
 
 struct Mesh {
-  COMPONENT_DECLARATION(1);
-
   TriMeshHandle mesh;
   MaterialHandle material;
 
@@ -55,8 +51,6 @@ struct Mesh {
 };
 
 struct Camera {
-  COMPONENT_DECLARATION(2);
-
   glm::vec3 forward;
   float fov;
   float z_near;

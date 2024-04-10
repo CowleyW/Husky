@@ -14,16 +14,18 @@
 #include "imgui.h"
 
 #include <algorithm>
+#include <tracy/Tracy.hpp>
 
 ClientApp::ClientApp(uint32_t server_port, uint32_t client_port)
     : client(std::make_shared<Net::Client>(server_port, client_port)),
       frame(0),
       world_state(),
-      scene(),
+      registry(),
       inputs() {
 }
 
 Err ClientApp::init() {
+  ZoneScopedN("ClientApp::init");
   Err err = this->render_engine.init({1920, 1080}, this);
   if (err.is_error) {
     return err;
@@ -45,32 +47,28 @@ Err ClientApp::init() {
       {35.0f, 2.0f, 0.0f},
       {0.0f, 0.0f, 0.0f},
       {1.0f, 1.0f, 1.0f}};
-  uint64_t cam = this->scene.new_entity();
-  this->scene.assign(cam, transform);
   Camera camera = {{0.0f, 0.0f, 1.0f}, 70.0f, 0.1f, 200.0f, 0.0f, 0.0f};
-  this->scene.assign(cam, camera);
-
-  Transform golem_transform = {
-      {0.0f, 0.0f, 0.0f},
-      {0.0f, 3.1415f, 0.0f},
-      {1.0f, 1.0f, 1.0f}};
-
-  Transform dwarf_transform = {
-      {0.0f, 0.0f, 0.0f},
-      {0.0f, 3.1415f, 0.0f},
-      {0.5f, 0.5f, 0.5f}};
+  const auto cam = this->registry.create();
+  this->registry.emplace<Transform>(cam, transform);
+  this->registry.emplace<Camera>(cam, camera);
 
   for (uint32_t x = 0; x < 70; x += 1) {
     for (uint32_t z = 0; z < 70; z += 1) {
-      uint64_t e = this->scene.new_entity();
+      const auto e = this->registry.create();
       if ((x + z) % 2 == 0) {
-        dwarf_transform.position = {x, 0.0f, z};
-        this->scene.assign(e, dwarf_mesh);
-        this->scene.assign(e, dwarf_transform);
+        Transform dwarf_transform = {
+            {x, 0.0f, z},
+            {0.0f, 3.1415f, 0.0f},
+            {0.5f, 0.5f, 0.5f}};
+        this->registry.emplace<Transform>(e, dwarf_transform);
+        this->registry.emplace<Mesh>(e, dwarf_mesh);
       } else {
-        golem_transform.position = {x, 0.0f, z};
-        this->scene.assign(e, golem_mesh);
-        this->scene.assign(e, golem_transform);
+        Transform golem_transform = {
+            {x, 0.0f, z},
+            {0.0f, 3.1415f, 0.0f},
+            {1.0f, 1.0f, 1.0f}};
+        this->registry.emplace<Transform>(e, golem_transform);
+        this->registry.emplace<Mesh>(e, golem_mesh);
       }
     }
   }
@@ -83,6 +81,7 @@ void ClientApp::begin() {
 }
 
 void ClientApp::update(float dt) {
+  ZoneScopedN("ClientApp::update");
   this->render_engine.poll_events();
   this->poll_network();
 
@@ -99,57 +98,53 @@ void ClientApp::update(float dt) {
 }
 
 void ClientApp::render() {
-  this->render_engine.render(this->scene);
+  ZoneScopedN("ClientApp::render");
+  this->render_engine.render(this->registry);
 }
 
 void ClientApp::fixed_update() {
+  ZoneScopedN("ClientApp::fixed_update");
   this->frame += 1;
 
-  for (uint64_t id : this->scene.view<Camera, Transform>()) {
-    Transform *transform = this->scene.get<Transform>(id);
-    Camera *camera = this->scene.get<Camera>(id);
-
+  this->registry.view<Camera, Transform>().each([this](auto &c, auto &t) {
     if (this->inputs.is_key_down(GLFW_KEY_W)) {
-      transform->position += camera->forward * 0.016f;
+      t.position += c.forward * 0.016f;
     }
     if (this->inputs.is_key_down(GLFW_KEY_A)) {
-      transform->position -= camera->calc_right() * 0.016f;
+      t.position -= c.calc_right() * 0.016f;
     }
     if (this->inputs.is_key_down(GLFW_KEY_S)) {
-      transform->position -= camera->forward * 0.016f;
+      t.position -= c.forward * 0.016f;
     }
     if (this->inputs.is_key_down(GLFW_KEY_D)) {
-      transform->position += camera->calc_right() * 0.016f;
+      t.position += c.calc_right() * 0.016f;
     }
     if (this->inputs.is_key_down(GLFW_KEY_LEFT_SHIFT)) {
-      transform->position -= glm::vec3(0.0f, 1.0f, 0.0f) * 0.016f;
+      t.position -= glm::vec3(0.0f, 1.0f, 0.0f) * 0.016f;
     }
     if (this->inputs.is_key_down(GLFW_KEY_SPACE)) {
-      transform->position += glm::vec3(0.0f, 1.0f, 0.0f) * 0.016f;
+      t.position += glm::vec3(0.0f, 1.0f, 0.0f) * 0.016f;
     }
 
     if (this->inputs.is_mouse_button_down(GLFW_MOUSE_BUTTON_LEFT)) {
-      camera->yaw += (float)this->inputs.mouse_dx * 0.16f;
-      camera->pitch += (float)this->inputs.mouse_dy * 0.16f;
-      camera->pitch = std::clamp(camera->pitch, -89.0f, 89.0f);
+      c.yaw += (float)this->inputs.mouse_dx * 0.16f;
+      c.pitch += (float)this->inputs.mouse_dy * 0.16f;
+      c.pitch = std::clamp(c.pitch, -89.0f, 89.0f);
 
       float yaw = (float)this->inputs.mouse_dx * 0.16f;
       float pitch = (float)this->inputs.mouse_dy * 0.16f;
 
       glm::mat4 yawRotation =
           glm::rotate(glm::mat4(1.0f), glm::radians(-yaw), {0.0f, 1.0f, 0.0f});
-      glm::mat4 pitchRotation = glm::rotate(
-          glm::mat4(1.0f),
-          glm::radians(-pitch),
-          camera->calc_right());
+      glm::mat4 pitchRotation =
+          glm::rotate(glm::mat4(1.0f), glm::radians(-pitch), c.calc_right());
 
       glm::mat4 combinedRotation = yawRotation * pitchRotation;
 
-      camera->forward = glm::normalize(
-          glm::vec3(combinedRotation * glm::vec4(camera->forward, 0.0f)));
+      c.forward = glm::normalize(
+          glm::vec3(combinedRotation * glm::vec4(c.forward, 0.0f)));
     }
-  }
-
+  });
   if (this->client_index.has_value()) {
     auto pos = this->world_state.player_position(this->client_index.value());
 

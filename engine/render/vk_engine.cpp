@@ -1,6 +1,8 @@
 #include "vk_engine.h"
 
 #include "core/perf.h"
+#include "ecs/components.h"
+#include "entt/entity/fwd.hpp"
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/fwd.hpp"
@@ -22,7 +24,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <queue>
+#include <entt/entt.hpp>
+#include <tracy/Tracy.hpp>
 #include <vulkan/vulkan_core.h>
 
 #define VMA_IMPLEMENTATION
@@ -143,239 +146,287 @@ void Render::VulkanEngine::destroy_swapchain() {
       this->depth_image.allocation);
 }
 
-void Render::VulkanEngine::render(Scene &scene) {
-  ImGui_ImplVulkan_NewFrame();
-  ImGui_ImplGlfw_NewFrame();
-  ImGui::NewFrame();
-
+void Render::VulkanEngine::render(entt::registry &registry) {
+  ZoneScoped;
   FrameData &frame = this->next_frame();
-  VK_ASSERT(
-      vkWaitForFences(this->device, 1, &frame.render_fence, true, 1000000000));
-  VK_ASSERT(vkResetFences(this->device, 1, &frame.render_fence));
-
   uint32_t next_image_index;
-  VK_ASSERT(vkAcquireNextImageKHR(
-      this->device,
-      this->swapchain,
-      1000000000,
-      frame.present_semaphore,
-      nullptr,
-      &next_image_index));
 
-  VK_ASSERT(vkResetCommandBuffer(frame.main_command_buffer, 0));
+  {
+    ZoneNamedN(__await_fence, "Await Fence", true);
 
-  VkCommandBufferBeginInfo cmd_info = VkInit::command_buffer_begin_info();
-  VK_ASSERT(vkBeginCommandBuffer(frame.main_command_buffer, &cmd_info));
-
-  std::vector<VkClearValue> clear_values;
-  VkClearValue clear_value = {};
-  clear_value.color = {{1.0f, 1.0f, 1.0f, 1.0f}};
-  VkClearValue depth_value = {};
-  depth_value.depthStencil = {1.0f, 0};
-
-  clear_values.push_back(clear_value);
-  clear_values.push_back(depth_value);
-
-  VkRenderPassBeginInfo render_pass_info = VkInit::render_pass_begin_info(
-      this->render_pass,
-      this->frame_buffers[next_image_index],
-      &clear_values,
-      this->dimensions);
-
-  vkCmdBeginRenderPass(
-      frame.main_command_buffer,
-      &render_pass_info,
-      VK_SUBPASS_CONTENTS_INLINE);
-
-  vkCmdBindPipeline(
-      frame.main_command_buffer,
-      VK_PIPELINE_BIND_POINT_GRAPHICS,
-      this->mesh_pipeline);
-
-  VkViewport viewport = {};
-  viewport.x = 0.0;
-  viewport.y = 0.0;
-  viewport.width = (float)this->dimensions.width;
-  viewport.height = (float)this->dimensions.height;
-  viewport.minDepth = 0.0f;
-  viewport.maxDepth = 1.0f;
-  vkCmdSetViewport(frame.main_command_buffer, 0, 1, &viewport);
-
-  VkRect2D scissor = {};
-  scissor.offset = {0, 0};
-  scissor.extent.width = this->dimensions.width;
-  scissor.extent.height = this->dimensions.height;
-  vkCmdSetScissor(frame.main_command_buffer, 0, 1, &scissor);
-
-  this->scene_data.ambient_color = {1.0f, 1.0f, 1.0f, 1.0f};
-
-  void *scene_data;
-  vmaMapMemory(
-      this->allocator,
-      this->scene_data_buffer.allocation,
-      &scene_data);
-
-  uint32_t buffer_offset =
-      AllocatedBuffer::padding_size(sizeof(SceneData), this->gpu_properties);
-  uint32_t frame_index =
-      this->frame_number % Render::VulkanEngine::FRAMES_IN_FLIGHT;
-  std::memcpy(
-      (char *)scene_data + (buffer_offset * frame_index),
-      &this->scene_data,
-      sizeof(SceneData));
-
-  vmaUnmapMemory(this->allocator, scene_data_buffer.allocation);
-
-  vkCmdBindDescriptorSets(
-      frame.main_command_buffer,
-      VK_PIPELINE_BIND_POINT_GRAPHICS,
-      this->mesh_pipeline_layout,
-      0,
-      1,
-      &frame.global_descriptor,
-      1,
-      &buffer_offset);
-
-  vkCmdBindDescriptorSets(
-      frame.main_command_buffer,
-      VK_PIPELINE_BIND_POINT_GRAPHICS,
-      this->mesh_pipeline_layout,
-      1,
-      1,
-      &frame.object_descriptor,
-      0,
-      nullptr);
-
-  uint32_t cam_id;
-  for (uint32_t id : scene.view<Camera, Transform>()) {
-    cam_id = id;
-  }
-  Camera *camera = scene.get<Camera>(cam_id);
-  Transform *t = scene.get<Transform>(cam_id);
-
-  glm::mat4 viewproj = camera->calc_viewproj(t->position, this->dimensions);
-
-  CameraData camera_data = {viewproj};
-
-  void *data;
-  vmaMapMemory(this->allocator, frame.camera_buffer.allocation, &data);
-
-  std::memcpy(data, &camera_data, sizeof(CameraData));
-
-  vmaUnmapMemory(this->allocator, frame.camera_buffer.allocation);
-
-  void *object_data;
-  vmaMapMemory(this->allocator, frame.object_buffer.allocation, &object_data);
-
-  uint32_t current_index = 0;
-  ObjectData *object_ssbo = (ObjectData *)object_data;
-  std::vector<std::pair<TriMeshHandle, MaterialHandle>> renderables = {};
-  for (uint32_t id : scene.view<Mesh, Transform>()) {
-    Mesh *mesh = scene.get<Mesh>(id);
-
-    bool found_renderable = false;
-    for (auto &renderable : renderables) {
-      if (renderable.first == mesh->mesh &&
-          renderable.second == mesh->material) {
-        found_renderable = true;
-        break;
-      }
-    }
-
-    if (!found_renderable) {
-      renderables.push_back({mesh->mesh, mesh->material});
-    }
-  }
-
-  for (auto renderable : renderables) {
-    uint32_t first_instance = current_index;
-    uint32_t count = 0;
-    TriMeshHandle mesh_handle = renderable.first;
-    MaterialHandle mat_handle = renderable.second;
-    for (uint32_t id : scene.view<Mesh, Transform>()) {
-      Transform *transform = scene.get<Transform>(id);
-      Mesh *mesh = scene.get<Mesh>(id);
-
-      if (mesh_handle == mesh->mesh && mat_handle == mesh->material &&
-          mesh->visible) {
-        glm::mat4 model = transform->get_matrix();
-        object_ssbo[current_index].model = model;
-        current_index += 1;
-        count += 1;
-      }
-    }
-
-    TriMesh *tri_mesh = TriMesh::get(mesh_handle).value;
-    Material *mat = Material::get(mat_handle).value;
-
-    VkDeviceSize vertices_offset = tri_mesh->vertices_offset;
-    VkDeviceSize indices_offset = tri_mesh->indices_offset;
-    vkCmdBindVertexBuffers(
-        frame.main_command_buffer,
-        0,
+    VK_ASSERT(vkWaitForFences(
+        this->device,
         1,
-        &this->master_buffer.buffer,
-        &vertices_offset);
+        &frame.render_fence,
+        true,
+        1000000000));
+    VK_ASSERT(vkResetFences(this->device, 1, &frame.render_fence));
+  }
 
-    vkCmdBindIndexBuffer(
+  {
+    ZoneNamedN(__frame_begin, "Frame Begin", true);
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    VK_ASSERT(vkAcquireNextImageKHR(
+        this->device,
+        this->swapchain,
+        1000000000,
+        frame.present_semaphore,
+        nullptr,
+        &next_image_index));
+
+    VK_ASSERT(vkResetCommandBuffer(frame.main_command_buffer, 0));
+
+    VkCommandBufferBeginInfo cmd_info = VkInit::command_buffer_begin_info();
+    VK_ASSERT(vkBeginCommandBuffer(frame.main_command_buffer, &cmd_info));
+
+    std::vector<VkClearValue> clear_values;
+    VkClearValue clear_value = {};
+    clear_value.color = {{1.0f, 1.0f, 1.0f, 1.0f}};
+    VkClearValue depth_value = {};
+    depth_value.depthStencil = {1.0f, 0};
+
+    clear_values.push_back(clear_value);
+    clear_values.push_back(depth_value);
+
+    VkRenderPassBeginInfo render_pass_info = VkInit::render_pass_begin_info(
+        this->render_pass,
+        this->frame_buffers[next_image_index],
+        &clear_values,
+        this->dimensions);
+
+    vkCmdBeginRenderPass(
         frame.main_command_buffer,
-        this->master_buffer.buffer,
-        indices_offset,
-        VK_INDEX_TYPE_UINT32);
+        &render_pass_info,
+        VK_SUBPASS_CONTENTS_INLINE);
+  }
+
+  {
+    ZoneNamedN(__bind_pipeline, "Bind Pipeline", true);
+
+    vkCmdBindPipeline(
+        frame.main_command_buffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        this->mesh_pipeline);
+
+    VkViewport viewport = {};
+    viewport.x = 0.0;
+    viewport.y = 0.0;
+    viewport.width = (float)this->dimensions.width;
+    viewport.height = (float)this->dimensions.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(frame.main_command_buffer, 0, 1, &viewport);
+
+    VkRect2D scissor = {};
+    scissor.offset = {0, 0};
+    scissor.extent.width = this->dimensions.width;
+    scissor.extent.height = this->dimensions.height;
+    vkCmdSetScissor(frame.main_command_buffer, 0, 1, &scissor);
+  }
+
+  {
+    ZoneNamedN(__set_scene_data, "Set Scene Data", true);
+    this->scene_data.ambient_color = {1.0f, 1.0f, 1.0f, 1.0f};
+
+    void *scene_data;
+    vmaMapMemory(
+        this->allocator,
+        this->scene_data_buffer.allocation,
+        &scene_data);
+
+    uint32_t buffer_offset =
+        AllocatedBuffer::padding_size(sizeof(SceneData), this->gpu_properties);
+    uint32_t frame_index =
+        this->frame_number % Render::VulkanEngine::FRAMES_IN_FLIGHT;
+    std::memcpy(
+        (char *)scene_data + (buffer_offset * frame_index),
+        &this->scene_data,
+        sizeof(SceneData));
+
+    vmaUnmapMemory(this->allocator, scene_data_buffer.allocation);
 
     vkCmdBindDescriptorSets(
         frame.main_command_buffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         this->mesh_pipeline_layout,
-        2,
+        0,
         1,
-        &mat->texture_descriptor,
+        &frame.global_descriptor,
+        1,
+        &buffer_offset);
+
+    vkCmdBindDescriptorSets(
+        frame.main_command_buffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        this->mesh_pipeline_layout,
+        1,
+        1,
+        &frame.object_descriptor,
         0,
         nullptr);
-
-    vkCmdDrawIndexed(
-        frame.main_command_buffer,
-        tri_mesh->indices.size(),
-        count,
-        0,
-        0,
-        first_instance);
   }
 
-  vmaUnmapMemory(this->allocator, frame.object_buffer.allocation);
+  {
+    ZoneNamedN(__set_camera_data, "Set Camera Data", true);
 
-  for (auto fn : this->imgui_fns) {
-    fn();
+    auto view = registry.view<Camera, Transform>();
+    entt::entity camera_entity;
+    for (auto entity : view) {
+      camera_entity = entity;
+      break;
+    }
+    Camera &camera = view.get<Camera>(camera_entity);
+    Transform &t = view.get<Transform>(camera_entity);
+
+    glm::mat4 viewproj = camera.calc_viewproj(t.position, this->dimensions);
+
+    CameraData camera_data = {viewproj};
+
+    void *data;
+    vmaMapMemory(this->allocator, frame.camera_buffer.allocation, &data);
+
+    std::memcpy(data, &camera_data, sizeof(CameraData));
+
+    vmaUnmapMemory(this->allocator, frame.camera_buffer.allocation);
   }
 
-  this->imgui_fns.clear();
+  {
+    ZoneNamedN(__set_object_data, "Set Object Data", true);
 
-  ImGui::Render();
-  ImDrawData *main_draw_data = ImGui::GetDrawData();
+    void *object_data;
+    vmaMapMemory(this->allocator, frame.object_buffer.allocation, &object_data);
 
-  ImGui_ImplVulkan_RenderDrawData(
-      ImGui::GetDrawData(),
-      frame.main_command_buffer);
+    ///
+    ///
+    /// TODO :: Sort renderables by material then by mesh
+    ///
+    ///
 
-  vkCmdEndRenderPass(frame.main_command_buffer);
-  VK_ASSERT(vkEndCommandBuffer(frame.main_command_buffer));
+    uint32_t current_index = 0;
+    ObjectData *object_ssbo = (ObjectData *)object_data;
+    std::vector<std::pair<TriMeshHandle, MaterialHandle>> renderables = {};
+    auto view = registry.view<Mesh, Transform>();
+    for (auto entity : view) {
+      Mesh &mesh = view.get<Mesh>(entity);
 
-  VkPipelineStageFlags wait_stage =
-      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+      bool found_renderable = false;
+      for (auto &renderable : renderables) {
+        if (renderable.first == mesh.mesh &&
+            renderable.second == mesh.material) {
+          found_renderable = true;
+          break;
+        }
+      }
 
-  VkSubmitInfo submit_info = VkInit::submit_info(
-      &frame.present_semaphore,
-      &frame.render_semaphore,
-      &frame.main_command_buffer,
-      &wait_stage);
-  VK_ASSERT(
-      vkQueueSubmit(this->graphics_queue, 1, &submit_info, frame.render_fence));
+      if (!found_renderable) {
+        renderables.push_back({mesh.mesh, mesh.material});
+      }
+    }
 
-  VkPresentInfoKHR present_info = VkInit::present_info(
-      &this->swapchain,
-      &frame.render_semaphore,
-      &next_image_index);
-  VK_ASSERT(vkQueuePresentKHR(this->graphics_queue, &present_info));
+    for (auto renderable : renderables) {
+      uint32_t first_instance = current_index;
+      uint32_t count = 0;
+      TriMeshHandle mesh_handle = renderable.first;
+      MaterialHandle mat_handle = renderable.second;
+      for (auto entity : view) {
+        Transform &transform = view.get<Transform>(entity);
+        Mesh &mesh = view.get<Mesh>(entity);
+
+        if (mesh_handle == mesh.mesh && mat_handle == mesh.material &&
+            mesh.visible) {
+          glm::mat4 model = transform.get_matrix();
+          object_ssbo[current_index].model = model;
+          current_index += 1;
+          count += 1;
+        }
+      }
+
+      TriMesh *tri_mesh = TriMesh::get(mesh_handle).value;
+      Material *mat = Material::get(mat_handle).value;
+
+      VkDeviceSize vertices_offset = tri_mesh->vertices_offset;
+      VkDeviceSize indices_offset = tri_mesh->indices_offset;
+      vkCmdBindVertexBuffers(
+          frame.main_command_buffer,
+          0,
+          1,
+          &this->master_buffer.buffer,
+          &vertices_offset);
+
+      vkCmdBindIndexBuffer(
+          frame.main_command_buffer,
+          this->master_buffer.buffer,
+          indices_offset,
+          VK_INDEX_TYPE_UINT32);
+
+      vkCmdBindDescriptorSets(
+          frame.main_command_buffer,
+          VK_PIPELINE_BIND_POINT_GRAPHICS,
+          this->mesh_pipeline_layout,
+          2,
+          1,
+          &mat->texture_descriptor,
+          0,
+          nullptr);
+
+      vkCmdDrawIndexed(
+          frame.main_command_buffer,
+          tri_mesh->indices.size(),
+          count,
+          0,
+          0,
+          first_instance);
+    }
+
+    vmaUnmapMemory(this->allocator, frame.object_buffer.allocation);
+  }
+
+  {
+    ZoneNamedN(__get_imgui_data, "Get ImGui Data", true);
+
+    for (auto fn : this->imgui_fns) {
+      fn();
+    }
+
+    this->imgui_fns.clear();
+
+    ImGui::Render();
+    ImDrawData *main_draw_data = ImGui::GetDrawData();
+
+    ImGui_ImplVulkan_RenderDrawData(
+        ImGui::GetDrawData(),
+        frame.main_command_buffer);
+  }
+
+  {
+    ZoneNamedN(__submit, "Submit", true);
+
+    vkCmdEndRenderPass(frame.main_command_buffer);
+    VK_ASSERT(vkEndCommandBuffer(frame.main_command_buffer));
+
+    VkPipelineStageFlags wait_stage =
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+    VkSubmitInfo submit_info = VkInit::submit_info(
+        &frame.present_semaphore,
+        &frame.render_semaphore,
+        &frame.main_command_buffer,
+        &wait_stage);
+    VK_ASSERT(vkQueueSubmit(
+        this->graphics_queue,
+        1,
+        &submit_info,
+        frame.render_fence));
+
+    VkPresentInfoKHR present_info = VkInit::present_info(
+        &this->swapchain,
+        &frame.render_semaphore,
+        &next_image_index);
+    VK_ASSERT(vkQueuePresentKHR(this->graphics_queue, &present_info));
+  }
 
   this->frame_number += 1;
 }
@@ -405,7 +456,7 @@ void Render::VulkanEngine::init_vulkan() {
   auto inst_ret = builder.set_app_name("Husky")
                       .request_validation_layers()
                       .use_default_debug_messenger()
-                      .require_api_version(1, 1, 0)
+                      .require_api_version(1, 3, 0)
                       .build();
 
   vkb::Instance vkb_inst = inst_ret.value();
