@@ -37,8 +37,6 @@ Result<MaterialHandle> Material::get(const std::string &path) {
 MaterialHandle Material::fresh_handle() {
   static MaterialHandle next = 0;
 
-  MaterialHandle ret = next;
   next += 1;
-
-  return ret;
+  return next;
 }

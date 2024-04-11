@@ -35,8 +35,17 @@ struct Transform {
   glm::vec3 position;
   glm::vec3 rotation;
   glm::vec3 scale;
+  glm::mat4 model;
 
-  glm::mat4 get_matrix() const {
+  Transform(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale) {
+    this->position = position;
+    this->rotation = rotation;
+    this->scale = scale;
+    this->model = calc_model();
+  }
+
+private:
+  glm::mat4 calc_model() const {
     return glm::translate(glm::mat4(1.0f), this->position) *
            glm::toMat4(glm::quat(this->rotation)) *
            glm::scale(glm::mat4(1.0f), this->scale);

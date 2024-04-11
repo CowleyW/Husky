@@ -220,8 +220,6 @@ Result<TriMeshHandle> TriMesh::load_from_obj(const std::string &obj_path) {
 TriMeshHandle TriMesh::fresh_handle() {
   static TriMeshHandle handle = 0;
 
-  TriMeshHandle ret = handle;
   handle += 1;
-
-  return ret;
+  return handle;
 }

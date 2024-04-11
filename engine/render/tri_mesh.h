@@ -50,6 +50,9 @@ struct MeshPushConstant {
 typedef uint32_t TriMeshHandle;
 
 struct TriMesh {
+  static constexpr TriMeshHandle NULL_HANDLE = 0;
+
+public:
   std::vector<Vertex> vertices;
   std::vector<uint32_t> indices;
   std::string name;

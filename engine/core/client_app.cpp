@@ -43,10 +43,10 @@ Err ClientApp::init() {
   this->render_engine.upload_material(Material::get(mat2).value);
   Mesh dwarf_mesh = {dwarf, mat1, true};
   Mesh golem_mesh = {golem, mat2, true};
-  Transform transform = {
+  Transform transform(
       {35.0f, 2.0f, 0.0f},
       {0.0f, 0.0f, 0.0f},
-      {1.0f, 1.0f, 1.0f}};
+      {1.0f, 1.0f, 1.0f});
   Camera camera = {{0.0f, 0.0f, 1.0f}, 70.0f, 0.1f, 200.0f, 0.0f, 0.0f};
   const auto cam = this->registry.create();
   this->registry.emplace<Transform>(cam, transform);
@@ -56,22 +56,34 @@ Err ClientApp::init() {
     for (uint32_t z = 0; z < 70; z += 1) {
       const auto e = this->registry.create();
       if ((x + z) % 2 == 0) {
-        Transform dwarf_transform = {
+        Transform dwarf_transform(
             {x, 0.0f, z},
             {0.0f, 3.1415f, 0.0f},
-            {0.5f, 0.5f, 0.5f}};
+            {0.5f, 0.5f, 0.5f});
         this->registry.emplace<Transform>(e, dwarf_transform);
         this->registry.emplace<Mesh>(e, dwarf_mesh);
       } else {
-        Transform golem_transform = {
+        Transform golem_transform(
             {x, 0.0f, z},
             {0.0f, 3.1415f, 0.0f},
-            {1.0f, 1.0f, 1.0f}};
+            {1.0f, 1.0f, 1.0f});
         this->registry.emplace<Transform>(e, golem_transform);
         this->registry.emplace<Mesh>(e, golem_mesh);
       }
     }
   }
+
+  this->registry.sort<Mesh>([](const Mesh &lhs, const Mesh &rhs) {
+    uint32_t lhs_mat = (uint32_t)lhs.material;
+    uint32_t rhs_mat = (uint32_t)rhs.material;
+    uint32_t rhs_mesh = (uint32_t)lhs.mesh;
+    uint32_t lhs_mesh = (uint32_t)rhs.mesh;
+    if (lhs_mat != rhs_mat) {
+      return lhs_mat < rhs_mat;
+    } else {
+      return lhs_mesh < rhs_mesh;
+    }
+  });
 
   return Err::ok();
 }

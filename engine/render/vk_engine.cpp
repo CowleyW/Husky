@@ -152,7 +152,7 @@ void Render::VulkanEngine::render(entt::registry &registry) {
   uint32_t next_image_index;
 
   {
-    ZoneNamedN(__await_fence, "Await Fence", true);
+    ZoneNamedN(__await_fence, "Await GPU", true);
 
     VK_ASSERT(vkWaitForFences(
         this->device,
@@ -161,13 +161,6 @@ void Render::VulkanEngine::render(entt::registry &registry) {
         true,
         1000000000));
     VK_ASSERT(vkResetFences(this->device, 1, &frame.render_fence));
-  }
-
-  {
-    ZoneNamedN(__frame_begin, "Frame Begin", true);
-    ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
 
     VK_ASSERT(vkAcquireNextImageKHR(
         this->device,
@@ -176,6 +169,13 @@ void Render::VulkanEngine::render(entt::registry &registry) {
         frame.present_semaphore,
         nullptr,
         &next_image_index));
+  }
+
+  {
+    ZoneNamedN(__frame_begin, "Frame Begin", true);
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
 
     VK_ASSERT(vkResetCommandBuffer(frame.main_command_buffer, 0));
 
@@ -299,89 +299,83 @@ void Render::VulkanEngine::render(entt::registry &registry) {
     void *object_data;
     vmaMapMemory(this->allocator, frame.object_buffer.allocation, &object_data);
 
-    ///
-    ///
-    /// TODO :: Sort renderables by material then by mesh
-    ///
-    ///
-
-    uint32_t current_index = 0;
     ObjectData *object_ssbo = (ObjectData *)object_data;
-    std::vector<std::pair<TriMeshHandle, MaterialHandle>> renderables = {};
-    auto view = registry.view<Mesh, Transform>();
+    TriMeshHandle prev_mesh = TriMesh::NULL_HANDLE;
+    MaterialHandle prev_mat = Material::NULL_HANDLE;
+    uint32_t count = 0;
+    uint32_t first_instance = 0;
+    uint32_t current_index = 0;
+    uint32_t indices_size = 0;
+    const auto view = registry.view<Mesh, Transform>();
     for (auto entity : view) {
+      Transform &transform = view.get<Transform>(entity);
       Mesh &mesh = view.get<Mesh>(entity);
 
-      bool found_renderable = false;
-      for (auto &renderable : renderables) {
-        if (renderable.first == mesh.mesh &&
-            renderable.second == mesh.material) {
-          found_renderable = true;
-          break;
+      if (!mesh.visible) {
+        continue;
+      } else if (prev_mat != mesh.material || prev_mesh != mesh.mesh) {
+        TriMesh *tri_mesh = TriMesh::get(mesh.mesh).value;
+        Material *mat = Material::get(mesh.material).value;
+
+        if (prev_mesh != TriMesh::NULL_HANDLE) {
+          vkCmdDrawIndexed(
+              frame.main_command_buffer,
+              indices_size,
+              count,
+              0,
+              0,
+              first_instance);
+        }
+
+        count = 0;
+        first_instance = current_index;
+
+        if (prev_mat != mesh.material) {
+          vkCmdBindDescriptorSets(
+              frame.main_command_buffer,
+              VK_PIPELINE_BIND_POINT_GRAPHICS,
+              this->mesh_pipeline_layout,
+              2,
+              1,
+              &mat->texture_descriptor,
+              0,
+              nullptr);
+          prev_mat = mesh.material;
+        }
+        if (prev_mesh != mesh.mesh) {
+          indices_size = tri_mesh->indices.size();
+
+          VkDeviceSize vertices_offset = tri_mesh->vertices_offset;
+          VkDeviceSize indices_offset = tri_mesh->indices_offset;
+          vkCmdBindVertexBuffers(
+              frame.main_command_buffer,
+              0,
+              1,
+              &this->master_buffer.buffer,
+              &vertices_offset);
+
+          vkCmdBindIndexBuffer(
+              frame.main_command_buffer,
+              this->master_buffer.buffer,
+              indices_offset,
+              VK_INDEX_TYPE_UINT32);
+          prev_mesh = mesh.mesh;
         }
       }
 
-      if (!found_renderable) {
-        renderables.push_back({mesh.mesh, mesh.material});
-      }
+      object_ssbo[current_index].model = transform.model;
+      current_index += 1;
+      count += 1;
     }
-
-    for (auto renderable : renderables) {
-      uint32_t first_instance = current_index;
-      uint32_t count = 0;
-      TriMeshHandle mesh_handle = renderable.first;
-      MaterialHandle mat_handle = renderable.second;
-      for (auto entity : view) {
-        Transform &transform = view.get<Transform>(entity);
-        Mesh &mesh = view.get<Mesh>(entity);
-
-        if (mesh_handle == mesh.mesh && mat_handle == mesh.material &&
-            mesh.visible) {
-          glm::mat4 model = transform.get_matrix();
-          object_ssbo[current_index].model = model;
-          current_index += 1;
-          count += 1;
-        }
-      }
-
-      TriMesh *tri_mesh = TriMesh::get(mesh_handle).value;
-      Material *mat = Material::get(mat_handle).value;
-
-      VkDeviceSize vertices_offset = tri_mesh->vertices_offset;
-      VkDeviceSize indices_offset = tri_mesh->indices_offset;
-      vkCmdBindVertexBuffers(
-          frame.main_command_buffer,
-          0,
-          1,
-          &this->master_buffer.buffer,
-          &vertices_offset);
-
-      vkCmdBindIndexBuffer(
-          frame.main_command_buffer,
-          this->master_buffer.buffer,
-          indices_offset,
-          VK_INDEX_TYPE_UINT32);
-
-      vkCmdBindDescriptorSets(
-          frame.main_command_buffer,
-          VK_PIPELINE_BIND_POINT_GRAPHICS,
-          this->mesh_pipeline_layout,
-          2,
-          1,
-          &mat->texture_descriptor,
-          0,
-          nullptr);
-
-      vkCmdDrawIndexed(
-          frame.main_command_buffer,
-          tri_mesh->indices.size(),
-          count,
-          0,
-          0,
-          first_instance);
-    }
-
     vmaUnmapMemory(this->allocator, frame.object_buffer.allocation);
+
+    vkCmdDrawIndexed(
+        frame.main_command_buffer,
+        indices_size,
+        count,
+        0,
+        0,
+        first_instance);
   }
 
   {

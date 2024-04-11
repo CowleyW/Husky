@@ -9,6 +9,9 @@
 typedef uint32_t MaterialHandle;
 
 struct Material {
+  static constexpr MaterialHandle NULL_HANDLE = 0;
+
+public:
   VkPipeline pipeline;
   VkPipelineLayout pipeline_layout;
   VkDescriptorSet texture_descriptor;
