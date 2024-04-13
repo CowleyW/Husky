@@ -6,8 +6,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if (MSVC)
 	set(CMAKE_CXX_STANDARD 17)
+  add_compile_options(/ITERATORDEBUGLEVEL=0)
 else ()
 	set(CMAKE_CXX_FLAGS "-std=c++17 ${CMAKE_CXX_FLAGS}")
+endif()
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
 # Engine Library

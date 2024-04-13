@@ -73,11 +73,12 @@ Err ClientApp::init() {
     }
   }
 
-  this->registry.sort<Mesh>([](const Mesh &lhs, const Mesh &rhs) {
-    uint32_t lhs_mat = (uint32_t)lhs.material;
-    uint32_t rhs_mat = (uint32_t)rhs.material;
-    uint32_t rhs_mesh = (uint32_t)lhs.mesh;
-    uint32_t lhs_mesh = (uint32_t)rhs.mesh;
+  auto group = this->registry.group<Mesh, Transform>();
+  group.sort<Mesh, Transform>([](const auto &lhs, const auto &rhs) {
+    uint32_t lhs_mat = (uint32_t)std::get<0>(lhs).material;
+    uint32_t rhs_mat = (uint32_t)std::get<0>(rhs).material;
+    uint32_t rhs_mesh = (uint32_t)std::get<0>(lhs).mesh;
+    uint32_t lhs_mesh = (uint32_t)std::get<0>(rhs).mesh;
     if (lhs_mat != rhs_mat) {
       return lhs_mat < rhs_mat;
     } else {

@@ -11,7 +11,7 @@ def set_run_flag(text):
 
 # Build using MSVC compiler
 def build_msvc():
-    call(["cmake", "-G", "Visual Studio 17 2022", "-S", ".", "-B", "out/msvc"])
+    call(["cmake", "-G", "Visual Studio 17 2022", "-S", ".", "-B", "out/msvc", "-D", "CMAKE_BUILD_TYPE=RelWithDebInfo"])
 
     os.chdir("out/msvc")
     call(["msbuild", "ALL_BUILD.vcxproj"])

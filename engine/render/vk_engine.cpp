@@ -306,18 +306,18 @@ void Render::VulkanEngine::render(entt::registry &registry) {
     uint32_t first_instance = 0;
     uint32_t current_index = 0;
     uint32_t indices_size = 0;
-    const auto view = registry.view<Mesh, Transform>();
-    for (auto entity : view) {
-      Transform &transform = view.get<Transform>(entity);
-      Mesh &mesh = view.get<Mesh>(entity);
+    const auto group = registry.group<Mesh, Transform>();
+    group.each([&](Mesh &mesh, Transform &transform) {
+      ZoneNamedN(__iter_entity, "Iter Entity", true);
 
       if (!mesh.visible) {
-        continue;
+        return;
       } else if (prev_mat != mesh.material || prev_mesh != mesh.mesh) {
         TriMesh *tri_mesh = TriMesh::get(mesh.mesh).value;
         Material *mat = Material::get(mesh.material).value;
 
         if (prev_mesh != TriMesh::NULL_HANDLE) {
+          ZoneNamedN(__draw, "Draw", true);
           vkCmdDrawIndexed(
               frame.main_command_buffer,
               indices_size,
@@ -331,6 +331,8 @@ void Render::VulkanEngine::render(entt::registry &registry) {
         first_instance = current_index;
 
         if (prev_mat != mesh.material) {
+          ZoneNamedN(__bind_descriptor_sets, "Bind Descriptors", true);
+          // TODO: Also bind the correct mesh pipeline
           vkCmdBindDescriptorSets(
               frame.main_command_buffer,
               VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -343,6 +345,7 @@ void Render::VulkanEngine::render(entt::registry &registry) {
           prev_mat = mesh.material;
         }
         if (prev_mesh != mesh.mesh) {
+          ZoneNamedN(__bind_buffers, "Bind Buffers", true);
           indices_size = tri_mesh->indices.size();
 
           VkDeviceSize vertices_offset = tri_mesh->vertices_offset;
@@ -363,10 +366,13 @@ void Render::VulkanEngine::render(entt::registry &registry) {
         }
       }
 
-      object_ssbo[current_index].model = transform.model;
+      {
+        ZoneNamedN(__copy_data, "Copy Matrix", true);
+        object_ssbo[current_index].model = transform.model;
+      }
       current_index += 1;
       count += 1;
-    }
+    });
     vmaUnmapMemory(this->allocator, frame.object_buffer.allocation);
 
     vkCmdDrawIndexed(

@@ -8,6 +8,8 @@
 #include "render/callback_handler.h"
 #include "render/vk_engine.h"
 #include "world_state.h"
+
+#define ENTT_DISABLE_ASSERT
 #include <entt/entt.hpp>
 
 class ClientApp : public Application, CallbackHandler {

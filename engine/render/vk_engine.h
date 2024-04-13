@@ -1,7 +1,6 @@
 #pragma once
 
 #include "callback_handler.h"
-#include "entt/entity/fwd.hpp"
 #include "io/input_map.h"
 #include "material.h"
 #include "tri_mesh.h"
@@ -9,6 +8,7 @@
 #include "vk_types.h"
 #include "window.h"
 
+#include "entt/entity/fwd.hpp"
 #include <functional>
 #include <string>
 #include <unordered_map>
