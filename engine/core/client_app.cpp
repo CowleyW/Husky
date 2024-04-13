@@ -4,6 +4,7 @@
 #include "io/input_map.h"
 #include "io/logging.h"
 #include "io/raw_inputs.h"
+#include "random.h"
 #include "render/material.h"
 #include "util/err.h"
 #include "util/serialize.h"
@@ -14,6 +15,7 @@
 #include "imgui.h"
 
 #include <algorithm>
+#include <cmath>
 #include <tracy/Tracy.hpp>
 
 ClientApp::ClientApp(uint32_t server_port, uint32_t client_port)
@@ -44,7 +46,7 @@ Err ClientApp::init() {
   Mesh dwarf_mesh = {dwarf, mat1, true};
   Mesh golem_mesh = {golem, mat2, true};
   Transform transform(
-      {35.0f, 2.0f, 0.0f},
+      {0.0f, 2.0f, 0.0f},
       {0.0f, 0.0f, 0.0f},
       {1.0f, 1.0f, 1.0f});
   Camera camera = {{0.0f, 0.0f, 1.0f}, 70.0f, 0.1f, 200.0f, 0.0f, 0.0f};
@@ -52,24 +54,25 @@ Err ClientApp::init() {
   this->registry.emplace<Transform>(cam, transform);
   this->registry.emplace<Camera>(cam, camera);
 
-  for (uint32_t x = 0; x < 70; x += 1) {
-    for (uint32_t z = 0; z < 70; z += 1) {
-      const auto e = this->registry.create();
-      if ((x + z) % 2 == 0) {
-        Transform dwarf_transform(
-            {x, 0.0f, z},
-            {0.0f, 3.1415f, 0.0f},
-            {0.5f, 0.5f, 0.5f});
-        this->registry.emplace<Transform>(e, dwarf_transform);
-        this->registry.emplace<Mesh>(e, dwarf_mesh);
-      } else {
-        Transform golem_transform(
-            {x, 0.0f, z},
-            {0.0f, 3.1415f, 0.0f},
-            {1.0f, 1.0f, 1.0f});
-        this->registry.emplace<Transform>(e, golem_transform);
-        this->registry.emplace<Mesh>(e, golem_mesh);
-      }
+  Random rand;
+  for (uint32_t i = 0; i < 5000; i += 1) {
+    const auto e = this->registry.create();
+    float r = 40.0 * std::sqrt(rand.random_float(1.0));
+    float theta = 2 * 3.1415926 * rand.random_float(1.0);
+    float rot = 2 * 3.1415926 * rand.random_float(1.0);
+    float scale = rand.random_float(0.5f, 1.0f);
+
+    float x = r * std::cos(theta);
+    float z = r * std::sin(theta);
+
+    Transform transform({x, 0.0f, z}, {0.0f, rot, 0.0f}, {scale, scale, scale});
+
+    if (i % 2 == 0) {
+      this->registry.emplace<Transform>(e, transform);
+      this->registry.emplace<Mesh>(e, dwarf_mesh);
+    } else {
+      this->registry.emplace<Transform>(e, transform);
+      this->registry.emplace<Mesh>(e, golem_mesh);
     }
   }
 

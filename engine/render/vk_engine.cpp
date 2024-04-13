@@ -26,6 +26,7 @@
 #include <cstring>
 #include <entt/entt.hpp>
 #include <tracy/Tracy.hpp>
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
 #define VMA_IMPLEMENTATION
@@ -47,6 +48,10 @@ Render::VulkanEngine::~VulkanEngine() {
       this->allocator,
       this->master_buffer.buffer,
       this->master_buffer.allocation);
+  vmaDestroyBuffer(
+      this->allocator,
+      this->compute_buffer.buffer,
+      this->compute_buffer.allocation);
   vmaDestroyBuffer(
       this->allocator,
       this->scene_data_buffer.buffer,
@@ -296,92 +301,100 @@ void Render::VulkanEngine::render(entt::registry &registry) {
   {
     ZoneNamedN(__set_object_data, "Set Object Data", true);
 
-    void *object_data;
-    vmaMapMemory(this->allocator, frame.object_buffer.allocation, &object_data);
-
-    ObjectData *object_ssbo = (ObjectData *)object_data;
-    TriMeshHandle prev_mesh = TriMesh::NULL_HANDLE;
-    MaterialHandle prev_mat = Material::NULL_HANDLE;
-    uint32_t count = 0;
+    TriMeshHandle curr_mesh = TriMesh::NULL_HANDLE;
+    MaterialHandle curr_mat = Material::NULL_HANDLE;
     uint32_t first_instance = 0;
     uint32_t current_index = 0;
     uint32_t indices_size = 0;
+    std::vector<Render::Batch> batches;
     const auto group = registry.group<Mesh, Transform>();
+
+    void *object_data;
+    vmaMapMemory(this->allocator, frame.object_buffer.allocation, &object_data);
+
+    ObjectData *ssbo = (ObjectData *)object_data;
     group.each([&](Mesh &mesh, Transform &transform) {
       ZoneNamedN(__iter_entity, "Iter Entity", true);
 
       if (!mesh.visible) {
         return;
-      } else if (prev_mat != mesh.material || prev_mesh != mesh.mesh) {
-        TriMesh *tri_mesh = TriMesh::get(mesh.mesh).value;
-        Material *mat = Material::get(mesh.material).value;
+      }
 
-        if (prev_mesh != TriMesh::NULL_HANDLE) {
-          ZoneNamedN(__draw, "Draw", true);
-          vkCmdDrawIndexed(
-              frame.main_command_buffer,
-              indices_size,
-              count,
-              0,
-              0,
-              first_instance);
-        }
-
-        count = 0;
+      if (curr_mat != mesh.material || curr_mesh != mesh.mesh) {
         first_instance = current_index;
+        curr_mat = mesh.material;
+        curr_mesh = mesh.mesh;
 
-        if (prev_mat != mesh.material) {
-          ZoneNamedN(__bind_descriptor_sets, "Bind Descriptors", true);
-          // TODO: Also bind the correct mesh pipeline
-          vkCmdBindDescriptorSets(
-              frame.main_command_buffer,
-              VK_PIPELINE_BIND_POINT_GRAPHICS,
-              this->mesh_pipeline_layout,
-              2,
-              1,
-              &mat->texture_descriptor,
-              0,
-              nullptr);
-          prev_mat = mesh.material;
-        }
-        if (prev_mesh != mesh.mesh) {
-          ZoneNamedN(__bind_buffers, "Bind Buffers", true);
-          indices_size = tri_mesh->indices.size();
-
-          VkDeviceSize vertices_offset = tri_mesh->vertices_offset;
-          VkDeviceSize indices_offset = tri_mesh->indices_offset;
-          vkCmdBindVertexBuffers(
-              frame.main_command_buffer,
-              0,
-              1,
-              &this->master_buffer.buffer,
-              &vertices_offset);
-
-          vkCmdBindIndexBuffer(
-              frame.main_command_buffer,
-              this->master_buffer.buffer,
-              indices_offset,
-              VK_INDEX_TYPE_UINT32);
-          prev_mesh = mesh.mesh;
-        }
+        Render::Batch batch;
+        batch.material = curr_mat;
+        batch.mesh = curr_mesh;
+        batch.first = first_instance;
+        batch.count = 0;
+        batches.emplace_back(batch);
       }
 
       {
         ZoneNamedN(__copy_data, "Copy Matrix", true);
-        object_ssbo[current_index].model = transform.model;
+        ssbo[current_index].model = transform.model;
       }
+
+      Render::Batch &batch = batches.back();
+      batch.count += 1;
       current_index += 1;
-      count += 1;
     });
     vmaUnmapMemory(this->allocator, frame.object_buffer.allocation);
 
-    vkCmdDrawIndexed(
-        frame.main_command_buffer,
-        indices_size,
-        count,
-        0,
-        0,
-        first_instance);
+    curr_mesh = TriMesh::NULL_HANDLE;
+    curr_mat = Material::NULL_HANDLE;
+
+    for (const auto &batch : batches) {
+      ZoneNamedN(__submit_batches, "Submit Batches", true);
+
+      TriMesh *tri_mesh = TriMesh::get(batch.mesh).value;
+      Material *mat = Material::get(batch.material).value;
+
+      if (curr_mesh != batch.mesh) {
+        indices_size = tri_mesh->indices.size();
+
+        VkDeviceSize vertices_offset = tri_mesh->vertices_offset;
+        VkDeviceSize indices_offset = tri_mesh->indices_offset;
+        vkCmdBindVertexBuffers(
+            frame.main_command_buffer,
+            0,
+            1,
+            &this->master_buffer.buffer,
+            &vertices_offset);
+
+        vkCmdBindIndexBuffer(
+            frame.main_command_buffer,
+            this->master_buffer.buffer,
+            indices_offset,
+            VK_INDEX_TYPE_UINT32);
+        curr_mesh = batch.mesh;
+      }
+
+      if (curr_mat != batch.material) {
+        // TODO: Also bind the correct mesh pipeline
+        vkCmdBindDescriptorSets(
+            frame.main_command_buffer,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            this->mesh_pipeline_layout,
+            2,
+            1,
+            &mat->texture_descriptor,
+            0,
+            nullptr);
+        curr_mat = batch.material;
+      }
+
+      vkCmdDrawIndexed(
+          frame.main_command_buffer,
+          tri_mesh->indices.size(),
+          batch.count,
+          0,
+          0,
+          batch.first);
+    }
   }
 
   {
@@ -741,7 +754,7 @@ void Render::VulkanEngine::init_frames() {
         VMA_MEMORY_USAGE_CPU_TO_GPU);
     frame.object_buffer = VkInit::buffer(
         this->allocator,
-        // SSBO SIZE
+        // ssbo SIZE
         sizeof(ObjectData) * VulkanEngine::MAX_INSTANCES,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -833,21 +846,21 @@ void Render::VulkanEngine::init_framebuffers() {
 }
 
 void Render::VulkanEngine::init_pipelines() {
-  VkShaderModule rainbow_frag;
-  VkShaderModule mesh_vert;
+  VkShaderModule frag;
+  VkShaderModule vert;
 
   Err err = Shader::load_shader_module(
-      "shaders/lighting_frag.spv",
+      "shaders/standard.frag.spv",
       this->device,
-      &rainbow_frag);
+      &frag);
   if (err.is_error) {
     io::error(err.msg);
   }
 
   err = Shader::load_shader_module(
-      "shaders/mesh_vert.spv",
+      "shaders/standard.vert.spv",
       this->device,
-      &mesh_vert);
+      &vert);
   if (err.is_error) {
     io::error(err.msg);
   }
@@ -881,10 +894,10 @@ void Render::VulkanEngine::init_pipelines() {
       builder.clear_shader_stages()
           .add_shader_stage(VkInit::pipeline_shader_stage_create_info(
               VK_SHADER_STAGE_VERTEX_BIT,
-              mesh_vert))
+              vert))
           .add_shader_stage(VkInit::pipeline_shader_stage_create_info(
               VK_SHADER_STAGE_FRAGMENT_BIT,
-              rainbow_frag))
+              frag))
           .with_vertex_input(
               VkInit::vertex_input_state_create_info(&vertex_input))
           .with_pipeline_layout(this->mesh_pipeline_layout)
@@ -901,8 +914,8 @@ void Render::VulkanEngine::init_pipelines() {
               VK_COMPARE_OP_LESS_OR_EQUAL))
           .build(this->device, this->render_pass);
 
-  vkDestroyShaderModule(device, rainbow_frag, nullptr);
-  vkDestroyShaderModule(device, mesh_vert, nullptr);
+  vkDestroyShaderModule(device, frag, nullptr);
+  vkDestroyShaderModule(device, vert, nullptr);
 }
 
 void Render::VulkanEngine::init_allocator() {
@@ -920,6 +933,13 @@ void Render::VulkanEngine::init_buffer() {
       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
           VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_GPU_ONLY);
+
+  this->compute_buffer = VkInit::buffer(
+      this->allocator,
+      5000 * sizeof(VkDrawIndexedIndirectCommand),
+      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+          VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+      VMA_MEMORY_USAGE_CPU_TO_GPU);
 }
 
 void Render::VulkanEngine::init_sampler() {

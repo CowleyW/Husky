@@ -23,3 +23,15 @@ uint64_t Random::random_u64() {
 uint64_t Random::random_u64(uint64_t max) {
   return std::uniform_int_distribution<uint64_t>(0, max)(this->rng);
 }
+
+float Random::random_float() {
+  return std::uniform_real_distribution<float>()(this->rng);
+}
+
+float Random::random_float(float max) {
+  return std::uniform_real_distribution<float>(0, max)(this->rng);
+}
+
+float Random::random_float(float min, float max) {
+  return std::uniform_real_distribution<float>(min, max)(this->rng);
+}

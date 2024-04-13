@@ -17,6 +17,13 @@
 
 namespace Render {
 
+struct Batch {
+  MaterialHandle material;
+  TriMeshHandle mesh;
+  uint32_t first;
+  uint32_t count;
+};
+
 class VulkanEngine {
 public:
   ~VulkanEngine();
@@ -75,6 +82,8 @@ private:
 
   AllocatedBuffer master_buffer;
   uint32_t master_buffer_offset;
+
+  AllocatedBuffer compute_buffer;
 
   SceneData scene_data;
   AllocatedBuffer scene_data_buffer;

@@ -13,6 +13,10 @@ public:
   uint64_t random_u64();
   uint64_t random_u64(uint64_t max);
 
+  float random_float();
+  float random_float(float max);
+  float random_float(float min, float max);
+
 private:
   std::mt19937 rng;
 };
