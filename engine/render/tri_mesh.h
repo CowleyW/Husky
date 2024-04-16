@@ -58,8 +58,8 @@ public:
   std::string name;
   std::string texture_name;
 
-  uint32_t vertices_offset;
-  uint32_t indices_offset;
+  uint32_t first_vertex;
+  uint32_t first_index;
 
   uint32_t vertex_buffer_size() const {
     return this->vertices.size() * sizeof(Vertex);
