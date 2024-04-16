@@ -57,7 +57,7 @@ Err ClientApp::init() {
   Random rand;
   for (uint32_t i = 0; i < 5000; i += 1) {
     const auto e = this->registry.create();
-    float r = 40.0 * std::sqrt(rand.random_float(1.0));
+    float r = 75.0 * std::sqrt(rand.random_float(1.0));
     float theta = 2 * 3.1415926 * rand.random_float(1.0);
     float rot = 2 * 3.1415926 * rand.random_float(1.0);
     float scale = rand.random_float(0.5f, 1.0f);

@@ -80,8 +80,11 @@ private:
   std::unordered_map<std::string, Texture> textures;
   Material material;
 
-  AllocatedBuffer master_buffer;
-  uint32_t master_buffer_offset;
+  AllocatedBuffer vertex_buffer;
+  uint32_t vertex_buffer_offset = 0;
+
+  AllocatedBuffer index_buffer;
+  uint32_t index_buffer_offset = 0;
 
   AllocatedBuffer compute_buffer;
 

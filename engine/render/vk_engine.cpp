@@ -46,8 +46,12 @@ Render::VulkanEngine::~VulkanEngine() {
 
   vmaDestroyBuffer(
       this->allocator,
-      this->master_buffer.buffer,
-      this->master_buffer.allocation);
+      this->vertex_buffer.buffer,
+      this->vertex_buffer.allocation);
+  vmaDestroyBuffer(
+      this->allocator,
+      this->index_buffer.buffer,
+      this->index_buffer.allocation);
   vmaDestroyBuffer(
       this->allocator,
       this->compute_buffer.buffer,
@@ -362,12 +366,12 @@ void Render::VulkanEngine::render(entt::registry &registry) {
             frame.main_command_buffer,
             0,
             1,
-            &this->master_buffer.buffer,
+            &this->vertex_buffer.buffer,
             &vertices_offset);
 
         vkCmdBindIndexBuffer(
             frame.main_command_buffer,
-            this->master_buffer.buffer,
+            this->index_buffer.buffer,
             indices_offset,
             VK_INDEX_TYPE_UINT32);
         curr_mesh = batch.mesh;
@@ -927,11 +931,16 @@ void Render::VulkanEngine::init_allocator() {
 }
 
 void Render::VulkanEngine::init_buffer() {
-  this->master_buffer = VkInit::buffer(
+  this->vertex_buffer = VkInit::buffer(
       this->allocator,
       1024 * 1024 * 50,
-      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-          VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VMA_MEMORY_USAGE_GPU_ONLY);
+
+  this->index_buffer = VkInit::buffer(
+      this->allocator,
+      1024 * 1024 * 50,
+      VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_GPU_ONLY);
 
   this->compute_buffer = VkInit::buffer(
@@ -1009,8 +1018,8 @@ void Render::VulkanEngine::upload_mesh(TriMesh *mesh) {
   uint32_t vertex_buffer_size = mesh->vertices.size() * sizeof(Vertex);
   uint32_t index_buffer_size = mesh->indices.size() * sizeof(uint32_t);
   uint32_t buffer_size = std::max(vertex_buffer_size, index_buffer_size);
-  mesh->vertices_offset = this->master_buffer_offset;
-  mesh->indices_offset = this->master_buffer_offset + vertex_buffer_size;
+  mesh->vertices_offset = this->vertex_buffer_offset;
+  mesh->indices_offset = this->index_buffer_offset;
   AllocatedBuffer staging_buffer = VkInit::buffer(
       this->allocator,
       buffer_size,
@@ -1029,12 +1038,12 @@ void Render::VulkanEngine::upload_mesh(TriMesh *mesh) {
     VkBufferCopy copy = {};
     copy.size = vertex_buffer_size;
     copy.srcOffset = 0;
-    copy.dstOffset = this->master_buffer_offset;
-    this->master_buffer_offset += vertex_buffer_size;
+    copy.dstOffset = this->vertex_buffer_offset;
+    this->vertex_buffer_offset += vertex_buffer_size;
     vkCmdCopyBuffer(
         cmd,
         staging_buffer.buffer,
-        this->master_buffer.buffer,
+        this->vertex_buffer.buffer,
         1,
         &copy);
   });
@@ -1050,12 +1059,12 @@ void Render::VulkanEngine::upload_mesh(TriMesh *mesh) {
     VkBufferCopy copy = {};
     copy.size = index_buffer_size;
     copy.srcOffset = 0;
-    copy.dstOffset = this->master_buffer_offset;
-    this->master_buffer_offset += index_buffer_size;
+    copy.dstOffset = this->index_buffer_offset;
+    this->index_buffer_offset += index_buffer_size;
     vkCmdCopyBuffer(
         cmd,
         staging_buffer.buffer,
-        this->master_buffer.buffer,
+        this->index_buffer.buffer,
         1,
         &copy);
   });
