@@ -4,6 +4,7 @@
 #include "io/files.h"
 
 #include "io/logging.h"
+#include "render/vk_types.h"
 #include "tiny_obj_loader.h"
 #include "util/buf.h"
 #include "util/serialize.h"
@@ -24,12 +25,12 @@ std::vector<std::pair<TriMeshHandle, TriMesh>> TriMesh::meshes =
 VertexInputDescription Vertex::get_description() {
   VertexInputDescription description;
 
-  VkVertexInputBindingDescription main_binding = {};
-  main_binding.binding = 0;
-  main_binding.stride = sizeof(Vertex);
-  main_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+  VkVertexInputBindingDescription per_vertex_binding = {};
+  per_vertex_binding.binding = 0;
+  per_vertex_binding.stride = sizeof(Vertex);
+  per_vertex_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-  description.bindings.push_back(main_binding);
+  description.bindings.push_back(per_vertex_binding);
 
   VkVertexInputAttributeDescription position_attrib = {};
   position_attrib.binding = 0;

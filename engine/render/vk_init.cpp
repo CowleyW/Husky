@@ -421,12 +421,14 @@ AllocatedBuffer VkInit::buffer(
 VkDescriptorSetLayoutBinding VkInit::descriptor_set_layout_binding(
     VkDescriptorType type,
     VkShaderStageFlags stage,
-    uint32_t binding) {
+    uint32_t binding,
+    uint32_t count) {
   VkDescriptorSetLayoutBinding set_binding = {};
   set_binding.binding = binding;
   set_binding.descriptorCount = 1;
   set_binding.descriptorType = type;
   set_binding.stageFlags = stage;
+  set_binding.descriptorCount = count;
 
   return set_binding;
 }
@@ -467,12 +469,14 @@ VkWriteDescriptorSet VkInit::write_descriptor_image(
     VkDescriptorType type,
     VkDescriptorSet dest,
     VkDescriptorImageInfo *info,
-    uint32_t binding) {
+    uint32_t binding,
+    uint32_t index) {
   VkWriteDescriptorSet write_set = {};
   write_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
   write_set.pNext = nullptr;
   write_set.dstBinding = binding;
   write_set.dstSet = dest;
+  write_set.dstArrayElement = index;
   write_set.descriptorCount = 1;
   write_set.descriptorType = type;
   write_set.pImageInfo = info;

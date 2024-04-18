@@ -98,7 +98,8 @@ AllocatedBuffer buffer(
 VkDescriptorSetLayoutBinding descriptor_set_layout_binding(
     VkDescriptorType type,
     VkShaderStageFlags stage,
-    uint32_t binding);
+    uint32_t binding,
+    uint32_t count = 1);
 
 VkWriteDescriptorSet write_descriptor_set(
     VkDescriptorType type,
@@ -114,5 +115,6 @@ VkWriteDescriptorSet write_descriptor_image(
     VkDescriptorType type,
     VkDescriptorSet dest,
     VkDescriptorImageInfo *info,
-    uint32_t binding);
+    uint32_t binding,
+    uint32_t index);
 } // namespace VkInit

@@ -316,7 +316,7 @@ void Render::VulkanEngine::render(entt::registry &registry) {
     void *object_data;
     vmaMapMemory(this->allocator, frame.object_buffer.allocation, &object_data);
 
-    ObjectData *ssbo = (ObjectData *)object_data;
+    InstanceData *ssbo = (InstanceData *)object_data;
     group.each([&](Mesh &mesh, Transform &transform) {
       ZoneNamedN(__iter_entity, "Iter Entity", true);
 
@@ -340,6 +340,7 @@ void Render::VulkanEngine::render(entt::registry &registry) {
       {
         ZoneNamedN(__copy_data, "Copy Matrix", true);
         ssbo[current_index].model = transform.model;
+        ssbo[current_index].tex_index = mesh.material;
       }
 
       Render::Batch &batch = batches.back();
@@ -372,15 +373,15 @@ void Render::VulkanEngine::render(entt::registry &registry) {
 
       if (curr_mat != batch.material) {
         // TODO: Also bind the correct mesh pipeline
-        vkCmdBindDescriptorSets(
-            frame.main_command_buffer,
-            VK_PIPELINE_BIND_POINT_GRAPHICS,
-            this->mesh_pipeline_layout,
-            2,
-            1,
-            &mat->texture_descriptor,
-            0,
-            nullptr);
+        // vkCmdBindDescriptorSets(
+        //     frame.main_command_buffer,
+        //     VK_PIPELINE_BIND_POINT_GRAPHICS,
+        //     this->mesh_pipeline_layout,
+        //     2,
+        //     1,
+        //     &mat->texture_descriptor,
+        //     0,
+        //     nullptr);
         curr_mat = batch.material;
       }
 
@@ -476,11 +477,23 @@ void Render::VulkanEngine::init_vulkan() {
 
   this->surface = this->window.create_surface(this->instance);
 
+  VkPhysicalDeviceDescriptorIndexingFeatures indexing = {};
+  indexing.sType =
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+  indexing.pNext = nullptr;
+  indexing.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+  indexing.runtimeDescriptorArray = VK_TRUE;
+  indexing.descriptorBindingVariableDescriptorCount = VK_TRUE;
+  indexing.descriptorBindingPartiallyBound = VK_TRUE;
+
   vkb::PhysicalDeviceSelector selector(vkb_inst);
-  vkb::PhysicalDevice gpu = selector.set_minimum_version(1, 1)
-                                .set_surface(this->surface)
-                                .select()
-                                .value();
+  vkb::PhysicalDevice gpu =
+      selector.set_minimum_version(1, 1)
+          .set_surface(this->surface)
+          .add_required_extension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME)
+          .add_required_extension_features(indexing)
+          .select()
+          .value();
 
   vkb::DeviceBuilder device_builder(gpu);
   VkPhysicalDeviceShaderDrawParameterFeatures features = {};
@@ -608,12 +621,12 @@ void Render::VulkanEngine::init_descriptors() {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10},
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10},
       {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10},
-      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10}};
+      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 800}};
 
   VkDescriptorPoolCreateInfo pool_info = {};
   pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   pool_info.flags = 0;
-  pool_info.maxSets = 10;
+  pool_info.maxSets = 830;
   pool_info.poolSizeCount = sizes.size();
   pool_info.pPoolSizes = sizes.data();
 
@@ -635,22 +648,42 @@ void Render::VulkanEngine::init_descriptors() {
           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
           1);
 
+  VkDescriptorSetLayoutBinding texture_binding =
+      VkInit::descriptor_set_layout_binding(
+          VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+          VK_SHADER_STAGE_FRAGMENT_BIT,
+          2,
+          128);
+
   VkDescriptorSetLayoutBinding bindings[] = {
       camera_buffer_binding,
-      scene_buffer_binding};
+      scene_buffer_binding,
+      texture_binding};
+
+  VkDescriptorBindingFlags flags[3];
+  flags[0] = 0;
+  flags[1] = 0;
+  flags[2] = VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT |
+             VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+
+  VkDescriptorSetLayoutBindingFlagsCreateInfo layout_binding_flags = {};
+  layout_binding_flags.sType =
+      VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+  layout_binding_flags.bindingCount = 3;
+  layout_binding_flags.pBindingFlags = flags;
 
   VkDescriptorSetLayoutCreateInfo set0_info = {};
   set0_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  set0_info.pNext = nullptr;
+  set0_info.pNext = &layout_binding_flags;
   set0_info.flags = 0;
-  set0_info.bindingCount = 2;
+  set0_info.bindingCount = 3;
   set0_info.pBindings = bindings;
 
-  vkCreateDescriptorSetLayout(
+  VK_ASSERT(vkCreateDescriptorSetLayout(
       this->device,
       &set0_info,
       nullptr,
-      &this->global_descriptor_layout);
+      &this->global_descriptor_layout));
 
   VkDescriptorSetLayoutBinding object_buffer_binding =
       VkInit::descriptor_set_layout_binding(
@@ -680,24 +713,18 @@ void Render::VulkanEngine::init_descriptors() {
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
       VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-  VkDescriptorSetLayoutBinding texture_binding =
-      VkInit::descriptor_set_layout_binding(
-          VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-          VK_SHADER_STAGE_FRAGMENT_BIT,
-          0);
-
-  VkDescriptorSetLayoutCreateInfo texture_info = {};
-  texture_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  texture_info.pNext = nullptr;
-  texture_info.flags = 0;
-  texture_info.bindingCount = 1;
-  texture_info.pBindings = &texture_binding;
-
-  vkCreateDescriptorSetLayout(
-      this->device,
-      &texture_info,
-      nullptr,
-      &this->single_texture_descriptor_layout);
+  // VkDescriptorSetLayoutCreateInfo texture_info = {};
+  // texture_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  // texture_info.pNext = nullptr;
+  // texture_info.flags = 0;
+  // texture_info.bindingCount = 1;
+  // texture_info.pBindings = &texture_binding;
+  //
+  // vkCreateDescriptorSetLayout(
+  //     this->device,
+  //     &texture_info,
+  //     nullptr,
+  //     &this->single_texture_descriptor_layout);
 }
 
 void Render::VulkanEngine::init_frames() {
@@ -752,21 +779,29 @@ void Render::VulkanEngine::init_frames() {
     frame.object_buffer = VkInit::buffer(
         this->allocator,
         // ssbo SIZE
-        sizeof(ObjectData) * VulkanEngine::MAX_INSTANCES,
+        sizeof(InstanceData) * VulkanEngine::MAX_INSTANCES,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
 
+    uint32_t max_descriptors[1] = {128};
+
+    VkDescriptorSetVariableDescriptorCountAllocateInfo variable_alloc_info = {};
+    variable_alloc_info.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
+    variable_alloc_info.descriptorSetCount = 1;
+    variable_alloc_info.pDescriptorCounts = max_descriptors;
+
     VkDescriptorSetAllocateInfo global_set_alloc = {};
     global_set_alloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    global_set_alloc.pNext = nullptr;
+    global_set_alloc.pNext = &variable_alloc_info;
     global_set_alloc.descriptorPool = this->descriptor_pool;
     global_set_alloc.descriptorSetCount = 1;
     global_set_alloc.pSetLayouts = &this->global_descriptor_layout;
 
-    vkAllocateDescriptorSets(
+    VK_ASSERT(vkAllocateDescriptorSets(
         this->device,
         &global_set_alloc,
-        &frame.global_descriptor);
+        &frame.global_descriptor));
 
     VkDescriptorSetAllocateInfo object_set_alloc = {};
     object_set_alloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -775,10 +810,10 @@ void Render::VulkanEngine::init_frames() {
     object_set_alloc.descriptorSetCount = 1;
     object_set_alloc.pSetLayouts = &this->object_descriptor_layout;
 
-    vkAllocateDescriptorSets(
+    VK_ASSERT(vkAllocateDescriptorSets(
         this->device,
         &object_set_alloc,
-        &frame.object_descriptor);
+        &frame.object_descriptor));
 
     VkDescriptorBufferInfo camera_info = {};
     camera_info.buffer = frame.camera_buffer.buffer;
@@ -794,7 +829,7 @@ void Render::VulkanEngine::init_frames() {
     object_info.buffer = frame.object_buffer.buffer;
     object_info.offset = 0;
     // SSBO SIZE
-    object_info.range = sizeof(ObjectData) * VulkanEngine::MAX_INSTANCES;
+    object_info.range = sizeof(InstanceData) * VulkanEngine::MAX_INSTANCES;
 
     VkWriteDescriptorSet camera_set = VkInit::write_descriptor_set(
         VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -876,7 +911,7 @@ void Render::VulkanEngine::init_pipelines() {
   std::vector<VkDescriptorSetLayout> descriptor_layouts;
   descriptor_layouts.push_back(this->global_descriptor_layout);
   descriptor_layouts.push_back(this->object_descriptor_layout);
-  descriptor_layouts.push_back(this->single_texture_descriptor_layout);
+  // descriptor_layouts.push_back(this->single_texture_descriptor_layout);
 
   VkPipelineLayoutCreateInfo mesh_layout_info =
       VkInit::pipeline_layout_create_info(&push_constant, &descriptor_layouts);
@@ -1097,30 +1132,34 @@ void Render::VulkanEngine::upload_material(Material *material) {
 
   this->textures[material->material_name] = texture;
 
-  VkDescriptorSetAllocateInfo alloc_info = {};
-  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-  alloc_info.pNext = nullptr;
-  alloc_info.descriptorPool = this->descriptor_pool;
-  alloc_info.descriptorSetCount = 1;
-  alloc_info.pSetLayouts = &this->single_texture_descriptor_layout;
-
-  vkAllocateDescriptorSets(
-      this->device,
-      &alloc_info,
-      &material->texture_descriptor);
+  // VkDescriptorSetAllocateInfo alloc_info = {};
+  // alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  // alloc_info.pNext = nullptr;
+  // alloc_info.descriptorPool = this->descriptor_pool;
+  // alloc_info.descriptorSetCount = 1;
+  // alloc_info.pSetLayouts = &this->single_texture_descriptor_layout;
+  //
+  // VK_ASSERT(vkAllocateDescriptorSets(
+  //     this->device,
+  //     &alloc_info,
+  //     &material->texture_descriptor));
 
   VkDescriptorImageInfo image_info = {};
   image_info.sampler = sampler;
   image_info.imageView = texture.image_view;
   image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-  VkWriteDescriptorSet texture_write = VkInit::write_descriptor_image(
-      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-      material->texture_descriptor,
-      &image_info,
-      0);
+  for (auto &frame : this->frames) {
+    VkWriteDescriptorSet texture_write = VkInit::write_descriptor_image(
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        frame.global_descriptor,
+        &image_info,
+        2,
+        Material::get(material->material_name).value);
 
-  vkUpdateDescriptorSets(this->device, 1, &texture_write, 0, nullptr);
+    io::debug("this one");
+    vkUpdateDescriptorSets(this->device, 1, &texture_write, 0, nullptr);
+  }
 }
 
 void Render::VulkanEngine::imgui_enqueue(std::function<void(void)> &&imgui_fn) {

@@ -19,7 +19,7 @@
   do {                                                                         \
     VkResult err = x;                                                          \
     if (err) {                                                                 \
-      io::error("{}", string_VkResult(err));                                   \
+      io::error("[{}:{}] {}", __FILE__, __LINE__, string_VkResult(err));       \
     }                                                                          \
   } while (false)
 
@@ -60,8 +60,10 @@ struct FrameData {
   VkDescriptorSet object_descriptor;
 };
 
-struct ObjectData {
+struct InstanceData {
   glm::mat4 model;
+  int tex_index;
+  int padding[3];
 };
 
 struct UploadContext {
