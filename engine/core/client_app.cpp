@@ -23,15 +23,12 @@ ClientApp::ClientApp(uint32_t server_port, uint32_t client_port)
       frame(0),
       world_state(),
       registry(),
-      inputs() {
+      inputs(),
+      render_engine({1920, 1080}, this) {
 }
 
 Err ClientApp::init() {
   ZoneScopedN("ClientApp::init");
-  Err err = this->render_engine.init({1920, 1080}, this);
-  if (err.is_error) {
-    return err;
-  }
 
   TriMeshHandle golem = TriMesh::get("models/mech_golem.asset").value;
   TriMeshHandle dwarf = TriMesh::get("models/fort_golem.asset").value;

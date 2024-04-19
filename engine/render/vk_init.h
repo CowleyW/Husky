@@ -117,4 +117,8 @@ VkWriteDescriptorSet write_descriptor_image(
     VkDescriptorImageInfo *info,
     uint32_t binding,
     uint32_t index);
+
+VkDescriptorSetAllocateInfo descriptor_set_allocate_info(
+    VkDescriptorPool &pool,
+    VkDescriptorSetLayout &layout);
 } // namespace VkInit

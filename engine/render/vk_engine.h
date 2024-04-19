@@ -4,12 +4,12 @@
 #include "io/input_map.h"
 #include "material.h"
 #include "tri_mesh.h"
-#include "util/err.h"
 #include "vk_types.h"
 #include "window.h"
 
 #include "entt/entity/fwd.hpp"
 #include <functional>
+#include <stack>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -26,9 +26,10 @@ struct Batch {
 
 class VulkanEngine {
 public:
+  VulkanEngine(
+      Dimensions dimensions = {1920, 1080},
+      CallbackHandler *handler = nullptr);
   ~VulkanEngine();
-
-  Err init(Dimensions dimensions, CallbackHandler *handler);
 
   void render(entt::registry &registry);
 
@@ -48,7 +49,7 @@ private:
 
   void init_vulkan();
   void init_allocator();
-  void init_buffer();
+  void init_buffers();
   void init_sampler();
   void init_swapchain();
   void init_default_renderpass();
@@ -76,6 +77,7 @@ private:
   uint32_t frame_number;
 
   std::vector<std::function<void(void)>> imgui_fns;
+  std::stack<std::function<void(void)>> cleanup_fns;
 
   std::unordered_map<std::string, Texture> textures;
   Material material;

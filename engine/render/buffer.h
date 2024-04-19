@@ -20,4 +20,8 @@ struct AllocatedBuffer {
       return original_size;
     }
   }
+
+  void destroy(VmaAllocator &allocator) {
+    vmaDestroyBuffer(allocator, this->buffer, this->allocation);
+  }
 };

@@ -483,3 +483,16 @@ VkWriteDescriptorSet VkInit::write_descriptor_image(
 
   return write_set;
 }
+
+VkDescriptorSetAllocateInfo VkInit::descriptor_set_allocate_info(
+    VkDescriptorPool &pool,
+    VkDescriptorSetLayout &layout) {
+  VkDescriptorSetAllocateInfo info = {};
+  info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  info.pNext = nullptr;
+  info.descriptorPool = pool;
+  info.descriptorSetCount = 1;
+  info.pSetLayouts = &layout;
+
+  return info;
+}

@@ -39,100 +39,31 @@ Render::VulkanEngine::~VulkanEngine() {
   // Make sure the GPU is not doing anything before we do any cleanup
   vkDeviceWaitIdle(this->device);
 
-  ImGui_ImplVulkan_Shutdown();
-  ImGui_ImplGlfw_Shutdown();
-  ImGui::DestroyContext();
-  vkDestroyDescriptorPool(this->device, this->imgui_descriptor_pool, nullptr);
-
-  vmaDestroyBuffer(
-      this->allocator,
-      this->vertex_buffer.buffer,
-      this->vertex_buffer.allocation);
-  vmaDestroyBuffer(
-      this->allocator,
-      this->index_buffer.buffer,
-      this->index_buffer.allocation);
-  vmaDestroyBuffer(
-      this->allocator,
-      this->compute_buffer.buffer,
-      this->compute_buffer.allocation);
-  vmaDestroyBuffer(
-      this->allocator,
-      this->scene_data_buffer.buffer,
-      this->scene_data_buffer.allocation);
-
   for (auto &[key, value] : this->textures) {
     vmaDestroyImage(this->allocator, value.image.image, value.image.allocation);
     vkDestroyImageView(this->device, value.image_view, nullptr);
   }
 
-  vkDestroyCommandPool(
-      this->device,
-      this->upload_context.command_pool,
-      nullptr);
-  vkDestroyFence(this->device, this->upload_context.upload_fence, nullptr);
+  while (!cleanup_fns.empty()) {
+    auto &destructor = cleanup_fns.top();
+    destructor();
 
-  vkDestroyDescriptorSetLayout(
-      this->device,
-      this->global_descriptor_layout,
-      nullptr);
-  vkDestroyDescriptorSetLayout(
-      this->device,
-      this->object_descriptor_layout,
-      nullptr);
-  vkDestroyDescriptorSetLayout(
-      this->device,
-      this->texture_descriptor_layout,
-      nullptr);
-  vkDestroyDescriptorPool(this->device, this->descriptor_pool, nullptr);
-
-  vkDestroySampler(this->device, this->sampler, nullptr);
-
-  for (auto &frame : this->frames) {
-    vkDestroyCommandPool(this->device, frame.command_pool, nullptr);
-    vkDestroySemaphore(this->device, frame.present_semaphore, nullptr);
-    vkDestroySemaphore(this->device, frame.render_semaphore, nullptr);
-    vkDestroyFence(this->device, frame.render_fence, nullptr);
-    vmaDestroyBuffer(
-        this->allocator,
-        frame.camera_buffer.buffer,
-        frame.camera_buffer.allocation);
-    vmaDestroyBuffer(
-        this->allocator,
-        frame.object_buffer.buffer,
-        frame.object_buffer.allocation);
-    vmaDestroyBuffer(
-        this->allocator,
-        frame.indirect_buffer.buffer,
-        frame.indirect_buffer.allocation);
+    cleanup_fns.pop();
   }
-
-  vkDestroyPipeline(this->device, this->mesh_pipeline, nullptr);
-  vkDestroyPipelineLayout(this->device, this->mesh_pipeline_layout, nullptr);
-
-  vkDestroyRenderPass(this->device, this->render_pass, nullptr);
-
-  this->destroy_swapchain();
-
-  vmaDestroyAllocator(this->allocator);
-
-  vkDestroyDevice(this->device, nullptr);
-  vkDestroySurfaceKHR(this->instance, this->surface, nullptr);
-  vkb::destroy_debug_utils_messenger(this->instance, this->debug_messenger);
-
-  vkDestroyInstance(this->instance, nullptr);
 }
 
-Err Render::VulkanEngine::init(
+Render::VulkanEngine::VulkanEngine(
     Dimensions dimensions,
-    CallbackHandler *handler) {
+    CallbackHandler *handler)
+    : imgui_fns(),
+      cleanup_fns() {
   this->dimensions = dimensions;
   this->window.init(dimensions);
   this->window.register_callbacks(handler);
 
   this->init_vulkan();
   this->init_allocator();
-  this->init_buffer();
+  this->init_buffers();
   this->init_sampler();
   this->init_descriptors();
   this->init_frames();
@@ -141,8 +72,6 @@ Err Render::VulkanEngine::init(
   this->init_framebuffers();
   this->init_pipelines();
   this->init_imgui();
-
-  return Err::ok();
 }
 
 void Render::VulkanEngine::destroy_swapchain() {
@@ -400,14 +329,6 @@ void Render::VulkanEngine::render(entt::registry &registry) {
       cmd.firstInstance = batch.first;
       cmd.instanceCount = batch.count;
       indirect_buffer[i] = cmd;
-
-      // vkCmdDrawIndexed(
-      //     frame.main_command_buffer,
-      //     tri_mesh->indices.size(),
-      //     batch.count,
-      //     tri_mesh->first_index,
-      //     tri_mesh->first_vertex,
-      //     batch.first);
     }
     vmaUnmapMemory(this->allocator, frame.indirect_buffer.allocation);
 
@@ -531,8 +452,6 @@ void Render::VulkanEngine::init_vulkan() {
   shader_draw.pNext = nullptr;
   shader_draw.shaderDrawParameters = VK_TRUE;
 
-  // VkPhysicalDeviceMultiDrawFeaturesEXT
-
   vkb::Device device = device_builder.add_pNext(&shader_draw).build().value();
 
   this->gpu = gpu.physical_device;
@@ -542,6 +461,15 @@ void Render::VulkanEngine::init_vulkan() {
   this->graphics_queue = device.get_queue(vkb::QueueType::graphics).value();
   this->graphics_queue_family =
       device.get_queue_index(vkb::QueueType::graphics).value();
+
+  this->cleanup_fns.push(
+      [this]() { vkDestroyInstance(this->instance, nullptr); });
+
+  this->cleanup_fns.push([this]() {
+    vkDestroyDevice(this->device, nullptr);
+    vkDestroySurfaceKHR(this->instance, this->surface, nullptr);
+    vkb::destroy_debug_utils_messenger(this->instance, this->debug_messenger);
+  });
 }
 
 void Render::VulkanEngine::init_swapchain() {
@@ -598,6 +526,8 @@ void Render::VulkanEngine::init_swapchain() {
       &depth_view_info,
       nullptr,
       &this->depth_image_view));
+
+  this->cleanup_fns.push([this]() { this->destroy_swapchain(); });
 }
 
 void Render::VulkanEngine::init_default_renderpass() {
@@ -646,6 +576,10 @@ void Render::VulkanEngine::init_default_renderpass() {
       &render_pass_info,
       nullptr,
       &this->render_pass));
+
+  this->cleanup_fns.push([this]() {
+    vkDestroyRenderPass(this->device, this->render_pass, nullptr);
+  });
 }
 
 void Render::VulkanEngine::init_descriptors() {
@@ -716,15 +650,6 @@ void Render::VulkanEngine::init_descriptors() {
       nullptr,
       &this->object_descriptor_layout);
 
-  const uint32_t scene_data_size =
-      Render::VulkanEngine::FRAMES_IN_FLIGHT *
-      AllocatedBuffer::padding_size(sizeof(SceneData), this->gpu_properties);
-  this->scene_data_buffer = VkInit::buffer(
-      this->allocator,
-      scene_data_size,
-      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-      VMA_MEMORY_USAGE_CPU_TO_GPU);
-
   VkDescriptorSetLayoutBinding texture_binding =
       VkInit::descriptor_set_layout_binding(
           VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -756,6 +681,22 @@ void Render::VulkanEngine::init_descriptors() {
       &texture_info,
       nullptr,
       &this->texture_descriptor_layout);
+
+  this->cleanup_fns.push([this]() {
+    vkDestroyDescriptorSetLayout(
+        this->device,
+        this->global_descriptor_layout,
+        nullptr);
+    vkDestroyDescriptorSetLayout(
+        this->device,
+        this->object_descriptor_layout,
+        nullptr);
+    vkDestroyDescriptorSetLayout(
+        this->device,
+        this->texture_descriptor_layout,
+        nullptr);
+    vkDestroyDescriptorPool(this->device, this->descriptor_pool, nullptr);
+  });
 }
 
 void Render::VulkanEngine::init_frames() {
@@ -765,6 +706,30 @@ void Render::VulkanEngine::init_frames() {
 
   VkFenceCreateInfo fence_create_info = VkInit::fence_create_info();
   VkSemaphoreCreateInfo semaphore_create_info = VkInit::semaphore_create_info();
+
+  VkDescriptorSetAllocateInfo global_set_alloc =
+      VkInit::descriptor_set_allocate_info(
+          this->descriptor_pool,
+          this->global_descriptor_layout);
+
+  VkDescriptorSetAllocateInfo object_set_alloc =
+      VkInit::descriptor_set_allocate_info(
+          this->descriptor_pool,
+          this->object_descriptor_layout);
+
+  uint32_t max_descriptors = 128;
+
+  VkDescriptorSetVariableDescriptorCountAllocateInfo variable_alloc_info = {};
+  variable_alloc_info.sType =
+      VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
+  variable_alloc_info.descriptorSetCount = 1;
+  variable_alloc_info.pDescriptorCounts = &max_descriptors;
+
+  VkDescriptorSetAllocateInfo texture_set_alloc =
+      VkInit::descriptor_set_allocate_info(
+          this->descriptor_pool,
+          this->texture_descriptor_layout);
+  texture_set_alloc.pNext = &variable_alloc_info;
 
   for (auto &frame : this->frames) {
     VK_ASSERT(vkCreateFence(
@@ -815,48 +780,19 @@ void Render::VulkanEngine::init_frames() {
         VMA_MEMORY_USAGE_CPU_TO_GPU);
     frame.indirect_buffer = VkInit::buffer(
         this->allocator,
-        sizeof(VkDrawIndexedIndirectCommand) * 2,
+        sizeof(VkDrawIndexedIndirectCommand) * 1000,
         VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-    VkDescriptorSetAllocateInfo global_set_alloc = {};
-    global_set_alloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    global_set_alloc.pNext = nullptr;
-    global_set_alloc.descriptorPool = this->descriptor_pool;
-    global_set_alloc.descriptorSetCount = 1;
-    global_set_alloc.pSetLayouts = &this->global_descriptor_layout;
 
     VK_ASSERT(vkAllocateDescriptorSets(
         this->device,
         &global_set_alloc,
         &frame.global_descriptor));
 
-    VkDescriptorSetAllocateInfo object_set_alloc = {};
-    object_set_alloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    object_set_alloc.pNext = nullptr;
-    object_set_alloc.descriptorPool = this->descriptor_pool;
-    object_set_alloc.descriptorSetCount = 1;
-    object_set_alloc.pSetLayouts = &this->object_descriptor_layout;
-
     VK_ASSERT(vkAllocateDescriptorSets(
         this->device,
         &object_set_alloc,
         &frame.object_descriptor));
-
-    uint32_t max_descriptors[1] = {128};
-
-    VkDescriptorSetVariableDescriptorCountAllocateInfo variable_alloc_info = {};
-    variable_alloc_info.sType =
-        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
-    variable_alloc_info.descriptorSetCount = 1;
-    variable_alloc_info.pDescriptorCounts = max_descriptors;
-
-    VkDescriptorSetAllocateInfo texture_set_alloc = {};
-    texture_set_alloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    texture_set_alloc.pNext = &variable_alloc_info;
-    texture_set_alloc.descriptorPool = this->descriptor_pool;
-    texture_set_alloc.descriptorSetCount = 1;
-    texture_set_alloc.pSetLayouts = &this->texture_descriptor_layout;
 
     VK_ASSERT(vkAllocateDescriptorSets(
         this->device,
@@ -876,7 +812,6 @@ void Render::VulkanEngine::init_frames() {
     VkDescriptorBufferInfo object_info = {};
     object_info.buffer = frame.object_buffer.buffer;
     object_info.offset = 0;
-    // SSBO SIZE
     object_info.range = sizeof(InstanceData) * VulkanEngine::MAX_INSTANCES;
 
     VkWriteDescriptorSet camera_set = VkInit::write_descriptor_set(
@@ -901,6 +836,12 @@ void Render::VulkanEngine::init_frames() {
 
     vkUpdateDescriptorSets(this->device, 3, write_sets, 0, nullptr);
   }
+
+  this->cleanup_fns.push([this]() {
+    for (auto &frame : this->frames) {
+      frame.destroy(this->device, this->allocator);
+    }
+  });
 }
 
 void Render::VulkanEngine::init_framebuffers() {
@@ -996,6 +937,11 @@ void Render::VulkanEngine::init_pipelines() {
 
   vkDestroyShaderModule(device, frag, nullptr);
   vkDestroyShaderModule(device, vert, nullptr);
+
+  this->cleanup_fns.push([this]() {
+    vkDestroyPipeline(this->device, this->mesh_pipeline, nullptr);
+    vkDestroyPipelineLayout(this->device, this->mesh_pipeline_layout, nullptr);
+  });
 }
 
 void Render::VulkanEngine::init_allocator() {
@@ -1004,9 +950,11 @@ void Render::VulkanEngine::init_allocator() {
   allocator_info.device = this->device;
   allocator_info.instance = this->instance;
   vmaCreateAllocator(&allocator_info, &this->allocator);
+
+  this->cleanup_fns.push([this]() { vmaDestroyAllocator(this->allocator); });
 }
 
-void Render::VulkanEngine::init_buffer() {
+void Render::VulkanEngine::init_buffers() {
   this->vertex_buffer = VkInit::buffer(
       this->allocator,
       1024 * 1024 * 50,
@@ -1025,6 +973,22 @@ void Render::VulkanEngine::init_buffer() {
       VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
           VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
       VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+  const uint32_t scene_data_size =
+      Render::VulkanEngine::FRAMES_IN_FLIGHT *
+      AllocatedBuffer::padding_size(sizeof(SceneData), this->gpu_properties);
+  this->scene_data_buffer = VkInit::buffer(
+      this->allocator,
+      scene_data_size,
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+      VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+  this->cleanup_fns.push([this]() {
+    this->vertex_buffer.destroy(this->allocator);
+    this->index_buffer.destroy(this->allocator);
+    this->compute_buffer.destroy(this->allocator);
+    this->scene_data_buffer.destroy(this->allocator);
+  });
 }
 
 void Render::VulkanEngine::init_sampler() {
@@ -1033,6 +997,9 @@ void Render::VulkanEngine::init_sampler() {
 
   VK_ASSERT(
       vkCreateSampler(this->device, &sampler_info, nullptr, &this->sampler));
+
+  this->cleanup_fns.push(
+      [this]() { vkDestroySampler(this->device, this->sampler, nullptr); });
 }
 
 void Render::VulkanEngine::init_imgui() {
@@ -1088,6 +1055,13 @@ void Render::VulkanEngine::init_imgui() {
   ImGui_ImplVulkan_Init(&init_info);
 
   ImGui_ImplVulkan_CreateFontsTexture();
+
+  this->cleanup_fns.push([this]() {
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    vkDestroyDescriptorPool(this->device, this->imgui_descriptor_pool, nullptr);
+  });
 }
 
 void Render::VulkanEngine::upload_mesh(TriMesh *mesh) {
@@ -1243,6 +1217,14 @@ void Render::VulkanEngine::submit_command(
         &alloc_info,
         &this->upload_context.command_buffer));
     init = true;
+
+    this->cleanup_fns.push([this]() {
+      vkDestroyCommandPool(
+          this->device,
+          this->upload_context.command_pool,
+          nullptr);
+      vkDestroyFence(this->device, this->upload_context.upload_fence, nullptr);
+    });
   }
 
   VkCommandBufferBeginInfo cmd_info = VkInit::command_buffer_begin_info(

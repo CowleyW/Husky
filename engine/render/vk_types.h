@@ -60,6 +60,16 @@ struct FrameData {
   VkDescriptorSet global_descriptor;
   VkDescriptorSet object_descriptor;
   VkDescriptorSet texture_descriptor;
+
+  void destroy(VkDevice &device, VmaAllocator &allocator) {
+    vkDestroyCommandPool(device, this->command_pool, nullptr);
+    vkDestroySemaphore(device, this->present_semaphore, nullptr);
+    vkDestroySemaphore(device, this->render_semaphore, nullptr);
+    vkDestroyFence(device, this->render_fence, nullptr);
+    this->camera_buffer.destroy(allocator);
+    this->object_buffer.destroy(allocator);
+    this->indirect_buffer.destroy(allocator);
+  }
 };
 
 struct InstanceData {
