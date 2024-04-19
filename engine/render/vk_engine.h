@@ -116,7 +116,7 @@ private:
 
   VkDescriptorSetLayout global_descriptor_layout;
   VkDescriptorSetLayout object_descriptor_layout;
-  VkDescriptorSetLayout single_texture_descriptor_layout;
+  VkDescriptorSetLayout texture_descriptor_layout;
   VkDescriptorPool descriptor_pool;
 
   FrameData frames[FRAMES_IN_FLIGHT];

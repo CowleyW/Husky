@@ -55,9 +55,11 @@ struct FrameData {
 
   AllocatedBuffer camera_buffer;
   AllocatedBuffer object_buffer;
+  AllocatedBuffer indirect_buffer;
 
   VkDescriptorSet global_descriptor;
   VkDescriptorSet object_descriptor;
+  VkDescriptorSet texture_descriptor;
 };
 
 struct InstanceData {

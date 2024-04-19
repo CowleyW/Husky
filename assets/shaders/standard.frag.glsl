@@ -16,7 +16,7 @@ layout(set = 0, binding = 1) uniform SceneData {
   vec4 sunlight_color;
 } scene_data;
 
-layout (set = 0, binding = 2) uniform sampler2D textures[];
+layout (set = 2, binding = 0) uniform sampler2D textures[];
 
 void main() {
   vec3 tex_color = texture(textures[nonuniformEXT(v_tex_index)], v_tex_coords).xyz;
