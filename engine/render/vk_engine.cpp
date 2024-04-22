@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <cstring>
 #include <entt/entt.hpp>
+#include <iterator>
 #include <tracy/Tracy.hpp>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -64,6 +65,7 @@ Render::VulkanEngine::VulkanEngine(
   this->init_vulkan();
   this->init_allocator();
   this->init_buffers();
+  this->init_compute();
   this->init_sampler();
   this->init_descriptors();
   this->init_frames();
@@ -245,12 +247,12 @@ void Render::VulkanEngine::render(entt::registry &registry) {
     vmaUnmapMemory(this->allocator, frame.camera_buffer.allocation);
   }
 
+  uint32_t first_instance = 0;
   {
     ZoneNamedN(__set_object_data, "Set Object Data", true);
 
     TriMeshHandle curr_mesh = TriMesh::NULL_HANDLE;
     MaterialHandle curr_mat = Material::NULL_HANDLE;
-    uint32_t first_instance = 0;
     uint32_t current_index = 0;
     uint32_t indices_size = 0;
     std::vector<Render::Batch> batches;
@@ -306,8 +308,6 @@ void Render::VulkanEngine::render(entt::registry &registry) {
         0,
         VK_INDEX_TYPE_UINT32);
 
-    // std::vector<VkDrawIndexedIndirectCommand> indirect_draws;
-
     void *indirect_data;
     vmaMapMemory(
         this->allocator,
@@ -331,6 +331,38 @@ void Render::VulkanEngine::render(entt::registry &registry) {
       indirect_buffer[i] = cmd;
     }
     vmaUnmapMemory(this->allocator, frame.indirect_buffer.allocation);
+
+    vkWaitForFences(this->device, 1, &frame.compute_fence, VK_TRUE, 1000000000);
+    vkResetFences(this->device, 1, &frame.compute_fence);
+
+    VkCommandBufferBeginInfo begin_info = VkInit::command_buffer_begin_info();
+    VK_ASSERT(vkBeginCommandBuffer(frame.compute_command_buffer, &begin_info));
+
+    vkCmdBindPipeline(
+        frame.compute_command_buffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        compute.pipeline);
+    vkCmdBindDescriptorSets(
+        frame.compute_command_buffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        compute.pipeline_layout,
+        0,
+        1,
+        &frame.compute_descriptor,
+        0,
+        nullptr);
+
+    vkCmdDispatch(frame.compute_command_buffer, current_index / 16, 1, 1);
+
+    VK_ASSERT(vkEndCommandBuffer(frame.compute_command_buffer));
+
+    VkSubmitInfo submit_info = VkInit::submit_info(
+        nullptr,
+        &frame.compute_semaphore,
+        &frame.compute_command_buffer,
+        nullptr);
+    VK_ASSERT(
+        vkQueueSubmit(compute.queue, 1, &submit_info, frame.compute_fence));
 
     vkCmdDrawIndexedIndirect(
         frame.main_command_buffer,
@@ -363,14 +395,17 @@ void Render::VulkanEngine::render(entt::registry &registry) {
     vkCmdEndRenderPass(frame.main_command_buffer);
     VK_ASSERT(vkEndCommandBuffer(frame.main_command_buffer));
 
-    VkPipelineStageFlags wait_stage =
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    VkPipelineStageFlags wait_stages[2] = {
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT};
 
+    VkSemaphore wait[2] = {frame.present_semaphore, frame.compute_semaphore};
     VkSubmitInfo submit_info = VkInit::submit_info(
-        &frame.present_semaphore,
+        wait,
         &frame.render_semaphore,
         &frame.main_command_buffer,
-        &wait_stage);
+        wait_stages);
+    submit_info.waitSemaphoreCount = 2;
     VK_ASSERT(vkQueueSubmit(
         this->graphics_queue,
         1,
@@ -461,6 +496,10 @@ void Render::VulkanEngine::init_vulkan() {
   this->graphics_queue = device.get_queue(vkb::QueueType::graphics).value();
   this->graphics_queue_family =
       device.get_queue_index(vkb::QueueType::graphics).value();
+
+  this->compute.queue = device.get_queue(vkb::QueueType::compute).value();
+  this->compute.queue_family =
+      device.get_queue_index(vkb::QueueType::compute).value();
 
   this->cleanup_fns.push(
       [this]() { vkDestroyInstance(this->instance, nullptr); });
@@ -700,8 +739,12 @@ void Render::VulkanEngine::init_descriptors() {
 }
 
 void Render::VulkanEngine::init_frames() {
-  VkCommandPoolCreateInfo command_pool_info = VkInit::command_pool_create_info(
+  VkCommandPoolCreateInfo graphics_pool_info = VkInit::command_pool_create_info(
       this->graphics_queue_family,
+      VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+
+  VkCommandPoolCreateInfo compute_pool_info = VkInit::command_pool_create_info(
+      this->compute.queue_family,
       VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
   VkFenceCreateInfo fence_create_info = VkInit::fence_create_info();
@@ -731,12 +774,22 @@ void Render::VulkanEngine::init_frames() {
           this->texture_descriptor_layout);
   texture_set_alloc.pNext = &variable_alloc_info;
 
+  VkDescriptorSetAllocateInfo compute_set_alloc =
+      VkInit::descriptor_set_allocate_info(
+          this->descriptor_pool,
+          compute.descriptor_layout);
+
   for (auto &frame : this->frames) {
     VK_ASSERT(vkCreateFence(
         this->device,
         &fence_create_info,
         nullptr,
         &frame.render_fence));
+    VK_ASSERT(vkCreateFence(
+        this->device,
+        &fence_create_info,
+        nullptr,
+        &frame.compute_fence));
 
     VK_ASSERT(vkCreateSemaphore(
         this->device,
@@ -750,22 +803,45 @@ void Render::VulkanEngine::init_frames() {
         nullptr,
         &frame.render_semaphore));
 
+    VK_ASSERT(vkCreateSemaphore(
+        this->device,
+        &semaphore_create_info,
+        nullptr,
+        &frame.compute_semaphore));
+
     VK_ASSERT(vkCreateCommandPool(
         this->device,
-        &command_pool_info,
+        &graphics_pool_info,
         nullptr,
-        &frame.command_pool));
+        &frame.graphics_command_pool));
 
-    VkCommandBufferAllocateInfo alloc_info =
+    VK_ASSERT(vkCreateCommandPool(
+        this->device,
+        &compute_pool_info,
+        nullptr,
+        &frame.compute_command_pool));
+
+    VkCommandBufferAllocateInfo graphics_alloc_info =
         VkInit::command_buffer_allocate_info(
-            frame.command_pool,
+            frame.graphics_command_pool,
+            1,
+            VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+
+    VkCommandBufferAllocateInfo compute_alloc_info =
+        VkInit::command_buffer_allocate_info(
+            frame.compute_command_pool,
             1,
             VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
     VK_ASSERT(vkAllocateCommandBuffers(
         this->device,
-        &alloc_info,
+        &graphics_alloc_info,
         &frame.main_command_buffer));
+
+    VK_ASSERT(vkAllocateCommandBuffers(
+        this->device,
+        &compute_alloc_info,
+        &frame.compute_command_buffer));
 
     frame.camera_buffer = VkInit::buffer(
         this->allocator,
@@ -798,6 +874,11 @@ void Render::VulkanEngine::init_frames() {
         this->device,
         &texture_set_alloc,
         &frame.texture_descriptor));
+
+    VK_ASSERT(vkAllocateDescriptorSets(
+        this->device,
+        &compute_set_alloc,
+        &frame.compute_descriptor));
 
     VkDescriptorBufferInfo camera_info = {};
     camera_info.buffer = frame.camera_buffer.buffer;
@@ -832,9 +913,16 @@ void Render::VulkanEngine::init_frames() {
         &object_info,
         0);
 
-    VkWriteDescriptorSet write_sets[] = {camera_set, scene_set, object_set};
+    VkWriteDescriptorSet compute_object_set = VkInit::write_descriptor_set(
+        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        frame.compute_descriptor,
+        &object_info,
+        0);
 
-    vkUpdateDescriptorSets(this->device, 3, write_sets, 0, nullptr);
+    VkWriteDescriptorSet write_sets[] =
+        {camera_set, scene_set, object_set, compute_object_set};
+
+    vkUpdateDescriptorSets(this->device, 4, write_sets, 0, nullptr);
   }
 
   this->cleanup_fns.push([this]() {
@@ -967,7 +1055,7 @@ void Render::VulkanEngine::init_buffers() {
       VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_GPU_ONLY);
 
-  this->compute_buffer = VkInit::buffer(
+  this->indirect_commands_buffer = VkInit::buffer(
       this->allocator,
       5000 * sizeof(VkDrawIndexedIndirectCommand),
       VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
@@ -986,8 +1074,79 @@ void Render::VulkanEngine::init_buffers() {
   this->cleanup_fns.push([this]() {
     this->vertex_buffer.destroy(this->allocator);
     this->index_buffer.destroy(this->allocator);
-    this->compute_buffer.destroy(this->allocator);
+    this->indirect_commands_buffer.destroy(this->allocator);
     this->scene_data_buffer.destroy(this->allocator);
+  });
+}
+
+void Render::VulkanEngine::init_compute() {
+  std::vector<VkDescriptorSetLayoutBinding> bindings = {
+      VkInit::descriptor_set_layout_binding(
+          VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+          VK_SHADER_STAGE_COMPUTE_BIT,
+          0)};
+
+  VkDescriptorSetLayoutCreateInfo set_layout_info = {};
+  set_layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  set_layout_info.pNext = nullptr;
+  set_layout_info.flags = 0;
+  set_layout_info.bindingCount = bindings.size();
+  set_layout_info.pBindings = bindings.data();
+
+  VK_ASSERT(vkCreateDescriptorSetLayout(
+      this->device,
+      &set_layout_info,
+      nullptr,
+      &this->compute.descriptor_layout));
+
+  std::vector<VkDescriptorSetLayout> descriptor_layouts = {
+      compute.descriptor_layout};
+  VkPipelineLayoutCreateInfo pipeline_layout_info =
+      VkInit::pipeline_layout_create_info(nullptr, &descriptor_layouts);
+
+  VK_ASSERT(vkCreatePipelineLayout(
+      this->device,
+      &pipeline_layout_info,
+      nullptr,
+      &compute.pipeline_layout));
+
+  VkShaderModule comp;
+  Err err =
+      Shader::load_shader_module("shaders/cull.comp.spv", this->device, &comp);
+  if (err.is_error) {
+    io::error(err.msg);
+  }
+
+  VkPipelineShaderStageCreateInfo shader_stage =
+      VkInit::pipeline_shader_stage_create_info(
+          VK_SHADER_STAGE_COMPUTE_BIT,
+          comp);
+
+  VkComputePipelineCreateInfo pipeline_info = {};
+  pipeline_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+  pipeline_info.layout = compute.pipeline_layout;
+  pipeline_info.stage = shader_stage;
+
+  VK_ASSERT(vkCreateComputePipelines(
+      this->device,
+      VK_NULL_HANDLE,
+      1,
+      &pipeline_info,
+      nullptr,
+      &compute.pipeline));
+
+  vkDestroyShaderModule(this->device, comp, nullptr);
+
+  this->cleanup_fns.push([this]() {
+    vkDestroyPipeline(this->device, this->compute.pipeline, nullptr);
+    vkDestroyPipelineLayout(
+        this->device,
+        this->compute.pipeline_layout,
+        nullptr);
+    vkDestroyDescriptorSetLayout(
+        this->device,
+        this->compute.descriptor_layout,
+        nullptr);
   });
 }
 

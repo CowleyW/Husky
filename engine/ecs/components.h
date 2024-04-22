@@ -5,10 +5,6 @@
 #include "render/material.h"
 #include "render/tri_mesh.h"
 
-#include "glm/gtc/matrix_transform.hpp"
-#include "glm/gtc/quaternion.hpp"
-#include "glm/vec3.hpp"
-
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/quaternion.hpp"
 

@@ -3,6 +3,8 @@
 #include "io/logging.h"
 
 #include "buffer.h"
+#include "render/material.h"
+#include "render/tri_mesh.h"
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vk_enum_string_helper.h>
@@ -48,10 +50,15 @@ struct AllocatedImage {
 struct FrameData {
   VkSemaphore present_semaphore;
   VkSemaphore render_semaphore;
-  VkFence render_fence;
+  VkSemaphore compute_semaphore;
 
-  VkCommandPool command_pool;
+  VkFence render_fence;
+  VkFence compute_fence;
+
+  VkCommandPool graphics_command_pool;
+  VkCommandPool compute_command_pool;
   VkCommandBuffer main_command_buffer;
+  VkCommandBuffer compute_command_buffer;
 
   AllocatedBuffer camera_buffer;
   AllocatedBuffer object_buffer;
@@ -60,12 +67,16 @@ struct FrameData {
   VkDescriptorSet global_descriptor;
   VkDescriptorSet object_descriptor;
   VkDescriptorSet texture_descriptor;
+  VkDescriptorSet compute_descriptor;
 
   void destroy(VkDevice &device, VmaAllocator &allocator) {
-    vkDestroyCommandPool(device, this->command_pool, nullptr);
+    vkDestroyCommandPool(device, this->graphics_command_pool, nullptr);
+    vkDestroyCommandPool(device, this->compute_command_pool, nullptr);
     vkDestroySemaphore(device, this->present_semaphore, nullptr);
     vkDestroySemaphore(device, this->render_semaphore, nullptr);
+    vkDestroySemaphore(device, this->compute_semaphore, nullptr);
     vkDestroyFence(device, this->render_fence, nullptr);
+    vkDestroyFence(device, this->compute_fence, nullptr);
     this->camera_buffer.destroy(allocator);
     this->object_buffer.destroy(allocator);
     this->indirect_buffer.destroy(allocator);
@@ -74,8 +85,15 @@ struct FrameData {
 
 struct InstanceData {
   glm::mat4 model;
-  int tex_index;
-  int padding[3];
+  MaterialHandle tex_index;
+  uint32_t _padding[3];
+  // glm::vec3 position;
+  // MaterialHandle tex_index;
+  // glm::vec3 rotation;
+  // TriMeshHandle mesh_index;
+  // glm::vec3 scale;
+  //
+  // uint32_t _padding;
 };
 
 struct UploadContext {
@@ -87,6 +105,14 @@ struct UploadContext {
 struct Texture {
   AllocatedImage image;
   VkImageView image_view;
+};
+
+struct Compute {
+  VkQueue queue;
+  uint32_t queue_family;
+  VkDescriptorSetLayout descriptor_layout;
+  VkPipelineLayout pipeline_layout;
+  VkPipeline pipeline;
 };
 
 enum class ShaderType { Vertex = 0, Fragment };

@@ -50,6 +50,7 @@ private:
   void init_vulkan();
   void init_allocator();
   void init_buffers();
+  void init_compute();
   void init_sampler();
   void init_swapchain();
   void init_default_renderpass();
@@ -88,7 +89,10 @@ private:
   AllocatedBuffer index_buffer;
   uint32_t index_buffer_offset = 0;
 
-  AllocatedBuffer compute_buffer;
+  AllocatedBuffer indirect_commands_buffer;
+  AllocatedBuffer indirect_count_buffer;
+
+  Compute compute;
 
   SceneData scene_data;
   AllocatedBuffer scene_data_buffer;

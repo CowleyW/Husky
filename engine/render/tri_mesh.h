@@ -1,13 +1,15 @@
 #pragma once
 
-#include "glm/fwd.hpp"
 #include "util/result.h"
 #include "vk_types.h"
 
-#include <glm/gtx/hash.hpp>
 #include <utility>
 #include <vector>
 #include <vulkan/vulkan_core.h>
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include "glm/fwd.hpp"
+#include <glm/gtx/hash.hpp>
 
 struct VertexInputDescription {
   std::vector<VkVertexInputBindingDescription> bindings;
