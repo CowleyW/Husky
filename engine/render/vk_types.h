@@ -61,8 +61,10 @@ struct FrameData {
   VkCommandBuffer compute_command_buffer;
 
   AllocatedBuffer camera_buffer;
-  AllocatedBuffer object_buffer;
+  AllocatedBuffer vertex_instance_buffer;
+  AllocatedBuffer compute_instance_buffer;
   AllocatedBuffer indirect_buffer;
+  AllocatedBuffer draw_stats_buffer;
 
   VkDescriptorSet global_descriptor;
   VkDescriptorSet object_descriptor;
@@ -78,22 +80,26 @@ struct FrameData {
     vkDestroyFence(device, this->render_fence, nullptr);
     vkDestroyFence(device, this->compute_fence, nullptr);
     this->camera_buffer.destroy(allocator);
-    this->object_buffer.destroy(allocator);
+    this->vertex_instance_buffer.destroy(allocator);
+    this->compute_instance_buffer.destroy(allocator);
     this->indirect_buffer.destroy(allocator);
+    this->draw_stats_buffer.destroy(allocator);
   }
 };
 
-struct InstanceData {
-  glm::mat4 model;
+struct ComputeInstanceData {
+  glm::vec3 position;
   MaterialHandle tex_index;
+  glm::vec3 rotation;
+  uint32_t _padding;
+  glm::vec3 scale;
+  uint32_t _padding2;
+};
+
+struct VertexInstanceData {
+  glm::mat4 model;
+  uint32_t tex_index;
   uint32_t _padding[3];
-  // glm::vec3 position;
-  // MaterialHandle tex_index;
-  // glm::vec3 rotation;
-  // TriMeshHandle mesh_index;
-  // glm::vec3 scale;
-  //
-  // uint32_t _padding;
 };
 
 struct UploadContext {
@@ -113,6 +119,10 @@ struct Compute {
   VkDescriptorSetLayout descriptor_layout;
   VkPipelineLayout pipeline_layout;
   VkPipeline pipeline;
+};
+
+struct DrawStats {
+  uint32_t draw_count;
 };
 
 enum class ShaderType { Vertex = 0, Fragment };

@@ -121,6 +121,10 @@ void Render::VulkanEngine::render(entt::registry &registry) {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
+    ImGui::Begin("Draw Stats");
+    ImGui::Text("Draw Count: %d", this->draw_stats.draw_count);
+    ImGui::End();
+
     VK_ASSERT(vkResetCommandBuffer(frame.main_command_buffer, 0));
 
     VkCommandBufferBeginInfo cmd_info = VkInit::command_buffer_begin_info();
@@ -259,9 +263,12 @@ void Render::VulkanEngine::render(entt::registry &registry) {
     const auto group = registry.group<Mesh, Transform>();
 
     void *object_data;
-    vmaMapMemory(this->allocator, frame.object_buffer.allocation, &object_data);
+    vmaMapMemory(
+        this->allocator,
+        frame.compute_instance_buffer.allocation,
+        &object_data);
 
-    InstanceData *ssbo = (InstanceData *)object_data;
+    ComputeInstanceData *ssbo = (ComputeInstanceData *)object_data;
     group.each([&](Mesh &mesh, Transform &transform) {
       ZoneNamedN(__iter_entity, "Iter Entity", true);
 
@@ -284,7 +291,9 @@ void Render::VulkanEngine::render(entt::registry &registry) {
 
       {
         ZoneNamedN(__copy_data, "Copy Matrix", true);
-        ssbo[current_index].model = transform.model;
+        ssbo[current_index].position = transform.position;
+        ssbo[current_index].rotation = transform.rotation;
+        ssbo[current_index].scale = transform.scale;
         ssbo[current_index].tex_index = mesh.material;
       }
 
@@ -292,7 +301,7 @@ void Render::VulkanEngine::render(entt::registry &registry) {
       batch.count += 1;
       current_index += 1;
     });
-    vmaUnmapMemory(this->allocator, frame.object_buffer.allocation);
+    vmaUnmapMemory(this->allocator, frame.compute_instance_buffer.allocation);
 
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(
@@ -338,6 +347,30 @@ void Render::VulkanEngine::render(entt::registry &registry) {
     VkCommandBufferBeginInfo begin_info = VkInit::command_buffer_begin_info();
     VK_ASSERT(vkBeginCommandBuffer(frame.compute_command_buffer, &begin_info));
 
+    vkCmdFillBuffer(
+        frame.compute_command_buffer,
+        frame.draw_stats_buffer.buffer,
+        0,
+        sizeof(DrawStats),
+        0);
+
+    VkMemoryBarrier memory_barrier = {};
+    memory_barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(
+        frame.compute_command_buffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0,
+        1,
+        &memory_barrier,
+        0,
+        nullptr,
+        0,
+        nullptr);
+
     vkCmdBindPipeline(
         frame.compute_command_buffer,
         VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -352,7 +385,8 @@ void Render::VulkanEngine::render(entt::registry &registry) {
         0,
         nullptr);
 
-    vkCmdDispatch(frame.compute_command_buffer, current_index / 16, 1, 1);
+    uint32_t num_groups = (current_index / 16) + 1;
+    vkCmdDispatch(frame.compute_command_buffer, num_groups, 1, 1);
 
     VK_ASSERT(vkEndCommandBuffer(frame.compute_command_buffer));
 
@@ -419,6 +453,10 @@ void Render::VulkanEngine::render(entt::registry &registry) {
     VK_ASSERT(vkQueuePresentKHR(this->graphics_queue, &present_info));
   }
 
+  void *data;
+  vmaMapMemory(this->allocator, frame.draw_stats_buffer.allocation, &data);
+  this->draw_stats = *(DrawStats *)data;
+  vmaUnmapMemory(this->allocator, frame.draw_stats_buffer.allocation);
   this->frame_number += 1;
 }
 
@@ -670,7 +708,7 @@ void Render::VulkanEngine::init_descriptors() {
       nullptr,
       &this->global_descriptor_layout));
 
-  VkDescriptorSetLayoutBinding object_buffer_binding =
+  VkDescriptorSetLayoutBinding compute_instance_buffer_binding =
       VkInit::descriptor_set_layout_binding(
           VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
           VK_SHADER_STAGE_VERTEX_BIT,
@@ -681,7 +719,7 @@ void Render::VulkanEngine::init_descriptors() {
   set1_info.pNext = nullptr;
   set1_info.flags = 0;
   set1_info.bindingCount = 1;
-  set1_info.pBindings = &object_buffer_binding;
+  set1_info.pBindings = &compute_instance_buffer_binding;
 
   vkCreateDescriptorSetLayout(
       this->device,
@@ -848,17 +886,28 @@ void Render::VulkanEngine::init_frames() {
         sizeof(CameraData),
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
-    frame.object_buffer = VkInit::buffer(
+    frame.compute_instance_buffer = VkInit::buffer(
         this->allocator,
         // ssbo SIZE
-        sizeof(InstanceData) * VulkanEngine::MAX_INSTANCES,
+        sizeof(ComputeInstanceData) * VulkanEngine::MAX_INSTANCES,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
+    frame.vertex_instance_buffer = VkInit::buffer(
+        this->allocator,
+        sizeof(VertexInstanceData) * VulkanEngine::MAX_INSTANCES,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
     frame.indirect_buffer = VkInit::buffer(
         this->allocator,
         sizeof(VkDrawIndexedIndirectCommand) * 1000,
         VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
+    frame.draw_stats_buffer = VkInit::buffer(
+        this->allocator,
+        sizeof(DrawStats),
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VMA_MEMORY_USAGE_CPU_COPY);
 
     VK_ASSERT(vkAllocateDescriptorSets(
         this->device,
@@ -890,39 +939,65 @@ void Render::VulkanEngine::init_frames() {
     scene_info.offset = 0;
     scene_info.range = sizeof(SceneData);
 
-    VkDescriptorBufferInfo object_info = {};
-    object_info.buffer = frame.object_buffer.buffer;
-    object_info.offset = 0;
-    object_info.range = sizeof(InstanceData) * VulkanEngine::MAX_INSTANCES;
+    VkDescriptorBufferInfo in_instance_info = {};
+    in_instance_info.buffer = frame.compute_instance_buffer.buffer;
+    in_instance_info.offset = 0;
+    in_instance_info.range =
+        sizeof(ComputeInstanceData) * VulkanEngine::MAX_INSTANCES;
 
-    VkWriteDescriptorSet camera_set = VkInit::write_descriptor_set(
-        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        frame.global_descriptor,
-        &camera_info,
-        0);
+    VkDescriptorBufferInfo out_instance_info = {};
+    out_instance_info.buffer = frame.vertex_instance_buffer.buffer;
+    out_instance_info.offset = 0;
+    out_instance_info.range =
+        sizeof(VertexInstanceData) * VulkanEngine::MAX_INSTANCES;
 
-    VkWriteDescriptorSet scene_set = VkInit::write_descriptor_set(
-        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        frame.global_descriptor,
-        &scene_info,
-        1);
+    VkDescriptorBufferInfo draw_stats_info = {};
+    draw_stats_info.buffer = frame.draw_stats_buffer.buffer;
+    draw_stats_info.offset = 0;
+    draw_stats_info.range = sizeof(DrawStats);
 
-    VkWriteDescriptorSet object_set = VkInit::write_descriptor_set(
-        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        frame.object_descriptor,
-        &object_info,
-        0);
+    std::vector<VkWriteDescriptorSet> write_sets = {
+        VkInit::write_descriptor_set(
+            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            frame.global_descriptor,
+            &camera_info,
+            0),
+        VkInit::write_descriptor_set(
+            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+            frame.global_descriptor,
+            &scene_info,
+            1),
+        VkInit::write_descriptor_set(
+            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            frame.object_descriptor,
+            &out_instance_info,
+            0),
 
-    VkWriteDescriptorSet compute_object_set = VkInit::write_descriptor_set(
-        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        frame.compute_descriptor,
-        &object_info,
-        0);
+        // Descriptor sets for the compute shader
+        // 0. is for the CPU-supplied transform vectors
+        // 1. is for the outputted transformation matrices
+        VkInit::write_descriptor_set(
+            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            frame.compute_descriptor,
+            &in_instance_info,
+            0),
+        VkInit::write_descriptor_set(
+            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            frame.compute_descriptor,
+            &out_instance_info,
+            1),
+        VkInit::write_descriptor_set(
+            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            frame.compute_descriptor,
+            &draw_stats_info,
+            2)};
 
-    VkWriteDescriptorSet write_sets[] =
-        {camera_set, scene_set, object_set, compute_object_set};
-
-    vkUpdateDescriptorSets(this->device, 4, write_sets, 0, nullptr);
+    vkUpdateDescriptorSets(
+        this->device,
+        write_sets.size(),
+        write_sets.data(),
+        0,
+        nullptr);
   }
 
   this->cleanup_fns.push([this]() {
@@ -1084,7 +1159,15 @@ void Render::VulkanEngine::init_compute() {
       VkInit::descriptor_set_layout_binding(
           VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
           VK_SHADER_STAGE_COMPUTE_BIT,
-          0)};
+          0),
+      VkInit::descriptor_set_layout_binding(
+          VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+          VK_SHADER_STAGE_COMPUTE_BIT,
+          1),
+      VkInit::descriptor_set_layout_binding(
+          VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+          VK_SHADER_STAGE_COMPUTE_BIT,
+          2)};
 
   VkDescriptorSetLayoutCreateInfo set_layout_info = {};
   set_layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;

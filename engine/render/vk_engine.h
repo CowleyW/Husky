@@ -139,6 +139,8 @@ private:
 
   // ImGUI Resources
   VkDescriptorPool imgui_descriptor_pool;
+
+  DrawStats draw_stats;
 };
 
 } // namespace Render
