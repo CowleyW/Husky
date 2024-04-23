@@ -6,6 +6,7 @@
 #include "render/material.h"
 #include "render/tri_mesh.h"
 
+#include <cmath>
 #include <vk_mem_alloc.h>
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan.h>
@@ -31,7 +32,51 @@ struct Dimensions {
 };
 
 struct CameraData {
+  enum Side { LEFT, RIGHT, TOP, BOTTOM, BACK, FRONT };
+
   glm::mat4 viewproj;
+  glm::vec4 frustums[6];
+
+  CameraData(glm::mat4 viewproj) {
+    this->viewproj = viewproj;
+
+    frustums[LEFT].x = viewproj[0].w + viewproj[0].x;
+    frustums[LEFT].y = viewproj[1].w + viewproj[1].x;
+    frustums[LEFT].z = viewproj[2].w + viewproj[2].x;
+    frustums[LEFT].w = viewproj[3].w + viewproj[3].x;
+
+    frustums[RIGHT].x = viewproj[0].w - viewproj[0].x;
+    frustums[RIGHT].y = viewproj[1].w - viewproj[1].x;
+    frustums[RIGHT].z = viewproj[2].w - viewproj[2].x;
+    frustums[RIGHT].w = viewproj[3].w - viewproj[3].x;
+
+    frustums[TOP].x = viewproj[0].w + viewproj[0].y;
+    frustums[TOP].y = viewproj[1].w + viewproj[1].y;
+    frustums[TOP].z = viewproj[2].w + viewproj[2].y;
+    frustums[TOP].w = viewproj[3].w + viewproj[3].y;
+
+    frustums[BOTTOM].x = viewproj[0].w - viewproj[0].y;
+    frustums[BOTTOM].y = viewproj[1].w - viewproj[1].y;
+    frustums[BOTTOM].z = viewproj[2].w - viewproj[2].y;
+    frustums[BOTTOM].w = viewproj[3].w - viewproj[3].y;
+
+    frustums[BACK].x = viewproj[0].w + viewproj[0].z;
+    frustums[BACK].y = viewproj[1].w + viewproj[1].z;
+    frustums[BACK].z = viewproj[2].w + viewproj[2].z;
+    frustums[BACK].w = viewproj[3].w + viewproj[3].z;
+
+    frustums[FRONT].x = viewproj[0].w - viewproj[0].z;
+    frustums[FRONT].y = viewproj[1].w - viewproj[1].z;
+    frustums[FRONT].z = viewproj[2].w - viewproj[2].z;
+    frustums[FRONT].w = viewproj[3].w - viewproj[3].z;
+
+    for (uint32_t i = 0; i < 6; i += 1) {
+      glm::vec4 &f = this->frustums[i];
+
+      float length = std::sqrtf(f.x * f.x + f.y * f.y + f.z * f.z);
+      f /= length;
+    }
+  }
 };
 
 struct SceneData {
@@ -91,7 +136,7 @@ struct ComputeInstanceData {
   glm::vec3 position;
   MaterialHandle tex_index;
   glm::vec3 rotation;
-  uint32_t _padding;
+  uint32_t mesh_index;
   glm::vec3 scale;
   uint32_t _padding2;
 };

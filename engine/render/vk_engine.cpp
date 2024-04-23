@@ -240,8 +240,7 @@ void Render::VulkanEngine::render(entt::registry &registry) {
     Transform &t = view.get<Transform>(camera_entity);
 
     glm::mat4 viewproj = camera.calc_viewproj(t.position, this->dimensions);
-
-    CameraData camera_data = {viewproj};
+    CameraData camera_data(viewproj);
 
     void *data;
     vmaMapMemory(this->allocator, frame.camera_buffer.allocation, &data);
@@ -295,10 +294,11 @@ void Render::VulkanEngine::render(entt::registry &registry) {
         ssbo[current_index].rotation = transform.rotation;
         ssbo[current_index].scale = transform.scale;
         ssbo[current_index].tex_index = mesh.material;
+        ssbo[current_index].mesh_index = batches.size() - 1;
       }
 
-      Render::Batch &batch = batches.back();
-      batch.count += 1;
+      // Render::Batch &batch = batches.back();
+      // batch.count += 1;
       current_index += 1;
     });
     vmaUnmapMemory(this->allocator, frame.compute_instance_buffer.allocation);
@@ -663,13 +663,13 @@ void Render::VulkanEngine::init_descriptors() {
   std::vector<VkDescriptorPoolSize> sizes = {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10},
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10},
-      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 50},
       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000}};
 
   VkDescriptorPoolCreateInfo pool_info = {};
   pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
-  pool_info.maxSets = 1030;
+  pool_info.maxSets = 1070;
   pool_info.poolSizeCount = sizes.size();
   pool_info.pPoolSizes = sizes.data();
 
@@ -900,7 +900,8 @@ void Render::VulkanEngine::init_frames() {
     frame.indirect_buffer = VkInit::buffer(
         this->allocator,
         sizeof(VkDrawIndexedIndirectCommand) * 1000,
-        VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+            VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
     frame.draw_stats_buffer = VkInit::buffer(
         this->allocator,
@@ -951,6 +952,9 @@ void Render::VulkanEngine::init_frames() {
     out_instance_info.range =
         sizeof(VertexInstanceData) * VulkanEngine::MAX_INSTANCES;
 
+    VkDescriptorBufferInfo indirect_info =
+        frame.indirect_buffer.descriptor_info();
+
     VkDescriptorBufferInfo draw_stats_info = {};
     draw_stats_info.buffer = frame.draw_stats_buffer.buffer;
     draw_stats_info.offset = 0;
@@ -976,6 +980,8 @@ void Render::VulkanEngine::init_frames() {
         // Descriptor sets for the compute shader
         // 0. is for the CPU-supplied transform vectors
         // 1. is for the outputted transformation matrices
+        // 2. is for the indirect commands buffer
+        // 3. is for the draw stats buffer
         VkInit::write_descriptor_set(
             VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
             frame.compute_descriptor,
@@ -989,8 +995,18 @@ void Render::VulkanEngine::init_frames() {
         VkInit::write_descriptor_set(
             VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
             frame.compute_descriptor,
+            &indirect_info,
+            2),
+        VkInit::write_descriptor_set(
+            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            frame.compute_descriptor,
+            &camera_info,
+            3),
+        VkInit::write_descriptor_set(
+            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            frame.compute_descriptor,
             &draw_stats_info,
-            2)};
+            4)};
 
     vkUpdateDescriptorSets(
         this->device,
@@ -1167,7 +1183,15 @@ void Render::VulkanEngine::init_compute() {
       VkInit::descriptor_set_layout_binding(
           VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
           VK_SHADER_STAGE_COMPUTE_BIT,
-          2)};
+          2),
+      VkInit::descriptor_set_layout_binding(
+          VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+          VK_SHADER_STAGE_COMPUTE_BIT,
+          3),
+      VkInit::descriptor_set_layout_binding(
+          VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+          VK_SHADER_STAGE_COMPUTE_BIT,
+          4)};
 
   VkDescriptorSetLayoutCreateInfo set_layout_info = {};
   set_layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;

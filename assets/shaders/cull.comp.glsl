@@ -4,7 +4,7 @@ struct InInstanceData {
   vec3 position;
   int tex_index;
   vec3 rotation;
-  int _padding;
+  int mesh_index;
   vec3 scale;
   int _padding2;
 };
@@ -31,24 +31,19 @@ layout (binding = 1) writeonly buffer OutInstanceBuffer {
   OutInstanceData out_instances[];
 };
 
-// layout (std430, binding = 1) writeonly buffer IndirectDraws {
-//   IndexedIndirectCommand draws[];
-// };
+layout (std430, binding = 2) buffer IndirectDraws {
+  IndexedIndirectCommand draws[];
+};
 
-layout(binding = 2) buffer DrawStats {
+layout (binding = 3) uniform CameraBuffer {
+  mat4 viewproj;
+  vec4 frustums[6];
+} camera_data;
+
+layout(binding = 4) buffer DrawStats {
   uint draw_count;
 } draw_stats;
 
-// struct LOD {
-//   uint first_index;
-//   uint index_count;
-//   float distance;
-//   float _padding;
-// };
-
-// layout(binding = 3) readonly buffer LODs {
-//   LOD lods[];
-// };
 
 mat4 scale(vec3 s) {
   mat3 m = mat3(
@@ -70,6 +65,16 @@ mat4 translate(vec3 p) {
   return m;
 }
 
+bool is_visible(vec4 pos, float radius) {
+  for (int i = 0; i < 6; i += 1) {
+    if (dot(pos, camera_data.frustums[i]) + radius < 0.0f) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 layout (local_size_x = 16) in;
 
 void main() {
@@ -77,10 +82,18 @@ void main() {
 
   InInstanceData inst = in_instances[idx];
 
-  mat4 model = mat4(1.0f) * scale(inst.scale) * rotate(inst.rotation) * translate(inst.position);
+  vec4 pos = vec4(inst.position, 1.0f);
+  float radius = max(max(inst.scale.x, inst.scale.y), inst.scale.z);
 
-  out_instances[idx].model = model;
-  out_instances[idx].tex_index = inst.tex_index;
+  if (is_visible(pos, radius)) {
+    uint count = atomicAdd(draws[inst.mesh_index].instance_count, 1);
+    uint mesh_idx = draws[inst.mesh_index].first_instance + count;
 
-  atomicAdd(draw_stats.draw_count, 1);
+    mat4 model = mat4(1.0f) * scale(inst.scale) * rotate(inst.rotation) * translate(inst.position);
+
+    out_instances[mesh_idx].model = model;
+    out_instances[mesh_idx].tex_index = inst.tex_index;
+
+    atomicAdd(draw_stats.draw_count, 1);
+  }
 }

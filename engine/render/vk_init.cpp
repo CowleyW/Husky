@@ -415,6 +415,8 @@ AllocatedBuffer VkInit::buffer(
       &buffer.allocation,
       nullptr));
 
+  buffer.range = size;
+
   return buffer;
 }
 
