@@ -35,13 +35,16 @@ layout (std430, binding = 2) buffer IndirectDraws {
   IndexedIndirectCommand draws[];
 };
 
-layout (binding = 3) uniform CameraBuffer {
+layout (std140, binding = 3) uniform CameraBuffer {
   mat4 viewproj;
   vec4 frustums[6];
+  uint instance_count;
 } camera_data;
 
 layout(binding = 4) buffer DrawStats {
   uint draw_count;
+  uint precull_indices;
+  uint postcull_indices;
 } draw_stats;
 
 
@@ -80,10 +83,17 @@ layout (local_size_x = 16) in;
 void main() {
   uint idx = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * gl_NumWorkGroups.x * gl_WorkGroupSize.x;
 
+  if (idx >= camera_data.instance_count) {
+    return;
+  }
+
   InInstanceData inst = in_instances[idx];
 
   vec4 pos = vec4(inst.position, 1.0f);
   float radius = max(max(inst.scale.x, inst.scale.y), inst.scale.z);
+  pos.y += radius;
+
+  atomicAdd(draw_stats.precull_indices, draws[inst.mesh_index].index_count);
 
   if (is_visible(pos, radius)) {
     uint count = atomicAdd(draws[inst.mesh_index].instance_count, 1);
@@ -95,5 +105,6 @@ void main() {
     out_instances[mesh_idx].tex_index = inst.tex_index;
 
     atomicAdd(draw_stats.draw_count, 1);
+    atomicAdd(draw_stats.postcull_indices, draws[inst.mesh_index].index_count);
   }
 }

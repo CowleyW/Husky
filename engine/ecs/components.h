@@ -31,13 +31,13 @@ struct Transform {
   glm::vec3 position;
   glm::vec3 rotation;
   glm::vec3 scale;
-  glm::mat4 model;
+  // glm::mat4 model;
 
   Transform(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale) {
     this->position = position;
     this->rotation = rotation;
     this->scale = scale;
-    this->model = calc_model();
+    // this->model = calc_model();
   }
 
 private:
@@ -77,5 +77,17 @@ struct Camera {
 
   glm::vec3 calc_right() {
     return glm::normalize(glm::cross(this->forward, {0.0f, 1.0f, 0.0f}));
+  }
+
+  void rotate(float yaw, float pitch) {
+    glm::mat4 yawRotation =
+        glm::rotate(glm::mat4(1.0f), glm::radians(-yaw), {0.0f, 1.0f, 0.0f});
+    glm::mat4 pitchRotation =
+        glm::rotate(glm::mat4(1.0f), glm::radians(-pitch), this->calc_right());
+
+    glm::mat4 combinedRotation = yawRotation * pitchRotation;
+
+    this->forward = glm::normalize(
+        glm::vec3(combinedRotation * glm::vec4(this->forward, 0.0f)));
   }
 };

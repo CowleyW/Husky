@@ -122,7 +122,9 @@ void Render::VulkanEngine::render(entt::registry &registry) {
     ImGui::NewFrame();
 
     ImGui::Begin("Draw Stats");
-    ImGui::Text("Draw Count: %d", this->draw_stats.draw_count);
+    ImGui::Text("Instances: %d", this->draw_stats.draw_count);
+    ImGui::Text("Indices Pre-cull: %d", this->draw_stats.precull_indices);
+    ImGui::Text("Indices Post-cull: %d", this->draw_stats.postcull_indices);
     ImGui::End();
 
     VK_ASSERT(vkResetCommandBuffer(frame.main_command_buffer, 0));
@@ -241,6 +243,7 @@ void Render::VulkanEngine::render(entt::registry &registry) {
 
     glm::mat4 viewproj = camera.calc_viewproj(t.position, this->dimensions);
     CameraData camera_data(viewproj);
+    camera_data.instance_count = 5000;
 
     void *data;
     vmaMapMemory(this->allocator, frame.camera_buffer.allocation, &data);
@@ -248,6 +251,21 @@ void Render::VulkanEngine::render(entt::registry &registry) {
     std::memcpy(data, &camera_data, sizeof(CameraData));
 
     vmaUnmapMemory(this->allocator, frame.camera_buffer.allocation);
+
+    ImGui::Begin("Frustums");
+    glm::vec4 f = camera_data.frustums[CameraData::LEFT];
+    ImGui::Text("Left: {%f, %f, %f, %f}", f.x, f.y, f.z, f.w);
+    f = camera_data.frustums[CameraData::RIGHT];
+    ImGui::Text("Right: {%f, %f, %f, %f}", f.x, f.y, f.z, f.w);
+    f = camera_data.frustums[CameraData::TOP];
+    ImGui::Text("Top {%f, %f, %f, %f}", f.x, f.y, f.z, f.w);
+    f = camera_data.frustums[CameraData::BOTTOM];
+    ImGui::Text("Bottom: {%f, %f, %f, %f}", f.x, f.y, f.z, f.w);
+    f = camera_data.frustums[CameraData::BACK];
+    ImGui::Text("Back: {%f, %f, %f, %f}", f.x, f.y, f.z, f.w);
+    f = camera_data.frustums[CameraData::FRONT];
+    ImGui::Text("Front: {%f, %f, %f, %f}", f.x, f.y, f.z, f.w);
+    ImGui::End();
   }
 
   uint32_t first_instance = 0;
@@ -297,8 +315,6 @@ void Render::VulkanEngine::render(entt::registry &registry) {
         ssbo[current_index].mesh_index = batches.size() - 1;
       }
 
-      // Render::Batch &batch = batches.back();
-      // batch.count += 1;
       current_index += 1;
     });
     vmaUnmapMemory(this->allocator, frame.compute_instance_buffer.allocation);
@@ -455,8 +471,12 @@ void Render::VulkanEngine::render(entt::registry &registry) {
 
   void *data;
   vmaMapMemory(this->allocator, frame.draw_stats_buffer.allocation, &data);
-  this->draw_stats = *(DrawStats *)data;
+  DrawStats draw_stats = *(DrawStats *)data;
   vmaUnmapMemory(this->allocator, frame.draw_stats_buffer.allocation);
+
+  if (draw_stats.precull_indices != 0) {
+    this->draw_stats = draw_stats;
+  }
   this->frame_number += 1;
 }
 

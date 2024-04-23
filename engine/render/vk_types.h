@@ -1,7 +1,5 @@
 #pragma once
 
-#include "io/logging.h"
-
 #include "buffer.h"
 #include "render/material.h"
 #include "render/tri_mesh.h"
@@ -36,6 +34,7 @@ struct CameraData {
 
   glm::mat4 viewproj;
   glm::vec4 frustums[6];
+  uint32_t instance_count;
 
   CameraData(glm::mat4 viewproj) {
     this->viewproj = viewproj;
@@ -50,15 +49,15 @@ struct CameraData {
     frustums[RIGHT].z = viewproj[2].w - viewproj[2].x;
     frustums[RIGHT].w = viewproj[3].w - viewproj[3].x;
 
-    frustums[TOP].x = viewproj[0].w + viewproj[0].y;
-    frustums[TOP].y = viewproj[1].w + viewproj[1].y;
-    frustums[TOP].z = viewproj[2].w + viewproj[2].y;
-    frustums[TOP].w = viewproj[3].w + viewproj[3].y;
+    frustums[TOP].x = viewproj[0].w - viewproj[0].y;
+    frustums[TOP].y = viewproj[1].w - viewproj[1].y;
+    frustums[TOP].z = viewproj[2].w - viewproj[2].y;
+    frustums[TOP].w = viewproj[3].w - viewproj[3].y;
 
-    frustums[BOTTOM].x = viewproj[0].w - viewproj[0].y;
-    frustums[BOTTOM].y = viewproj[1].w - viewproj[1].y;
-    frustums[BOTTOM].z = viewproj[2].w - viewproj[2].y;
-    frustums[BOTTOM].w = viewproj[3].w - viewproj[3].y;
+    frustums[BOTTOM].x = viewproj[0].w + viewproj[0].y;
+    frustums[BOTTOM].y = viewproj[1].w + viewproj[1].y;
+    frustums[BOTTOM].z = viewproj[2].w + viewproj[2].y;
+    frustums[BOTTOM].w = viewproj[3].w + viewproj[3].y;
 
     frustums[BACK].x = viewproj[0].w + viewproj[0].z;
     frustums[BACK].y = viewproj[1].w + viewproj[1].z;
@@ -74,7 +73,7 @@ struct CameraData {
       glm::vec4 &f = this->frustums[i];
 
       float length = std::sqrtf(f.x * f.x + f.y * f.y + f.z * f.z);
-      f /= length;
+      this->frustums[i] /= length;
     }
   }
 };
@@ -168,6 +167,8 @@ struct Compute {
 
 struct DrawStats {
   uint32_t draw_count;
+  uint32_t precull_indices;
+  uint32_t postcull_indices;
 };
 
 enum class ShaderType { Vertex = 0, Fragment };

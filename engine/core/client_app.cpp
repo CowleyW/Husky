@@ -43,7 +43,7 @@ Err ClientApp::init() {
   Mesh dwarf_mesh = {dwarf, mat1, true};
   Mesh golem_mesh = {golem, mat2, true};
   Transform transform(
-      {0.0f, 2.0f, 0.0f},
+      {0.0f, 0.0f, 0.0f},
       {0.0f, 0.0f, 0.0f},
       {1.0f, 1.0f, 1.0f});
   Camera camera = {{0.0f, 0.0f, 1.0f}, 70.0f, 0.1f, 200.0f, 0.0f, 0.0f};
@@ -140,22 +140,10 @@ void ClientApp::fixed_update() {
     }
 
     if (this->inputs.is_mouse_button_down(GLFW_MOUSE_BUTTON_LEFT)) {
-      c.yaw += (float)this->inputs.mouse_dx * 0.16f;
-      c.pitch += (float)this->inputs.mouse_dy * 0.16f;
-      c.pitch = std::clamp(c.pitch, -89.0f, 89.0f);
-
       float yaw = (float)this->inputs.mouse_dx * 0.16f;
       float pitch = (float)this->inputs.mouse_dy * 0.16f;
 
-      glm::mat4 yawRotation =
-          glm::rotate(glm::mat4(1.0f), glm::radians(-yaw), {0.0f, 1.0f, 0.0f});
-      glm::mat4 pitchRotation =
-          glm::rotate(glm::mat4(1.0f), glm::radians(-pitch), c.calc_right());
-
-      glm::mat4 combinedRotation = yawRotation * pitchRotation;
-
-      c.forward = glm::normalize(
-          glm::vec3(combinedRotation * glm::vec4(c.forward, 0.0f)));
+      c.rotate(yaw, pitch);
     }
   });
   if (this->client_index.has_value()) {

@@ -18,6 +18,7 @@ struct InstanceData {
 layout (set = 0, binding = 0) uniform CameraBuffer {
   mat4 viewproj;
   vec4 frustums[6];
+  uint instance_count;
 } camera_data;
 
 layout(std430, set = 1, binding = 0) readonly buffer InstanceBuffer {
