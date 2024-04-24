@@ -1,10 +1,13 @@
 #pragma once
 
+#include "io/logging.h"
+
 #include "buffer.h"
 #include "render/material.h"
 #include "render/tri_mesh.h"
 
 #include <cmath>
+#include <tracy/Tracy.hpp>
 #include <vk_mem_alloc.h>
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan.h>
@@ -89,46 +92,6 @@ struct SceneData {
 struct AllocatedImage {
   VkImage image;
   VmaAllocation allocation;
-};
-
-struct FrameData {
-  VkSemaphore present_semaphore;
-  VkSemaphore render_semaphore;
-  VkSemaphore compute_semaphore;
-
-  VkFence render_fence;
-  VkFence compute_fence;
-
-  VkCommandPool graphics_command_pool;
-  VkCommandPool compute_command_pool;
-  VkCommandBuffer main_command_buffer;
-  VkCommandBuffer compute_command_buffer;
-
-  AllocatedBuffer camera_buffer;
-  AllocatedBuffer vertex_instance_buffer;
-  AllocatedBuffer compute_instance_buffer;
-  AllocatedBuffer indirect_buffer;
-  AllocatedBuffer draw_stats_buffer;
-
-  VkDescriptorSet global_descriptor;
-  VkDescriptorSet object_descriptor;
-  VkDescriptorSet texture_descriptor;
-  VkDescriptorSet compute_descriptor;
-
-  void destroy(VkDevice &device, VmaAllocator &allocator) {
-    vkDestroyCommandPool(device, this->graphics_command_pool, nullptr);
-    vkDestroyCommandPool(device, this->compute_command_pool, nullptr);
-    vkDestroySemaphore(device, this->present_semaphore, nullptr);
-    vkDestroySemaphore(device, this->render_semaphore, nullptr);
-    vkDestroySemaphore(device, this->compute_semaphore, nullptr);
-    vkDestroyFence(device, this->render_fence, nullptr);
-    vkDestroyFence(device, this->compute_fence, nullptr);
-    this->camera_buffer.destroy(allocator);
-    this->vertex_instance_buffer.destroy(allocator);
-    this->compute_instance_buffer.destroy(allocator);
-    this->indirect_buffer.destroy(allocator);
-    this->draw_stats_buffer.destroy(allocator);
-  }
 };
 
 struct ComputeInstanceData {

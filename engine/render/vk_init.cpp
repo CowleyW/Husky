@@ -154,8 +154,10 @@ VkRenderPassBeginInfo VkInit::render_pass_begin_info(
 }
 
 VkSubmitInfo VkInit::submit_info(
-    VkSemaphore *wait_semaphore,
-    VkSemaphore *signal_semaphore,
+    VkSemaphore *wait_semaphores,
+    uint32_t num_wait_semaphores,
+    VkSemaphore *signal_semaphores,
+    uint32_t num_signal_semaphores,
     VkCommandBuffer *cmd,
     VkPipelineStageFlags *flags) {
   VkSubmitInfo info = {};
@@ -163,21 +165,12 @@ VkSubmitInfo VkInit::submit_info(
   info.pNext = nullptr;
   info.pWaitDstStageMask = flags;
 
-  if (wait_semaphore != nullptr) {
-    info.waitSemaphoreCount = 1;
-    info.pWaitSemaphores = wait_semaphore;
-  } else {
-    info.waitSemaphoreCount = 0;
-    info.pWaitSemaphores = nullptr;
-  }
+  info.waitSemaphoreCount = num_wait_semaphores;
+  info.pWaitSemaphores = wait_semaphores;
 
-  if (signal_semaphore != nullptr) {
-    info.signalSemaphoreCount = 1;
-    info.pSignalSemaphores = signal_semaphore;
-  } else {
-    info.signalSemaphoreCount = 0;
-    info.pSignalSemaphores = nullptr;
-  }
+  info.signalSemaphoreCount = num_signal_semaphores;
+  info.pSignalSemaphores = signal_semaphores;
+
   info.commandBufferCount = 1;
   info.pCommandBuffers = cmd;
 

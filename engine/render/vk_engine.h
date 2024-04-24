@@ -1,6 +1,7 @@
 #pragma once
 
 #include "callback_handler.h"
+#include "frame.h"
 #include "io/input_map.h"
 #include "material.h"
 #include "tri_mesh.h"
@@ -16,13 +17,6 @@
 #include <vulkan/vulkan_core.h>
 
 namespace Render {
-
-struct Batch {
-  MaterialHandle material;
-  TriMeshHandle mesh;
-  uint32_t first;
-  uint32_t count;
-};
 
 class VulkanEngine {
 public:
@@ -60,11 +54,15 @@ private:
   void init_pipelines();
   void init_imgui();
 
+  uint32_t prepare_frame(Frame &frame);
+  CameraData get_camera_data(entt::registry &registry, uint32_t total_objects);
+  void prepare_imgui_data();
+
   void submit_command(std::function<void(VkCommandBuffer)> &&function);
 
   Result<AllocatedImage> load_texture_asset(const std::string &path);
 
-  FrameData &next_frame();
+  Frame &next_frame();
 
 private:
   static constexpr uint32_t FRAMES_IN_FLIGHT = 2;
@@ -125,7 +123,7 @@ private:
   VkDescriptorSetLayout texture_descriptor_layout;
   VkDescriptorPool descriptor_pool;
 
-  FrameData frames[FRAMES_IN_FLIGHT];
+  Frame frames[FRAMES_IN_FLIGHT];
 
   VkPipeline mesh_pipeline;
   VkPipelineLayout mesh_pipeline_layout;

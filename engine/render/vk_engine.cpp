@@ -22,6 +22,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <entt/entt.hpp>
@@ -90,168 +91,79 @@ void Render::VulkanEngine::destroy_swapchain() {
       this->depth_image.allocation);
 }
 
-void Render::VulkanEngine::render(entt::registry &registry) {
+uint32_t Render::VulkanEngine::prepare_frame(Frame &frame) {
   ZoneScoped;
-  FrameData &frame = this->next_frame();
+
   uint32_t next_image_index;
 
-  {
-    ZoneNamedN(__await_fence, "Await GPU", true);
+  VK_ASSERT(vkAcquireNextImageKHR(
+      this->device,
+      this->swapchain,
+      1000000000,
+      frame.present_semaphore,
+      nullptr,
+      &next_image_index));
 
-    VK_ASSERT(vkWaitForFences(
-        this->device,
-        1,
-        &frame.render_fence,
-        true,
-        1000000000));
-    VK_ASSERT(vkResetFences(this->device, 1, &frame.render_fence));
+  return next_image_index;
+}
 
-    VK_ASSERT(vkAcquireNextImageKHR(
-        this->device,
-        this->swapchain,
-        1000000000,
-        frame.present_semaphore,
-        nullptr,
-        &next_image_index));
+CameraData Render::VulkanEngine::get_camera_data(
+    entt::registry &registry,
+    uint32_t total_objects) {
+  ZoneScoped;
+
+  auto view = registry.view<Camera, Transform>();
+  entt::entity camera_entity;
+  for (auto entity : view) {
+    camera_entity = entity;
+    break;
+  }
+  Camera &camera = view.get<Camera>(camera_entity);
+  Transform &t = view.get<Transform>(camera_entity);
+
+  glm::mat4 viewproj = camera.calc_viewproj(t.position, this->dimensions);
+  CameraData camera_data(viewproj);
+  camera_data.instance_count = total_objects;
+
+  return camera_data;
+}
+
+void Render::VulkanEngine::prepare_imgui_data() {
+  ZoneScoped;
+
+  ImGui_ImplVulkan_NewFrame();
+  ImGui_ImplGlfw_NewFrame();
+  ImGui::NewFrame();
+
+  ImGui::Begin("Draw Stats");
+  ImGui::Text("Instances: %d", this->draw_stats.draw_count);
+  ImGui::Text("Indices Pre-cull: %d", this->draw_stats.precull_indices);
+  ImGui::Text("Indices Post-cull: %d", this->draw_stats.postcull_indices);
+  ImGui::End();
+
+  for (auto fn : this->imgui_fns) {
+    fn();
   }
 
-  {
-    ZoneNamedN(__frame_begin, "Frame Begin", true);
-    ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
+  this->imgui_fns.clear();
 
-    ImGui::Begin("Draw Stats");
-    ImGui::Text("Instances: %d", this->draw_stats.draw_count);
-    ImGui::Text("Indices Pre-cull: %d", this->draw_stats.precull_indices);
-    ImGui::Text("Indices Post-cull: %d", this->draw_stats.postcull_indices);
-    ImGui::End();
+  ImGui::Render();
+  ImDrawData *main_draw_data = ImGui::GetDrawData();
+}
 
-    VK_ASSERT(vkResetCommandBuffer(frame.main_command_buffer, 0));
+void Render::VulkanEngine::render(entt::registry &registry) {
+  ZoneScoped;
+  Frame &frame = this->next_frame();
 
-    VkCommandBufferBeginInfo cmd_info = VkInit::command_buffer_begin_info();
-    VK_ASSERT(vkBeginCommandBuffer(frame.main_command_buffer, &cmd_info));
+  frame.await_compute(this->device);
 
-    std::vector<VkClearValue> clear_values;
-    VkClearValue clear_value = {};
-    clear_value.color = {{1.0f, 1.0f, 1.0f, 1.0f}};
-    VkClearValue depth_value = {};
-    depth_value.depthStencil = {1.0f, 0};
+  uint32_t total_objects = 0;
+  std::vector<Batch> batches =
+      frame.copy_renderable_objects(registry, total_objects, this->allocator);
 
-    clear_values.push_back(clear_value);
-    clear_values.push_back(depth_value);
+  CameraData camera_data = this->get_camera_data(registry, total_objects);
 
-    VkRenderPassBeginInfo render_pass_info = VkInit::render_pass_begin_info(
-        this->render_pass,
-        this->frame_buffers[next_image_index],
-        &clear_values,
-        this->dimensions);
-
-    vkCmdBeginRenderPass(
-        frame.main_command_buffer,
-        &render_pass_info,
-        VK_SUBPASS_CONTENTS_INLINE);
-  }
-
-  {
-    ZoneNamedN(__bind_pipeline, "Bind Pipeline", true);
-
-    vkCmdBindPipeline(
-        frame.main_command_buffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        this->mesh_pipeline);
-
-    VkViewport viewport = {};
-    viewport.x = 0.0;
-    viewport.y = 0.0;
-    viewport.width = (float)this->dimensions.width;
-    viewport.height = (float)this->dimensions.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(frame.main_command_buffer, 0, 1, &viewport);
-
-    VkRect2D scissor = {};
-    scissor.offset = {0, 0};
-    scissor.extent.width = this->dimensions.width;
-    scissor.extent.height = this->dimensions.height;
-    vkCmdSetScissor(frame.main_command_buffer, 0, 1, &scissor);
-  }
-
-  {
-    ZoneNamedN(__set_scene_data, "Set Scene Data", true);
-    this->scene_data.ambient_color = {1.0f, 1.0f, 1.0f, 1.0f};
-
-    void *scene_data;
-    vmaMapMemory(
-        this->allocator,
-        this->scene_data_buffer.allocation,
-        &scene_data);
-
-    uint32_t buffer_offset =
-        AllocatedBuffer::padding_size(sizeof(SceneData), this->gpu_properties);
-    uint32_t frame_index =
-        this->frame_number % Render::VulkanEngine::FRAMES_IN_FLIGHT;
-    std::memcpy(
-        (char *)scene_data + (buffer_offset * frame_index),
-        &this->scene_data,
-        sizeof(SceneData));
-
-    vmaUnmapMemory(this->allocator, scene_data_buffer.allocation);
-
-    vkCmdBindDescriptorSets(
-        frame.main_command_buffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        this->mesh_pipeline_layout,
-        0,
-        1,
-        &frame.global_descriptor,
-        1,
-        &buffer_offset);
-
-    vkCmdBindDescriptorSets(
-        frame.main_command_buffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        this->mesh_pipeline_layout,
-        1,
-        1,
-        &frame.object_descriptor,
-        0,
-        nullptr);
-
-    vkCmdBindDescriptorSets(
-        frame.main_command_buffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        this->mesh_pipeline_layout,
-        2,
-        1,
-        &frame.texture_descriptor,
-        0,
-        nullptr);
-  }
-
-  {
-    ZoneNamedN(__set_camera_data, "Set Camera Data", true);
-
-    auto view = registry.view<Camera, Transform>();
-    entt::entity camera_entity;
-    for (auto entity : view) {
-      camera_entity = entity;
-      break;
-    }
-    Camera &camera = view.get<Camera>(camera_entity);
-    Transform &t = view.get<Transform>(camera_entity);
-
-    glm::mat4 viewproj = camera.calc_viewproj(t.position, this->dimensions);
-    CameraData camera_data(viewproj);
-    camera_data.instance_count = 5000;
-
-    void *data;
-    vmaMapMemory(this->allocator, frame.camera_buffer.allocation, &data);
-
-    std::memcpy(data, &camera_data, sizeof(CameraData));
-
-    vmaUnmapMemory(this->allocator, frame.camera_buffer.allocation);
-
+  this->imgui_enqueue([=]() {
     ImGui::Begin("Frustums");
     glm::vec4 f = camera_data.frustums[CameraData::LEFT];
     ImGui::Text("Left: {%f, %f, %f, %f}", f.x, f.y, f.z, f.w);
@@ -266,208 +178,50 @@ void Render::VulkanEngine::render(entt::registry &registry) {
     f = camera_data.frustums[CameraData::FRONT];
     ImGui::Text("Front: {%f, %f, %f, %f}", f.x, f.y, f.z, f.w);
     ImGui::End();
-  }
+  });
 
-  uint32_t first_instance = 0;
-  {
-    ZoneNamedN(__set_object_data, "Set Object Data", true);
+  frame.copy_camera_data(this->allocator, camera_data);
 
-    TriMeshHandle curr_mesh = TriMesh::NULL_HANDLE;
-    MaterialHandle curr_mat = Material::NULL_HANDLE;
-    uint32_t current_index = 0;
-    uint32_t indices_size = 0;
-    std::vector<Render::Batch> batches;
-    const auto group = registry.group<Mesh, Transform>();
+  frame.await_render(this->device);
 
-    void *object_data;
-    vmaMapMemory(
-        this->allocator,
-        frame.compute_instance_buffer.allocation,
-        &object_data);
+  frame.prepare_indirect_buffer(batches, this->allocator);
+  frame.prepare_compute_commands(this->compute);
+  frame.submit_compute(this->compute, total_objects);
 
-    ComputeInstanceData *ssbo = (ComputeInstanceData *)object_data;
-    group.each([&](Mesh &mesh, Transform &transform) {
-      ZoneNamedN(__iter_entity, "Iter Entity", true);
+  uint32_t next_image_index = this->prepare_frame(frame);
 
-      if (!mesh.visible) {
-        return;
-      }
+  frame.prepare_draw_commands(
+      this->render_pass,
+      this->mesh_pipeline,
+      this->frame_buffers[next_image_index],
+      this->dimensions);
 
-      if (curr_mat != mesh.material || curr_mesh != mesh.mesh) {
-        first_instance = current_index;
-        curr_mat = mesh.material;
-        curr_mesh = mesh.mesh;
+  this->scene_data.ambient_color = {1.0f, 1.0f, 1.0f, 1.0f};
 
-        Render::Batch batch;
-        batch.material = curr_mat;
-        batch.mesh = curr_mesh;
-        batch.first = first_instance;
-        batch.count = 0;
-        batches.emplace_back(batch);
-      }
+  void *scene_data;
+  vmaMapMemory(
+      this->allocator,
+      this->scene_data_buffer.allocation,
+      &scene_data);
 
-      {
-        ZoneNamedN(__copy_data, "Copy Matrix", true);
-        ssbo[current_index].position = transform.position;
-        ssbo[current_index].rotation = transform.rotation;
-        ssbo[current_index].scale = transform.scale;
-        ssbo[current_index].tex_index = mesh.material;
-        ssbo[current_index].mesh_index = batches.size() - 1;
-      }
+  uint32_t buffer_offset =
+      AllocatedBuffer::padding_size(sizeof(SceneData), this->gpu_properties);
+  uint32_t frame_index =
+      this->frame_number % Render::VulkanEngine::FRAMES_IN_FLIGHT;
+  std::memcpy(
+      (char *)scene_data + (buffer_offset * frame_index),
+      &this->scene_data,
+      sizeof(SceneData));
+  vmaUnmapMemory(this->allocator, scene_data_buffer.allocation);
 
-      current_index += 1;
-    });
-    vmaUnmapMemory(this->allocator, frame.compute_instance_buffer.allocation);
+  frame.bind_descriptor_sets(this->mesh_pipeline_layout, buffer_offset);
+  frame.prepare_graphics_buffers(
+      this->vertex_buffer,
+      this->index_buffer,
+      batches.size());
 
-    VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(
-        frame.main_command_buffer,
-        0,
-        1,
-        &this->vertex_buffer.buffer,
-        &offset);
-
-    vkCmdBindIndexBuffer(
-        frame.main_command_buffer,
-        this->index_buffer.buffer,
-        0,
-        VK_INDEX_TYPE_UINT32);
-
-    void *indirect_data;
-    vmaMapMemory(
-        this->allocator,
-        frame.indirect_buffer.allocation,
-        &indirect_data);
-    VkDrawIndexedIndirectCommand *indirect_buffer =
-        (VkDrawIndexedIndirectCommand *)indirect_data;
-    for (uint32_t i = 0; i < batches.size(); i += 1) {
-      const auto &batch = batches[i];
-      ZoneNamedN(__submit_batches, "Submit Batches", true);
-
-      TriMesh *tri_mesh = TriMesh::get(batch.mesh).value;
-      Material *mat = Material::get(batch.material).value;
-
-      VkDrawIndexedIndirectCommand cmd = {};
-      cmd.firstIndex = tri_mesh->first_index;
-      cmd.vertexOffset = tri_mesh->first_vertex;
-      cmd.indexCount = tri_mesh->indices.size();
-      cmd.firstInstance = batch.first;
-      cmd.instanceCount = batch.count;
-      indirect_buffer[i] = cmd;
-    }
-    vmaUnmapMemory(this->allocator, frame.indirect_buffer.allocation);
-
-    vkWaitForFences(this->device, 1, &frame.compute_fence, VK_TRUE, 1000000000);
-    vkResetFences(this->device, 1, &frame.compute_fence);
-
-    VkCommandBufferBeginInfo begin_info = VkInit::command_buffer_begin_info();
-    VK_ASSERT(vkBeginCommandBuffer(frame.compute_command_buffer, &begin_info));
-
-    vkCmdFillBuffer(
-        frame.compute_command_buffer,
-        frame.draw_stats_buffer.buffer,
-        0,
-        sizeof(DrawStats),
-        0);
-
-    VkMemoryBarrier memory_barrier = {};
-    memory_barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-    memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-    vkCmdPipelineBarrier(
-        frame.compute_command_buffer,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        0,
-        1,
-        &memory_barrier,
-        0,
-        nullptr,
-        0,
-        nullptr);
-
-    vkCmdBindPipeline(
-        frame.compute_command_buffer,
-        VK_PIPELINE_BIND_POINT_COMPUTE,
-        compute.pipeline);
-    vkCmdBindDescriptorSets(
-        frame.compute_command_buffer,
-        VK_PIPELINE_BIND_POINT_COMPUTE,
-        compute.pipeline_layout,
-        0,
-        1,
-        &frame.compute_descriptor,
-        0,
-        nullptr);
-
-    uint32_t num_groups = (current_index / 16) + 1;
-    vkCmdDispatch(frame.compute_command_buffer, num_groups, 1, 1);
-
-    VK_ASSERT(vkEndCommandBuffer(frame.compute_command_buffer));
-
-    VkSubmitInfo submit_info = VkInit::submit_info(
-        nullptr,
-        &frame.compute_semaphore,
-        &frame.compute_command_buffer,
-        nullptr);
-    VK_ASSERT(
-        vkQueueSubmit(compute.queue, 1, &submit_info, frame.compute_fence));
-
-    vkCmdDrawIndexedIndirect(
-        frame.main_command_buffer,
-        frame.indirect_buffer.buffer,
-        0,
-        batches.size(),
-        sizeof(VkDrawIndexedIndirectCommand));
-  }
-
-  {
-    ZoneNamedN(__get_imgui_data, "Get ImGui Data", true);
-
-    for (auto fn : this->imgui_fns) {
-      fn();
-    }
-
-    this->imgui_fns.clear();
-
-    ImGui::Render();
-    ImDrawData *main_draw_data = ImGui::GetDrawData();
-
-    ImGui_ImplVulkan_RenderDrawData(
-        ImGui::GetDrawData(),
-        frame.main_command_buffer);
-  }
-
-  {
-    ZoneNamedN(__submit, "Submit", true);
-
-    vkCmdEndRenderPass(frame.main_command_buffer);
-    VK_ASSERT(vkEndCommandBuffer(frame.main_command_buffer));
-
-    VkPipelineStageFlags wait_stages[2] = {
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT};
-
-    VkSemaphore wait[2] = {frame.present_semaphore, frame.compute_semaphore};
-    VkSubmitInfo submit_info = VkInit::submit_info(
-        wait,
-        &frame.render_semaphore,
-        &frame.main_command_buffer,
-        wait_stages);
-    submit_info.waitSemaphoreCount = 2;
-    VK_ASSERT(vkQueueSubmit(
-        this->graphics_queue,
-        1,
-        &submit_info,
-        frame.render_fence));
-
-    VkPresentInfoKHR present_info = VkInit::present_info(
-        &this->swapchain,
-        &frame.render_semaphore,
-        &next_image_index);
-    VK_ASSERT(vkQueuePresentKHR(this->graphics_queue, &present_info));
-  }
+  this->prepare_imgui_data();
+  frame.submit_draw(this->swapchain, this->graphics_queue, next_image_index);
 
   void *data;
   vmaMapMemory(this->allocator, frame.draw_stats_buffer.allocation, &data);
@@ -1524,7 +1278,9 @@ void Render::VulkanEngine::submit_command(
 
   VkSubmitInfo submit_info = VkInit::submit_info(
       nullptr,
+      0,
       nullptr,
+      0,
       &this->upload_context.command_buffer,
       nullptr);
   VK_ASSERT(vkQueueSubmit(
@@ -1681,10 +1437,10 @@ Render::VulkanEngine::load_texture_asset(const std::string &path) {
   return Result<AllocatedImage>::ok(image);
 }
 
-FrameData &Render::VulkanEngine::next_frame() {
+Render::Frame &Render::VulkanEngine::next_frame() {
   static uint32_t frame_number = 0;
 
-  FrameData &next = this->frames[frame_number];
+  Frame &next = this->frames[frame_number];
 
   frame_number = (frame_number + 1) % Render::VulkanEngine::FRAMES_IN_FLIGHT;
   return next;

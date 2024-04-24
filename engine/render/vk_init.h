@@ -45,8 +45,10 @@ VkCommandBufferBeginInfo
 command_buffer_begin_info(VkCommandBufferUsageFlags flags = 0);
 
 VkSubmitInfo submit_info(
-    VkSemaphore *wait_semaphore,
-    VkSemaphore *signal_semaphore,
+    VkSemaphore *wait_semaphores,
+    uint32_t num_wait_semaphores,
+    VkSemaphore *signal_semaphores,
+    uint32_t num_signal_semaphores,
     VkCommandBuffer *cmd,
     VkPipelineStageFlags *flags);
 

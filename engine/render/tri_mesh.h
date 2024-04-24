@@ -83,3 +83,10 @@ private:
 private:
   static std::vector<std::pair<TriMeshHandle, TriMesh>> meshes;
 };
+
+struct Batch {
+  MaterialHandle material;
+  TriMeshHandle mesh;
+  uint32_t first;
+  uint32_t count;
+};
