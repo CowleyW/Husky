@@ -14,7 +14,6 @@
 #include "glm/fwd.hpp"
 #include "imgui.h"
 
-#include <algorithm>
 #include <cmath>
 #include <tracy/Tracy.hpp>
 
@@ -33,15 +32,15 @@ Err ClientApp::init() {
   TriMeshHandle golem = TriMesh::get("models/mech_golem.asset").value;
   TriMeshHandle dwarf = TriMesh::get("models/fort_golem.asset").value;
   MaterialHandle mat1 =
-      Material::get("models/FantasyRivals_Texture_01_A.asset").value;
+      Material::get(TriMesh::get_texture_name(golem).value).value;
   MaterialHandle mat2 =
-      Material::get("models/FantasyRivals_Texture_03_A.asset").value;
-  this->render_engine.upload_mesh(TriMesh::get(golem).value);
-  this->render_engine.upload_mesh(TriMesh::get(dwarf).value);
+      Material::get(TriMesh::get_texture_name(dwarf).value).value;
+  this->render_engine.upload_mesh(golem);
+  this->render_engine.upload_mesh(dwarf);
   this->render_engine.upload_material(Material::get(mat1).value);
   this->render_engine.upload_material(Material::get(mat2).value);
-  Mesh dwarf_mesh = {dwarf, mat1, true};
-  Mesh golem_mesh = {golem, mat2, true};
+  Mesh dwarf_mesh = {dwarf, mat2, true};
+  Mesh golem_mesh = {golem, mat1, true};
   Transform transform(
       {0.0f, 0.0f, 0.0f},
       {0.0f, 0.0f, 0.0f},
@@ -72,6 +71,14 @@ Err ClientApp::init() {
       this->registry.emplace<Mesh>(e, golem_mesh);
     }
   }
+  // for (int x = -6; x <= 6; x += 3) {
+  //   for (int z = -6; z <= 6; z += 3) {
+  //     Transform t({x, 0.0f, z}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f});
+  //     const auto e = this->registry.create();
+  //     this->registry.emplace<Transform>(e, t);
+  //     this->registry.emplace<Mesh>(e, golem_mesh);
+  //   }
+  // }
 
   auto group = this->registry.group<Mesh, Transform>();
   group.sort<Mesh, Transform>([](const auto &lhs, const auto &rhs) {

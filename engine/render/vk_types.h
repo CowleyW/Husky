@@ -3,8 +3,6 @@
 #include "io/logging.h"
 
 #include "buffer.h"
-#include "render/material.h"
-#include "render/tri_mesh.h"
 
 #include <cmath>
 #include <tracy/Tracy.hpp>
@@ -33,14 +31,17 @@ struct Dimensions {
 };
 
 struct CameraData {
+  glm::mat4 viewproj;
+};
+
+struct CullData {
   enum Side { LEFT, RIGHT, TOP, BOTTOM, BACK, FRONT };
 
-  glm::mat4 viewproj;
   glm::vec4 frustums[6];
   uint32_t instance_count;
 
-  CameraData(glm::mat4 viewproj) {
-    this->viewproj = viewproj;
+  CullData(glm::mat4 viewproj, uint32_t instance_count) {
+    this->instance_count = instance_count;
 
     frustums[LEFT].x = viewproj[0].w + viewproj[0].x;
     frustums[LEFT].y = viewproj[1].w + viewproj[1].x;
@@ -96,7 +97,7 @@ struct AllocatedImage {
 
 struct ComputeInstanceData {
   glm::vec3 position;
-  MaterialHandle tex_index;
+  uint32_t tex_index;
   glm::vec3 rotation;
   uint32_t mesh_index;
   glm::vec3 scale;
@@ -130,6 +131,7 @@ struct Compute {
 
 struct DrawStats {
   uint32_t draw_count;
+  uint32_t aabb_vertices;
   uint32_t precull_indices;
   uint32_t postcull_indices;
 };

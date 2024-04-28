@@ -9,10 +9,12 @@
 #include "io/assets.h"
 #include "io/files.h"
 #include "io/logging.h"
+#include "render/bounding_boxes.h"
 #include "render/callback_handler.h"
 #include "render/pipeline_builder.h"
 #include "render/shader.h"
 #include "render/tri_mesh.h"
+#include "render/vertex.h"
 #include "render/vk_init.h"
 #include "render/vk_types.h"
 #include "util/serialize.h"
@@ -107,7 +109,7 @@ uint32_t Render::VulkanEngine::prepare_frame(Frame &frame) {
   return next_image_index;
 }
 
-CameraData Render::VulkanEngine::get_camera_data(
+std::pair<CullData, CameraData> Render::VulkanEngine::get_camera_data(
     entt::registry &registry,
     uint32_t total_objects) {
   ZoneScoped;
@@ -122,10 +124,10 @@ CameraData Render::VulkanEngine::get_camera_data(
   Transform &t = view.get<Transform>(camera_entity);
 
   glm::mat4 viewproj = camera.calc_viewproj(t.position, this->dimensions);
-  CameraData camera_data(viewproj);
-  camera_data.instance_count = total_objects;
+  CameraData camera_data = {viewproj};
+  CullData cull_data(viewproj, total_objects);
 
-  return camera_data;
+  return {cull_data, camera_data};
 }
 
 void Render::VulkanEngine::prepare_imgui_data() {
@@ -139,6 +141,7 @@ void Render::VulkanEngine::prepare_imgui_data() {
   ImGui::Text("Instances: %d", this->draw_stats.draw_count);
   ImGui::Text("Indices Pre-cull: %d", this->draw_stats.precull_indices);
   ImGui::Text("Indices Post-cull: %d", this->draw_stats.postcull_indices);
+  ImGui::Text("AABB Vertices: %d", this->draw_stats.aabb_vertices);
   ImGui::End();
 
   for (auto fn : this->imgui_fns) {
@@ -161,28 +164,15 @@ void Render::VulkanEngine::render(entt::registry &registry) {
   std::vector<Batch> batches =
       frame.copy_renderable_objects(registry, total_objects, this->allocator);
 
-  CameraData camera_data = this->get_camera_data(registry, total_objects);
+  auto pair = this->get_camera_data(registry, total_objects);
+  CullData cull = pair.first;
+  CameraData camera = pair.second;
 
-  this->imgui_enqueue([=]() {
-    ImGui::Begin("Frustums");
-    glm::vec4 f = camera_data.frustums[CameraData::LEFT];
-    ImGui::Text("Left: {%f, %f, %f, %f}", f.x, f.y, f.z, f.w);
-    f = camera_data.frustums[CameraData::RIGHT];
-    ImGui::Text("Right: {%f, %f, %f, %f}", f.x, f.y, f.z, f.w);
-    f = camera_data.frustums[CameraData::TOP];
-    ImGui::Text("Top {%f, %f, %f, %f}", f.x, f.y, f.z, f.w);
-    f = camera_data.frustums[CameraData::BOTTOM];
-    ImGui::Text("Bottom: {%f, %f, %f, %f}", f.x, f.y, f.z, f.w);
-    f = camera_data.frustums[CameraData::BACK];
-    ImGui::Text("Back: {%f, %f, %f, %f}", f.x, f.y, f.z, f.w);
-    f = camera_data.frustums[CameraData::FRONT];
-    ImGui::Text("Front: {%f, %f, %f, %f}", f.x, f.y, f.z, f.w);
-    ImGui::End();
-  });
-
-  frame.copy_camera_data(this->allocator, camera_data);
+  frame.copy_cull_data(this->allocator, cull);
 
   frame.await_render(this->device);
+
+  frame.copy_camera_data(this->allocator, camera);
 
   frame.prepare_indirect_buffer(batches, this->allocator);
   frame.prepare_compute_commands(this->compute);
@@ -190,11 +180,11 @@ void Render::VulkanEngine::render(entt::registry &registry) {
 
   uint32_t next_image_index = this->prepare_frame(frame);
 
-  frame.prepare_draw_commands(
+  frame.begin_render_pass(
       this->render_pass,
-      this->mesh_pipeline,
       this->frame_buffers[next_image_index],
       this->dimensions);
+  frame.bind_pipeline(this->mesh_pipeline, this->dimensions);
 
   this->scene_data.ambient_color = {1.0f, 1.0f, 1.0f, 1.0f};
 
@@ -219,6 +209,23 @@ void Render::VulkanEngine::render(entt::registry &registry) {
       this->vertex_buffer,
       this->index_buffer,
       batches.size());
+
+  frame.bind_pipeline(this->aabb_pipeline, this->dimensions);
+  vkCmdBindDescriptorSets(
+      frame.main_command_buffer,
+      VK_PIPELINE_BIND_POINT_GRAPHICS,
+      this->aabb_pipeline_layout,
+      0,
+      1,
+      &frame.aabb_descriptor,
+      0,
+      nullptr);
+  vkCmdDrawIndirect(
+      frame.main_command_buffer,
+      frame.aabb_draw_buffer.buffer,
+      0,
+      batches.size(),
+      sizeof(VkDrawIndirectCommand));
 
   this->prepare_imgui_data();
   frame.submit_draw(this->swapchain, this->graphics_queue, next_image_index);
@@ -281,6 +288,7 @@ void Render::VulkanEngine::init_vulkan() {
 
   VkPhysicalDeviceFeatures features = {};
   features.multiDrawIndirect = VK_TRUE;
+  features.fillModeNonSolid = VK_TRUE;
 
   vkb::PhysicalDeviceSelector selector(vkb_inst);
   vkb::PhysicalDevice gpu =
@@ -533,6 +541,33 @@ void Render::VulkanEngine::init_descriptors() {
       nullptr,
       &this->texture_descriptor_layout);
 
+  std::vector<VkDescriptorSetLayoutBinding> aabb_bindings = {
+      VkInit::descriptor_set_layout_binding(
+          VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+          VK_SHADER_STAGE_VERTEX_BIT,
+          0),
+      VkInit::descriptor_set_layout_binding(
+          VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+          VK_SHADER_STAGE_VERTEX_BIT,
+          1),
+      VkInit::descriptor_set_layout_binding(
+          VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+          VK_SHADER_STAGE_VERTEX_BIT,
+          2)};
+
+  VkDescriptorSetLayoutCreateInfo set_layout_info = {};
+  set_layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  set_layout_info.pNext = nullptr;
+  set_layout_info.flags = 0;
+  set_layout_info.bindingCount = aabb_bindings.size();
+  set_layout_info.pBindings = aabb_bindings.data();
+
+  VK_ASSERT(vkCreateDescriptorSetLayout(
+      this->device,
+      &set_layout_info,
+      nullptr,
+      &this->aabb_descriptor_layout));
+
   this->cleanup_fns.push([this]() {
     vkDestroyDescriptorSetLayout(
         this->device,
@@ -545,6 +580,10 @@ void Render::VulkanEngine::init_descriptors() {
     vkDestroyDescriptorSetLayout(
         this->device,
         this->texture_descriptor_layout,
+        nullptr);
+    vkDestroyDescriptorSetLayout(
+        this->device,
+        this->aabb_descriptor_layout,
         nullptr);
     vkDestroyDescriptorPool(this->device, this->descriptor_pool, nullptr);
   });
@@ -590,6 +629,11 @@ void Render::VulkanEngine::init_frames() {
       VkInit::descriptor_set_allocate_info(
           this->descriptor_pool,
           compute.descriptor_layout);
+
+  VkDescriptorSetAllocateInfo aabb_descriptor_alloc =
+      VkInit::descriptor_set_allocate_info(
+          this->descriptor_pool,
+          this->aabb_descriptor_layout);
 
   for (auto &frame : this->frames) {
     VK_ASSERT(vkCreateFence(
@@ -660,6 +704,11 @@ void Render::VulkanEngine::init_frames() {
         sizeof(CameraData),
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
+    frame.cull_buffer = VkInit::buffer(
+        this->allocator,
+        sizeof(CullData),
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        VMA_MEMORY_USAGE_CPU_TO_GPU);
     frame.compute_instance_buffer = VkInit::buffer(
         this->allocator,
         // ssbo SIZE
@@ -683,6 +732,12 @@ void Render::VulkanEngine::init_frames() {
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VMA_MEMORY_USAGE_CPU_COPY);
+    frame.aabb_draw_buffer = VkInit::buffer(
+        this->allocator,
+        sizeof(VkDrawIndirectCommand) * VulkanEngine::MAX_INSTANCES,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+            VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+        VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     VK_ASSERT(vkAllocateDescriptorSets(
         this->device,
@@ -704,10 +759,20 @@ void Render::VulkanEngine::init_frames() {
         &compute_set_alloc,
         &frame.compute_descriptor));
 
+    VK_ASSERT(vkAllocateDescriptorSets(
+        this->device,
+        &aabb_descriptor_alloc,
+        &frame.aabb_descriptor));
+
     VkDescriptorBufferInfo camera_info = {};
     camera_info.buffer = frame.camera_buffer.buffer;
     camera_info.offset = 0;
     camera_info.range = sizeof(CameraData);
+
+    VkDescriptorBufferInfo cull_info = {};
+    cull_info.buffer = frame.cull_buffer.buffer;
+    cull_info.offset = 0;
+    cull_info.range = frame.cull_buffer.range;
 
     VkDescriptorBufferInfo scene_info = {};
     scene_info.buffer = this->scene_data_buffer.buffer;
@@ -733,6 +798,16 @@ void Render::VulkanEngine::init_frames() {
     draw_stats_info.buffer = frame.draw_stats_buffer.buffer;
     draw_stats_info.offset = 0;
     draw_stats_info.range = sizeof(DrawStats);
+
+    VkDescriptorBufferInfo mesh_buffer_info = {};
+    mesh_buffer_info.buffer = this->mesh_data_buffer.buffer;
+    mesh_buffer_info.offset = 0;
+    mesh_buffer_info.range = this->mesh_data_buffer.range;
+
+    VkDescriptorBufferInfo aabb_draw_info = {};
+    aabb_draw_info.buffer = frame.aabb_draw_buffer.buffer;
+    aabb_draw_info.offset = 0;
+    aabb_draw_info.range = sizeof(VkDrawIndirectCommand) * 1000;
 
     std::vector<VkWriteDescriptorSet> write_sets = {
         VkInit::write_descriptor_set(
@@ -774,13 +849,40 @@ void Render::VulkanEngine::init_frames() {
         VkInit::write_descriptor_set(
             VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             frame.compute_descriptor,
-            &camera_info,
+            &cull_info,
             3),
         VkInit::write_descriptor_set(
             VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
             frame.compute_descriptor,
             &draw_stats_info,
-            4)};
+            4),
+        VkInit::write_descriptor_set(
+            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            frame.compute_descriptor,
+            &mesh_buffer_info,
+            5),
+        VkInit::write_descriptor_set(
+            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            frame.compute_descriptor,
+            &aabb_draw_info,
+            6),
+
+        // Descriptor sets for the aabb shader
+        VkInit::write_descriptor_set(
+            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            frame.aabb_descriptor,
+            &camera_info,
+            0),
+        VkInit::write_descriptor_set(
+            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            frame.aabb_descriptor,
+            &mesh_buffer_info,
+            1),
+        VkInit::write_descriptor_set(
+            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            frame.aabb_descriptor,
+            &out_instance_info,
+            2)};
 
     vkUpdateDescriptorSets(
         this->device,
@@ -891,6 +993,8 @@ void Render::VulkanEngine::init_pipelines() {
   vkDestroyShaderModule(device, frag, nullptr);
   vkDestroyShaderModule(device, vert, nullptr);
 
+  this->init_aabb_pipeline();
+
   this->cleanup_fns.push([this]() {
     vkDestroyPipeline(this->device, this->mesh_pipeline, nullptr);
     vkDestroyPipelineLayout(this->device, this->mesh_pipeline_layout, nullptr);
@@ -908,6 +1012,11 @@ void Render::VulkanEngine::init_allocator() {
 }
 
 void Render::VulkanEngine::init_buffers() {
+  this->mesh_data_buffer = VkInit::buffer(
+      this->allocator,
+      sizeof(AABB) * VulkanEngine::MAX_INSTANCES,
+      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VMA_MEMORY_USAGE_GPU_ONLY);
   this->vertex_buffer = VkInit::buffer(
       this->allocator,
       1024 * 1024 * 50,
@@ -939,8 +1048,74 @@ void Render::VulkanEngine::init_buffers() {
   this->cleanup_fns.push([this]() {
     this->vertex_buffer.destroy(this->allocator);
     this->index_buffer.destroy(this->allocator);
+    this->mesh_data_buffer.destroy(this->allocator);
     this->indirect_commands_buffer.destroy(this->allocator);
     this->scene_data_buffer.destroy(this->allocator);
+  });
+}
+
+void Render::VulkanEngine::init_aabb_pipeline() {
+  std::vector<VkDescriptorSetLayout> descriptor_layouts = {
+      this->aabb_descriptor_layout};
+  VkPipelineLayoutCreateInfo aabb_layout_info =
+      VkInit::pipeline_layout_create_info(nullptr, &descriptor_layouts);
+  VK_ASSERT(vkCreatePipelineLayout(
+      this->device,
+      &aabb_layout_info,
+      nullptr,
+      &this->aabb_pipeline_layout));
+
+  VkShaderModule frag;
+  VkShaderModule vert;
+
+  Err err =
+      Shader::load_shader_module("shaders/aabb.frag.spv", this->device, &frag);
+  if (err.is_error) {
+    io::error(err.msg);
+  }
+
+  err =
+      Shader::load_shader_module("shaders/aabb.vert.spv", this->device, &vert);
+  if (err.is_error) {
+    io::error(err.msg);
+  }
+
+  VkDynamicState dynamic_state[2] = {
+      VK_DYNAMIC_STATE_SCISSOR,
+      VK_DYNAMIC_STATE_VIEWPORT};
+
+  VertexInputDescription input = {};
+  PipelineBuilder builder;
+  this->aabb_pipeline =
+      builder.clear_shader_stages()
+          .add_shader_stage(VkInit::pipeline_shader_stage_create_info(
+              VK_SHADER_STAGE_VERTEX_BIT,
+              vert))
+          .add_shader_stage(VkInit::pipeline_shader_stage_create_info(
+              VK_SHADER_STAGE_FRAGMENT_BIT,
+              frag))
+          .with_vertex_input(VkInit::vertex_input_state_create_info(&input))
+          .with_input_assembly(VkInit::input_assembly_state_create_info(
+              VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST))
+          .with_dynamic_state(dynamic_state, 2)
+          .with_rasterizer(VkInit::rasterization_state_create_info(
+              VK_POLYGON_MODE_LINE,
+              VK_CULL_MODE_NONE))
+          .with_color_blend_attachment(VkInit::color_blend_attachment_state())
+          .with_multisample(VkInit::multisample_state_create_info())
+          .with_pipeline_layout(this->aabb_pipeline_layout)
+          .with_depth_stencil(VkInit::depth_stencil_create_info(
+              true,
+              true,
+              VK_COMPARE_OP_LESS_OR_EQUAL))
+          .build(this->device, this->render_pass);
+
+  vkDestroyShaderModule(this->device, vert, nullptr);
+  vkDestroyShaderModule(this->device, frag, nullptr);
+
+  this->cleanup_fns.push([this]() {
+    vkDestroyPipeline(this->device, this->aabb_pipeline, nullptr);
+    vkDestroyPipelineLayout(this->device, this->aabb_pipeline_layout, nullptr);
   });
 }
 
@@ -965,7 +1140,15 @@ void Render::VulkanEngine::init_compute() {
       VkInit::descriptor_set_layout_binding(
           VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
           VK_SHADER_STAGE_COMPUTE_BIT,
-          4)};
+          4),
+      VkInit::descriptor_set_layout_binding(
+          VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+          VK_SHADER_STAGE_COMPUTE_BIT,
+          5),
+      VkInit::descriptor_set_layout_binding(
+          VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+          VK_SHADER_STAGE_COMPUTE_BIT,
+          6)};
 
   VkDescriptorSetLayoutCreateInfo set_layout_info = {};
   set_layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -1104,10 +1287,20 @@ void Render::VulkanEngine::init_imgui() {
   });
 }
 
-void Render::VulkanEngine::upload_mesh(TriMesh *mesh) {
+void Render::VulkanEngine::upload_mesh(TriMeshHandle handle) {
+  auto maybe = TriMesh::get(handle);
+  if (maybe.is_error) {
+    io::error(maybe.msg);
+    return;
+  }
+
+  TriMesh *mesh = maybe.value;
+
   uint32_t vertex_buffer_size = mesh->vertices.size() * sizeof(Vertex);
   uint32_t index_buffer_size = mesh->indices.size() * sizeof(uint32_t);
-  uint32_t buffer_size = std::max(vertex_buffer_size, index_buffer_size);
+  uint32_t aabb_size = sizeof(AABB);
+  uint32_t buffer_size =
+      std::max(std::max(vertex_buffer_size, index_buffer_size), aabb_size);
   mesh->first_vertex = this->vertex_buffer_offset / sizeof(Vertex);
   mesh->first_index = this->index_buffer_offset / sizeof(uint32_t);
   AllocatedBuffer staging_buffer = VkInit::buffer(
@@ -1162,6 +1355,29 @@ void Render::VulkanEngine::upload_mesh(TriMesh *mesh) {
         &copy);
 
     this->index_buffer_offset += index_buffer_size;
+  });
+
+  // Upload the bounding box data
+  vmaMapMemory(this->allocator, staging_buffer.allocation, &data);
+
+  AABB aabb = mesh->aabb();
+  io::debug("AABB min: [{}, {}, {}]", aabb.min.x, aabb.min.y, aabb.min.z);
+  io::debug("AABB max: [{}, {}, {}]", aabb.max.x, aabb.max.y, aabb.max.z);
+  memcpy(data, &aabb, sizeof(AABB));
+
+  vmaUnmapMemory(allocator, staging_buffer.allocation);
+
+  this->submit_command([=](VkCommandBuffer cmd) {
+    VkBufferCopy copy = {};
+    copy.size = sizeof(AABB);
+    copy.srcOffset = 0;
+    copy.dstOffset = (uint32_t)handle * sizeof(AABB);
+    vkCmdCopyBuffer(
+        cmd,
+        staging_buffer.buffer,
+        this->mesh_data_buffer.buffer,
+        1,
+        &copy);
   });
 
   vmaDestroyBuffer(

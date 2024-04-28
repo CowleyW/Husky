@@ -294,8 +294,9 @@ VkInit::input_assembly_state_create_info(VkPrimitiveTopology topology) {
   return info;
 }
 
-VkPipelineRasterizationStateCreateInfo
-VkInit::rasterization_state_create_info(VkPolygonMode polygon_mode) {
+VkPipelineRasterizationStateCreateInfo VkInit::rasterization_state_create_info(
+    VkPolygonMode polygon_mode,
+    VkCullModeFlags cull_mode) {
   VkPipelineRasterizationStateCreateInfo info = {};
   info.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
   info.pNext = nullptr;
@@ -303,7 +304,7 @@ VkInit::rasterization_state_create_info(VkPolygonMode polygon_mode) {
   info.rasterizerDiscardEnable = VK_FALSE;
   info.polygonMode = polygon_mode;
   info.lineWidth = 1.0f;
-  info.cullMode = VK_CULL_MODE_BACK_BIT;
+  info.cullMode = cull_mode;
   info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   info.depthBiasEnable = VK_FALSE;
   info.depthBiasConstantFactor = 0.0f;
@@ -386,7 +387,7 @@ VkPipelineDepthStencilStateCreateInfo VkInit::depth_stencil_create_info(
 
 AllocatedBuffer VkInit::buffer(
     VmaAllocator allocator,
-    uint32_t size,
+    VkDeviceSize size,
     VkBufferUsageFlags usage,
     VmaMemoryUsage memory_usage) {
   AllocatedBuffer buffer = {};

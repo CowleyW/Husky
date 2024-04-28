@@ -9,7 +9,7 @@
 typedef uint32_t MaterialHandle;
 
 struct Material {
-  static constexpr MaterialHandle NULL_HANDLE = 0;
+  static constexpr MaterialHandle NULL_HANDLE = UINT32_MAX;
 
 public:
   VkPipeline pipeline;

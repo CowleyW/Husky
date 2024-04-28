@@ -1,6 +1,7 @@
 #pragma once
 
 #include "entt/entity/fwd.hpp"
+#include "tri_mesh.h"
 #include "vk_types.h"
 #include <vulkan/vulkan_core.h>
 
@@ -19,15 +20,18 @@ struct Frame {
   VkCommandBuffer compute_command_buffer;
 
   AllocatedBuffer camera_buffer;
+  AllocatedBuffer cull_buffer;
   AllocatedBuffer vertex_instance_buffer;
   AllocatedBuffer compute_instance_buffer;
   AllocatedBuffer indirect_buffer;
   AllocatedBuffer draw_stats_buffer;
+  AllocatedBuffer aabb_draw_buffer;
 
   VkDescriptorSet global_descriptor;
   VkDescriptorSet object_descriptor;
   VkDescriptorSet texture_descriptor;
   VkDescriptorSet compute_descriptor;
+  VkDescriptorSet aabb_descriptor;
 
   void destroy(VkDevice &device, VmaAllocator &allocator);
 
@@ -49,12 +53,14 @@ struct Frame {
   void submit_compute(Compute &compute, uint32_t total_objects);
 
   void copy_camera_data(VmaAllocator allocator, CameraData &camera_data);
+  void copy_cull_data(VmaAllocator allocator, CullData &cull_data);
 
-  void prepare_draw_commands(
+  void begin_render_pass(
       VkRenderPass pass,
-      VkPipeline pipeline,
       VkFramebuffer framebuffer,
       Dimensions dimensions);
+
+  void bind_pipeline(VkPipeline pipeline, Dimensions dimensions);
 
   void submit_draw(
       VkSwapchainKHR swapchain,

@@ -12,16 +12,15 @@ layout (location = 2) flat out int v_tex_index;
 struct InstanceData {
   mat4 model;
   int tex_index;
-  int padding[3];
+  int mesh_index;
+  int padding[2];
 };
 
 layout (set = 0, binding = 0) uniform CameraBuffer {
   mat4 viewproj;
-  vec4 frustums[6];
-  uint instance_count;
 } camera_data;
 
-layout(std430, set = 1, binding = 0) readonly buffer InstanceBuffer {
+layout(set = 1, binding = 0) readonly buffer InstanceBuffer {
   InstanceData instances[];
 } instance_data;
 

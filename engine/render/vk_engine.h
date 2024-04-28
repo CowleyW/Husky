@@ -13,6 +13,7 @@
 #include <stack>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -33,7 +34,7 @@ public:
 
   InputMap get_inputs();
 
-  void upload_mesh(TriMesh *mesh);
+  void upload_mesh(TriMeshHandle handle);
   void upload_material(Material *material);
 
   void imgui_enqueue(std::function<void(void)> &&imgui_fn);
@@ -53,9 +54,12 @@ private:
   void init_framebuffers();
   void init_pipelines();
   void init_imgui();
+  void init_aabb_pipeline();
 
   uint32_t prepare_frame(Frame &frame);
-  CameraData get_camera_data(entt::registry &registry, uint32_t total_objects);
+
+  std::pair<CullData, CameraData>
+  get_camera_data(entt::registry &registry, uint32_t total_objects);
   void prepare_imgui_data();
 
   void submit_command(std::function<void(VkCommandBuffer)> &&function);
@@ -80,6 +84,8 @@ private:
 
   std::unordered_map<std::string, Texture> textures;
   Material material;
+
+  AllocatedBuffer mesh_data_buffer;
 
   AllocatedBuffer vertex_buffer;
   uint32_t vertex_buffer_offset = 0;
@@ -121,12 +127,16 @@ private:
   VkDescriptorSetLayout global_descriptor_layout;
   VkDescriptorSetLayout object_descriptor_layout;
   VkDescriptorSetLayout texture_descriptor_layout;
+  VkDescriptorSetLayout aabb_descriptor_layout;
   VkDescriptorPool descriptor_pool;
 
   Frame frames[FRAMES_IN_FLIGHT];
 
   VkPipeline mesh_pipeline;
   VkPipelineLayout mesh_pipeline_layout;
+
+  VkPipelineLayout aabb_pipeline_layout;
+  VkPipeline aabb_pipeline;
   VkSampler sampler;
 
   VkImageView depth_image_view;

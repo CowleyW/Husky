@@ -55,11 +55,13 @@ add_library(engine
   engine/net/types.h
 
   # Render
+  engine/render/bounding_boxes.h engine/render/bounding_boxes.cpp
   engine/render/buffer.h engine/render/buffer.cpp
   engine/render/callback_handler.h
   engine/render/frame.h engine/render/frame.cpp
   engine/render/material.h engine/render/material.cpp
   engine/render/tri_mesh.h engine/render/tri_mesh.cpp
+  engine/render/vertex.h engine/render/vertex.cpp
   engine/render/pipeline_builder.h engine/render/pipeline_builder.cpp
   engine/render/shader.h engine/render/shader.cpp
   engine/render/vk_engine.h engine/render/vk_engine.cpp

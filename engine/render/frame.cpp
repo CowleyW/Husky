@@ -4,6 +4,7 @@
 
 #include "entt/entt.hpp"
 #include "imgui_impl_vulkan.h"
+#include <algorithm>
 #include <imgui.h>
 #include <tracy/Tracy.hpp>
 #include <vector>
@@ -20,8 +21,10 @@ void Render::Frame::destroy(VkDevice &device, VmaAllocator &allocator) {
   this->camera_buffer.destroy(allocator);
   this->vertex_instance_buffer.destroy(allocator);
   this->compute_instance_buffer.destroy(allocator);
+  this->cull_buffer.destroy(allocator);
   this->indirect_buffer.destroy(allocator);
   this->draw_stats_buffer.destroy(allocator);
+  this->aabb_draw_buffer.destroy(allocator);
 }
 
 void Render::Frame::await_compute(VkDevice device) {
@@ -69,7 +72,7 @@ std::vector<Batch> Render::Frame::copy_renderable_objects(
       curr_mat = mesh.material;
       curr_mesh = mesh.mesh;
 
-      Batch batch;
+      Batch batch = {};
       batch.material = curr_mat;
       batch.mesh = curr_mesh;
       batch.first = first_instance;
@@ -98,6 +101,7 @@ void Render::Frame::prepare_indirect_buffer(
     VmaAllocator allocator) {
   ZoneScoped;
 
+  // Prepare the model indirect draw buffer
   void *indirect_data;
   vmaMapMemory(allocator, this->indirect_buffer.allocation, &indirect_data);
   VkDrawIndexedIndirectCommand *indirect_buffer =
@@ -109,15 +113,34 @@ void Render::Frame::prepare_indirect_buffer(
     TriMesh *tri_mesh = TriMesh::get(batch.mesh).value;
     Material *mat = Material::get(batch.material).value;
 
+    // Set the model commands
     VkDrawIndexedIndirectCommand cmd = {};
     cmd.firstIndex = tri_mesh->first_index;
     cmd.vertexOffset = tri_mesh->first_vertex;
     cmd.indexCount = tri_mesh->indices.size();
     cmd.firstInstance = batch.first;
-    cmd.instanceCount = batch.count;
+    cmd.instanceCount = 0;
     indirect_buffer[i] = cmd;
   }
   vmaUnmapMemory(allocator, this->indirect_buffer.allocation);
+
+  // Prepare the aabb indirect draw buffer
+  void *aabb_draw_data;
+  vmaMapMemory(allocator, this->aabb_draw_buffer.allocation, &aabb_draw_data);
+  VkDrawIndirectCommand *aabb_draw = (VkDrawIndirectCommand *)aabb_draw_data;
+  for (uint32_t i = 0; i < batches.size(); i += 1) {
+    const auto &batch = batches[i];
+
+    VkDrawIndirectCommand cmd = {};
+    cmd.vertexCount = 36;
+    cmd.instanceCount = 0;
+    cmd.firstVertex = 0;
+    cmd.firstInstance = batch.first;
+
+    aabb_draw[i] = cmd;
+  }
+
+  vmaUnmapMemory(allocator, this->aabb_draw_buffer.allocation);
 }
 
 void Render::Frame::prepare_compute_commands(Compute &compute) {
@@ -196,9 +219,21 @@ void Render::Frame::copy_camera_data(
   vmaUnmapMemory(allocator, this->camera_buffer.allocation);
 }
 
-void Render::Frame::prepare_draw_commands(
+void Render::Frame::copy_cull_data(
+    VmaAllocator allocator,
+    CullData &cull_data) {
+  ZoneScoped;
+
+  void *data;
+  vmaMapMemory(allocator, this->cull_buffer.allocation, &data);
+
+  std::memcpy(data, &cull_data, sizeof(CullData));
+
+  vmaUnmapMemory(allocator, this->cull_buffer.allocation);
+}
+
+void Render::Frame::begin_render_pass(
     VkRenderPass pass,
-    VkPipeline pipeline,
     VkFramebuffer framebuffer,
     Dimensions dimensions) {
   ZoneScoped;
@@ -227,7 +262,9 @@ void Render::Frame::prepare_draw_commands(
       this->main_command_buffer,
       &render_pass_info,
       VK_SUBPASS_CONTENTS_INLINE);
+}
 
+void Render::Frame::bind_pipeline(VkPipeline pipeline, Dimensions dimensions) {
   vkCmdBindPipeline(
       this->main_command_buffer,
       VK_PIPELINE_BIND_POINT_GRAPHICS,

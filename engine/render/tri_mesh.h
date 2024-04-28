@@ -1,48 +1,16 @@
 #pragma once
 
+#include "bounding_boxes.h"
+#include "material.h"
 #include "util/result.h"
+#include "vertex.h"
 #include "vk_types.h"
 
 #include <utility>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-#define GLM_ENABLE_EXPERIMENTAL
 #include "glm/fwd.hpp"
-#include <glm/gtx/hash.hpp>
-
-struct VertexInputDescription {
-  std::vector<VkVertexInputBindingDescription> bindings;
-  std::vector<VkVertexInputAttributeDescription> attributes;
-
-  VkPipelineVertexInputStateCreateFlags flags = 0;
-};
-
-struct Vertex {
-  glm::vec3 position;
-  glm::vec3 normal;
-  glm::vec3 color;
-  glm::vec2 uvs;
-
-  bool operator==(const Vertex &other) const;
-
-  static VertexInputDescription get_description();
-};
-
-// Inject Vertex hashing into std namespace
-namespace std {
-template <>
-struct hash<Vertex> {
-  size_t operator()(Vertex const &vertex) const {
-    size_t pos = hash<glm::vec3>()(vertex.position);
-    size_t nrm = hash<glm::vec3>()(vertex.normal);
-    size_t clr = hash<glm::vec3>()(vertex.color);
-    size_t uvs = hash<glm::vec2>()(vertex.uvs);
-
-    return ((pos ^ (nrm << 1) >> 1) ^ (clr << 1) >> 1) ^ (uvs << 1);
-  }
-};
-} // namespace std
 
 struct MeshPushConstant {
   glm::vec4 data;
@@ -52,7 +20,7 @@ struct MeshPushConstant {
 typedef uint32_t TriMeshHandle;
 
 struct TriMesh {
-  static constexpr TriMeshHandle NULL_HANDLE = 0;
+  static constexpr TriMeshHandle NULL_HANDLE = UINT32_MAX;
 
 public:
   std::vector<Vertex> vertices;
@@ -63,6 +31,7 @@ public:
   uint32_t first_vertex;
   uint32_t first_index;
 
+public:
   uint32_t vertex_buffer_size() const {
     return this->vertices.size() * sizeof(Vertex);
   }
@@ -71,8 +40,11 @@ public:
     return this->indices.size() * sizeof(uint32_t);
   }
 
+  AABB aabb() const;
+
   static Result<TriMeshHandle> get(const std::string &path);
   static Result<TriMesh *> get(TriMeshHandle handle);
+  static Result<std::string> get_texture_name(TriMeshHandle handle);
 
 private:
   static Result<TriMeshHandle> load_from_obj(const std::string &obj_path);

@@ -77,8 +77,9 @@ vertex_input_state_create_info(VertexInputDescription *vertex_input = nullptr);
 VkPipelineInputAssemblyStateCreateInfo
 input_assembly_state_create_info(VkPrimitiveTopology topology);
 
-VkPipelineRasterizationStateCreateInfo
-rasterization_state_create_info(VkPolygonMode polygon_mode);
+VkPipelineRasterizationStateCreateInfo rasterization_state_create_info(
+    VkPolygonMode polygon_mode,
+    VkCullModeFlags cull_mode = VK_CULL_MODE_BACK_BIT);
 
 VkPipelineMultisampleStateCreateInfo multisample_state_create_info();
 
@@ -93,7 +94,7 @@ depth_stencil_create_info(bool depth_test, bool depth_write, VkCompareOp op);
 
 AllocatedBuffer buffer(
     VmaAllocator allocator,
-    uint32_t size,
+    VkDeviceSize size,
     VkBufferUsageFlags usage,
     VmaMemoryUsage memory_usage);
 
