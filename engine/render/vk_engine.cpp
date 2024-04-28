@@ -159,6 +159,7 @@ void Render::VulkanEngine::render(entt::registry &registry) {
   Frame &frame = this->next_frame();
 
   frame.await_compute(this->device);
+  frame.await_render(this->device);
 
   uint32_t total_objects = 0;
   std::vector<Batch> batches =
@@ -169,9 +170,6 @@ void Render::VulkanEngine::render(entt::registry &registry) {
   CameraData camera = pair.second;
 
   frame.copy_cull_data(this->allocator, cull);
-
-  frame.await_render(this->device);
-
   frame.copy_camera_data(this->allocator, camera);
 
   frame.prepare_indirect_buffer(batches, this->allocator);
@@ -852,20 +850,25 @@ void Render::VulkanEngine::init_frames() {
             &cull_info,
             3),
         VkInit::write_descriptor_set(
-            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             frame.compute_descriptor,
-            &draw_stats_info,
+            &camera_info,
             4),
         VkInit::write_descriptor_set(
             VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
             frame.compute_descriptor,
-            &mesh_buffer_info,
+            &draw_stats_info,
             5),
         VkInit::write_descriptor_set(
             VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
             frame.compute_descriptor,
-            &aabb_draw_info,
+            &mesh_buffer_info,
             6),
+        VkInit::write_descriptor_set(
+            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            frame.compute_descriptor,
+            &aabb_draw_info,
+            7),
 
         // Descriptor sets for the aabb shader
         VkInit::write_descriptor_set(
@@ -1138,7 +1141,7 @@ void Render::VulkanEngine::init_compute() {
           VK_SHADER_STAGE_COMPUTE_BIT,
           3),
       VkInit::descriptor_set_layout_binding(
-          VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+          VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
           VK_SHADER_STAGE_COMPUTE_BIT,
           4),
       VkInit::descriptor_set_layout_binding(
@@ -1148,7 +1151,11 @@ void Render::VulkanEngine::init_compute() {
       VkInit::descriptor_set_layout_binding(
           VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
           VK_SHADER_STAGE_COMPUTE_BIT,
-          6)};
+          6),
+      VkInit::descriptor_set_layout_binding(
+          VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+          VK_SHADER_STAGE_COMPUTE_BIT,
+          7)};
 
   VkDescriptorSetLayoutCreateInfo set_layout_info = {};
   set_layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;

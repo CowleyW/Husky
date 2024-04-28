@@ -42,7 +42,11 @@ layout (std140, binding = 3) uniform CullData {
   uint instance_count;
 } cull_data;
 
-layout(binding = 4) buffer DrawStats {
+layout (binding = 4) uniform CameraBuffer {
+  mat4 viewproj;
+} camera_data;
+
+layout(binding = 5) buffer DrawStats {
   uint draw_count;
   uint aabb_vertices;
   uint precull_indices;
@@ -63,7 +67,7 @@ struct MeshData {
   // uint _padding;
 };
 
-layout (std430, binding = 5) readonly buffer MeshBuffer {
+layout (std430, binding = 6) readonly buffer MeshBuffer {
   MeshData meshes[];
 };
 
@@ -74,7 +78,7 @@ struct IndirectCommand {
   uint first_instance; // 0
 };
 
-layout (binding = 6) buffer AABBDraws {
+layout (binding = 7) buffer AABBDraws {
   IndirectCommand aabb_draws[];
 };
 
@@ -98,7 +102,7 @@ mat4 translate(vec3 p) {
   return m;
 }
 
-bool is_visible(vec4 pos, float radius) {
+bool test_circle(vec4 pos, float radius) {
   for (int i = 0; i < 6; i += 1) {
     if (dot(pos, cull_data.frustums[i]) + radius < 0.0f) {
       return false;
@@ -106,6 +110,35 @@ bool is_visible(vec4 pos, float radius) {
   }
 
   return true;
+}
+
+bool within(float min, float test, float max) {
+  return min <= test && test <= max;
+}
+
+bool test_aabb(mat4 mvp, AABB aabb) {
+  vec4 corners[8] = vec4[8](
+    vec4(aabb.min.xyz, 1.0f),
+    vec4(aabb.max.x, aabb.min.yz, 1.0f),
+    vec4(aabb.max.xy, aabb.min.z, 1.0f),
+    vec4(aabb.min.x, aabb.max.y, aabb.min.z, 1.0f),
+    vec4(aabb.min.xy, aabb.max.z, 1.0f),
+    vec4(aabb.max.x, aabb.min.y, aabb.max.z, 1.0f),
+    vec4(aabb.max.xyz, 1.0f),
+    vec4(aabb.min.x, aabb.max.yz, 1.0f));
+
+  bool inside = false;
+
+  for (int i = 0; i < 8; i += 1) {
+    vec4 corner = mvp * corners[i];
+
+    inside = inside ||
+      (within(-corner.w, corner.x, corner.w) && 
+       within(-corner.w, corner.y, corner.w) && 
+       within(0.0f, corner.z, corner.w));
+  }
+  
+  return inside;
 }
 
 layout (local_size_x = 16) in;
@@ -119,17 +152,16 @@ void main() {
 
   InInstanceData inst = in_instances[idx];
 
-  vec4 pos = vec4(inst.position, 1.0f);
-  float radius = max(max(inst.scale.x, inst.scale.y), inst.scale.z);
-  pos.y += radius;
-
   atomicAdd(draw_stats.precull_indices, draws[inst.mesh_index].index_count);
 
-  if (is_visible(pos, radius * 1.5f)) {
+  mat4 model = mat4(1.0f) * scale(inst.scale) * rotate(inst.rotation) * translate(inst.position);
+  mat4 mvp = camera_data.viewproj * model;
+  AABB aabb = meshes[inst.mesh_index].aabb;
+
+  if (test_aabb(mvp, aabb)) {
     uint count = atomicAdd(draws[inst.mesh_index].instance_count, 1);
     uint mesh_idx = draws[inst.mesh_index].first_instance + count;
 
-    mat4 model = mat4(1.0f) * scale(inst.scale) * rotate(inst.rotation) * translate(inst.position);
 
     out_instances[mesh_idx].model = model;
     out_instances[mesh_idx].tex_index = inst.tex_index;
